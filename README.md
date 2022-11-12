@@ -1,0 +1,1 @@
+Our PDK packages requires MinedaCommon.rb and MinedaPCell.rb. Because macro files under KLayout (.lym files) are loaded in an alphabetical order (seems like so), this package (AnagixLoader) is expected to be loaded first. loader.lym requires MinedaCommon and MinedaPCell.

@@ -15,14 +15,9 @@
  <interpreter>ruby</interpreter>
  <dsl-interpreter-name/>
  <text>module MyMacro
-  dir = File.dirname($0)
-  $:.push(dir)
-  # $:.find(dir) || $:.push(dir)
-
-  require 'MinedaCommon'
-  require 'MinedaPCell'
-
-  # Enter your Ruby code here ..
+  
+  require_relative 'MinedaCommon'
+  require_relative 'MinedaPCell'
 
 end
 </text>
