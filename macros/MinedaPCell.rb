@@ -1,9 +1,9 @@
 # coding: utf-8
-# MinedaPCell v0.72 Nov. 11th 2022 copy right S. Moriyama (Anagix Corporation)
+# MinedaPCell v0.73 Nov. 12th 2022 copy right S. Moriyama (Anagix Corporation)
 #
 #include MinedaPCellCommonModule
 module MinedaPCell
-  version = '0.72'
+  version = '0.73'
   include MinedaPCellCommonModule
   # The PCell declaration for the Mineda MOSFET
   class MinedaMOS < MinedaPCellCommon
@@ -48,7 +48,8 @@ module MinedaPCell
       gl = (l*oo_layout_dbu).to_i
       vo = params[:vs_overhead] || 0
       dgl = ((dg || 0.0)*oo_layout_dbu).to_i
-      if gw < vs - vo  # dgl: dumbbell gap length
+      vs_extra = params[:vs_extra] || 0
+      if gw < vs + vs_extra - vo  # dgl: dumbbell gap length
         dgl = [dgl, ((dsl*oo_layout_dbu).to_i - gl)/2].max if defined? dsl # dsl: minimum dumbbell shaft length
       else
         dgl = [dgl,  ((sdg*oo_layout_dbu).to_i - gl)/2].max if defined? sdg # sdg: minimum source-drain gap
@@ -60,7 +61,6 @@ module MinedaPCell
       yshift = params[:yshift] || vs/2
       u1cut = params[:u1cut] || 0
       gate_ext = params[:gate_ext] || vs/2 + u1/8
-      vs_extra = params[:vs_extra] || 0
       sd_width = [gw, vs + vs_extra].max
       offset = 0
       (n+1).times{|i|
