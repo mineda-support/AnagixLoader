@@ -1,5 +1,5 @@
 # coding: utf-8
-# MinedaPCell v0.73 Nov. 12th 2022 copy right S. Moriyama (Anagix Corporation)
+# MinedaPCell v0.731 Nov. 125h 2022 copy right S. Moriyama (Anagix Corporation)
 #
 #include MinedaPCellCommonModule
 module MinedaPCell
@@ -100,8 +100,8 @@ module MinedaPCell
   class MinedaNch < MinedaMOS
     include RBA
 
-    def display_text_impl
-      "Nch\r\n(L=#{l.round(3)}um,W=#{w.round(3)}um,n=#{n.to_s},Total W=#{wtot.round(3)}um)"
+    def display_text_impl naame='Nch'
+      "#{name}\r\n(L=#{l.round(3)}um,W=#{w.round(3)}um,n=#{n.to_s},Total W=#{wtot.round(3)}um)"
     end
 
     def produce_impl indices, vs, u1, params = {} # NMOS
@@ -388,8 +388,8 @@ module MinedaPCell
   class MinedaPch < MinedaMOS
     include RBA
 
-    def display_text_impl
-      "Pch\r\n(L=#{l.round(3)}um,W=#{w.round(3)}um,n=#{n.to_s},Total W=#{wtot.round(3)}um)"
+    def display_text_impl name='Pch'
+      "#{name}\r\n(L=#{l.round(3)}um,W=#{w.round(3)}um,n=#{n.to_s},Total W=#{wtot.round(3)}um)"
     end
 
     def produce_impl indices, vs, u1, params = {} # PMOS

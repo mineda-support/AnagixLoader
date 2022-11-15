@@ -5,7 +5,7 @@
 #   PCellTest v0.2 August 22nd 2022 S. Moriyama
 #   DRC_helper::find_cells_to_exclude v0.1 Sep 23rd 2022 S. Moriyama
 #   MinedaInput v0.2 Oct. 3rd 2022 S. Moriyama
-#   MinedaPCellCommon v0.1 Nov. 9th 2022 S. Moriyama
+#   MinedaPCellCommon v0.11 Nov. 15th 2022 S. Moriyama
 
 module MinedaPCellCommonModule
   include RBA
@@ -97,7 +97,7 @@ module MinedaPCellCommonModule
     end
 
     def create_box index, x1, y1, x2, y2
-       cell.shapes(index).insert(Box::new(x1, y1, x2, y2))
+       cell.shapes(index).insert(Box::new(x1, y1, x2, y2)) if  index
     end
 
     def insert_cell via_index, x, y, rotate=false
@@ -143,7 +143,8 @@ module MinedaPCellCommonModule
       }
     end
          
-    def boxes_bbox  original
+    def boxes_bbox original
+      return nil unless original
       xmin = ymin = 10000000
       xmax = ymax = -xmin
       cell.shapes(original).each{|shape|
@@ -185,9 +186,9 @@ module MinedaPCellCommonModule
       xoffset = x2 - x1 - n * square_size
       m = ((y2 - y1 - 2*margin)/square_size).to_i
       yoffset = y2 - y1 - m * square_size
-      for i in 0..n-1
-        for j in 0..m-1
-          yield x1 + xoffset/2 + i*square_size + square_size/2, y1 + yoffset/2 + j*square_size+ square_size/2
+      for i in 0..[n-1, 0].max
+        for j in 0..[m-1, 0].max
+          yield x1 + xoffset/2 + (n<=0? 0 : i*square_size + square_size/2), y1 + yoffset/2 +  (m<=0? 0 : j*square_size + square_size/2)
         end
       end
     end
