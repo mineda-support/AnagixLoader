@@ -205,6 +205,28 @@ module MinedaPCellCommonModule
 end
 
 module MinedaCommon
+  class Backannotate
+    def create_ba_data source, lvs_data
+      ext_name = File.extname source.path
+      target = File.basename(source.path).sub(ext_name, '') 
+      ba_data = {}
+      lvs_data.xref.each_circuit_pair.each{|c|
+        ba_data[c] = {}
+        lvs_data.xref.each_device_pair(c).each{|device| 
+          ext = device.first
+          ref = device.second
+          dname = ref.expanded_name
+          ba_data[c][dname] = {}
+          ext.device_class.parameter_definitions.each{|p|
+            ba_data[c][dname][p.name] = ext.parameter(p.name)
+          }
+        }
+      }
+      File.open(target + '_ba.yaml', 'w'){|f|
+        f.puts ba_data.to_yaml
+      }
+    end
+  end
   class DRC_helper
     def find_cells_to_exclude layer, pattern, skin_thickness=0
       @pattern = pattern
