@@ -1,7 +1,7 @@
 # Mineda Common
 #   Force on-grid v0.1 July 39th copy right S. Moriyama (Anagix Corp.)
 #   LVS preprocessor(get_reference) v0.661 Nov. 8th copyright by S. Moriyama (Anagix Corporation)
-#   ConvertPCells and PCellDefaults moved from MinedaPCell v0.3 Sep. 3rd 2022
+#   ConvertPCells and PCellDefaults moved from MinedaPCell v0.4 Nov. 22nd 2022
 #   PCellTest v0.2 August 22nd 2022 S. Moriyama
 #   DRC_helper::find_cells_to_exclude v0.1 Sep 23rd 2022 S. Moriyama
 #   MinedaInput v0.2 Oct. 3rd 2022 S. Moriyama
@@ -257,7 +257,7 @@ module MinedaCommon
         p2 = box.p2
         box = RBA::Box::new(p1.x + @st, p1.y + @st, p2.x - @st, p2.y - @st)
         @cv. cell.shapes(@layer).insert(box.transformed trans)
-        puts "#{inst.cell.name} @ #{inst.bbox}, #{trans}"
+        puts "#{inst_cell_name} @ #{inst.bbox}, #{trans}"
       end
     end
   end
@@ -417,7 +417,8 @@ module MinedaCommon
       bas_lib = RBA::Library::library_by_name basic_lib
       cells_to_delete = []
       cell.each_inst{|inst|
-        t = inst.trans          
+        t = inst.trans
+        inst_cell_name = (@device_mapping && @device_mapping[inst.cell.name]) || inst.cell.name          
         ### puts inst.cell.name
         if inst.cell.is_pcell_variant?
           next if inst.cell.library == lib # already converted
@@ -425,24 +426,26 @@ module MinedaCommon
           if pcell_factor
             pcell_params['l'] = pcell_params['l']*pcell_factor
             pcell_params['w'] = pcell_params['w']*pcell_factor
-            if @defaults[inst.cell.name]['sdg'].nil?
-              pcell_params['sdg'] = pcell_params['sdg']*pcell_factor if pcell_params['sdg'] 
-            else
-              pcell_params['sdg'] = @defaults[inst.cell.name]['sdg']
+            if @defaults[inst_cell_name] 
+              if @defaults[inst_cell_name]['sdg'].nil?
+                pcell_params['sdg'] = pcell_params['sdg']*pcell_factor if pcell_params['sdg'] 
+              else
+                pcell_params['sdg'] = @defaults[inst_cell_name]['sdg']
+              end
             end
           end
-          @defaults[inst.cell.name].each_pair{|p, v|
+          @defaults[inst_cell_name] && @defaults[inst_cell_name].each_pair{|p, v|
             name = p.sub '_hidden', ''
             pcell_params[name] || pcell_params[name] = v 
           }
-          puts "pcell parameters for #{inst.trans}(#{inst.cell.name}): #{pcell_params.inspect}"
-          next unless pd = lib.layout.pcell_declaration(inst.cell.name) 
+          puts "pcell parameters for #{inst.trans}(#{inst_cell_name}): #{pcell_params.inspect}"
+          next unless pd = lib.layout.pcell_declaration(inst_cell_name) 
           pcv = cell.layout.add_pcell_variant(lib, pd.id, pcell_params)
           pcell_inst = cell.insert(RBA::CellInstArray::new(pcv, t))
         elsif inst.cell.library && inst.cell.library.name =~ /_Basic/
           next if inst.cell.library == bas_lib # already converted
-          basic_cell = bas_lib.layout.cell(inst.cell.name)
-          raise "basic_cell for #{inst.cell.name} not found" if basic_cell.nil?
+          basic_cell = bas_lib.layout.cell(inst_cell_name)
+          raise "basic_cell for #{inst_cell_name} not found" if basic_cell.nil?
           proxy_index = cell.layout.add_lib_cell(bas_lib, basic_cell.cell_index)
           basic_inst = cell.insert(RBA::CellInstArray.new(proxy_index, t))       
         else
@@ -494,6 +497,7 @@ module MinedaCommon
       cv = mw.load_layout file, opt, technology_name, 1 #  mode 1 means new view
       @pcell_lib = args[:pcell_lib] || @pcell_lib
       @basic_lib = args[:basic_lib] || @basic_lib
+      @device_mapping = args[:device_mapping]
       convert_library_cells cv, @pcell_lib, @basic_lib, args[:pcell_scale_factor]
       cv.technology = @technology_name
       # cv.cell.write file
