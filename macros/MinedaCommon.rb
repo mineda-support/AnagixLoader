@@ -205,28 +205,6 @@ module MinedaPCellCommonModule
 end
 
 module MinedaCommon
-  class Backannotate
-    def create_ba_data source, lvs_data
-      ext_name = File.extname source.path
-      target = File.basename(source.path).sub(ext_name, '') 
-      ba_data = {}
-      lvs_data.xref.each_circuit_pair.each{|c|
-        ba_data[c] = {}
-        lvs_data.xref.each_device_pair(c).each{|device| 
-          ext = device.first
-          ref = device.second
-          dname = ref.expanded_name
-          ba_data[c][dname] = {}
-          ext.device_class.parameter_definitions.each{|p|
-            ba_data[c][dname][p.name] = ext.parameter(p.name)
-          }
-        }
-      }
-      File.open(target + '_ba.yaml', 'w'){|f|
-        f.puts ba_data.to_yaml
-      }
-    end
-  end
   class DRC_helper
     def find_cells_to_exclude layer, pattern, skin_thickness=0
       @pattern = pattern
@@ -263,6 +241,7 @@ module MinedaCommon
   end
   
   class MinedaInput
+    include RBA
     attr_accessor :layer_index
     def initialize source, params={}
       @source = source
@@ -314,6 +293,51 @@ module MinedaCommon
       else
         File.symlink "../#{File.basename output}", slink
       end
+    end
+    
+    def create_ba_data lvs_data
+      ext_name = File.extname @source.path
+      target = File.basename(@source.path).sub(ext_name, '') 
+      ba_data = {}
+      lvs_data.xref.each_circuit_pair.each{|c|
+        ba_data[c] = {}
+        lvs_data.xref.each_device_pair(c).each{|device| 
+          ext = device.first
+          if ref = device.second
+            prefix = nil
+            case ref.device_class
+            when DeviceClassResistor, DeviceClassResistorWithBulk
+              prefix = 'R'
+            when DeviceClassCapacitor, DeviceClassCapacitorWithBulk
+              prefix = 'C'
+            when DeviceClassDiode
+              prefix = 'D'
+            when DeviceClassMOS3Transistor
+              prefix = 'M'
+            when DeviceClassBJT3Transistor, DeviceClassBJT4Transistor
+              prefix = 'Q' 
+            end
+            dname = ref.expanded_name
+            if dname =~ /^\d+$/
+              ba_data[c][dname] ||= {}
+              ext && ext.device_class.parameter_definitions.each{|p|
+                ba_data[c][dname][p.name] = ext.parameter(p.name)
+              }
+            elsif dname =~ /^(.*)\.(\d+)$/
+              ckt = $1
+              device = prefix + $2
+              ba_data[c][ckt] ||= {}
+              ba_data[c][ckt][device] ||= {}
+              ext && ext.device_class.parameter_definitions.each{|p|
+                ba_data[c][ckt][device][p.name] = ext.parameter(p.name)
+              }
+            end
+          end
+        }
+      }
+      File.open(target + '_ba.yaml', 'w'){|f|
+        f.puts ba_data.to_yaml
+      }
     end
   end
 
@@ -501,6 +525,33 @@ module MinedaCommon
       convert_library_cells cv, @pcell_lib, @basic_lib, args[:pcell_scale_factor]
       cv.technology = @technology_name
       # cv.cell.write file
+      Dir.chdir(File.dirname(@cv.filename)){
+        org_cir = File.join 'lvs_work', File.basename(@cv.filename).sub(/\.(gds|GDS)/, '_reference.cir.txt')
+        puts "org_cir: #{org_cir}"
+        if File.exist?(org_cir)
+          tgt_dir = File.join File.dirname(file), 'lvs_work'
+          FileUtils.mkdir tgt_dir unless File.directory? tgt_dir
+          tgt_cir = File.join tgt_dir, File.basename(file).sub(/\.(gds|GDS)/, '_scaled.net')
+          convert_circuit org_cir, tgt_cir, args[:pcell_scale_factor]
+        end
+      }
+    end
+    
+    def convert_circuit org_cir, tgt_cir, factor
+      f = File.open(tgt_cir, 'w')
+      File.read(org_cir).encode('UTF-8', invalid: :replace).each_line{|line|
+        if line =~ /^M.* +(L=(.*)[UN]) +(W=(.*)[UN])/
+          l = $2
+          w = $4
+          l_desc = $1
+          w_desc = $3
+          new_l = l_desc.sub(l, (l.to_f*factor).to_s)
+          new_w = w_desc.sub(w, (w.to_f*factor).to_s)
+          line = line.sub(w_desc, new_w).sub(l_desc, new_l)
+        end
+        f.puts line
+      }
+      f.close
     end
   
     def self.create_map cv, pcell_module, technology_name = pcell_module.sub(/_v[^_]*$/, '')
@@ -805,7 +856,7 @@ class MinedaLVS
     raise "You are running #{target_technology} version of 'get_reference' against #{cv.technology} layout" unless cv.technology == target_technology
     raise 'Please save the layout first' if cv.nil? || cv.filename.nil? || cv.filename == ''
     cell = cv.cell
-    netlist = QFileDialog::getOpenFileName(mw, 'Netlist file', File.dirname(cv.filename), 'netlist(*.net *.cir *.spc *.sp)')
+    netlist = QFileDialog::getOpenFileName(mw, 'Netlist file', File.dirname(cv.filename), 'netlist(*.net *.cir *.spc *.spice)')
     if netlist && netlist.strip != ''
       netlist = netlist.force_encoding('UTF-8')
       # netlist = '/home/seijirom/Dropbox/work/LRmasterSlice/comparator/COMP_NLF.net'
