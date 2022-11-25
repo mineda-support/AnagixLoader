@@ -24,7 +24,7 @@ module Backannotate
       @converted = []
     end  
     def backannotate file, ba=@ba
-      netlist = File.read file
+      netlist = File.read(file).encode('UTF-8')
       header = netlist.slice(0..100)
       if header =~ /xschem/
         ba_xschem netlist, file, ba

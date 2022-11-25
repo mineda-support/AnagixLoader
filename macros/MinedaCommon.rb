@@ -6,6 +6,7 @@
 #   DRC_helper::find_cells_to_exclude v0.1 Sep 23rd 2022 S. Moriyama
 #   MinedaInput v0.2 Oct. 3rd 2022 S. Moriyama
 #   MinedaPCellCommon v0.11 Nov. 15th 2022 S. Moriyama
+#   Create Backannotation data v0.11 Nov. 25th 2022 S. Moriyama
 
 module MinedaPCellCommonModule
   include RBA
@@ -300,43 +301,49 @@ module MinedaCommon
       target = File.basename(@source.path).sub(ext_name, '') 
       ba_data = {}
       lvs_data.xref.each_circuit_pair.each{|c|
-        ba_data[c] = {}
+        cname = c.second.name
+        ba_data[cname] = {}
         lvs_data.xref.each_device_pair(c).each{|device| 
           ext = device.first
           if ref = device.second
-            prefix = nil
-            case ref.device_class
-            when DeviceClassResistor, DeviceClassResistorWithBulk
+            prefix = ''
+            case ref.device_class.class.name
+            when 'RBA::DeviceClassResistor', 'RBA::DeviceClassResistorWithBulk'
               prefix = 'R'
-            when DeviceClassCapacitor, DeviceClassCapacitorWithBulk
+            when 'RBA::DeviceClassCapacitor', 'RBA::DeviceClassCapacitorWithBulk'
               prefix = 'C'
-            when DeviceClassDiode
+            when 'RBA::DeviceClassDiode'
               prefix = 'D'
-            when DeviceClassMOS3Transistor
+            when 'RBA::DeviceClassMOS3Transistor', 'RBA::DeviceClassMOS4Transistor'
               prefix = 'M'
-            when DeviceClassBJT3Transistor, DeviceClassBJT4Transistor
+            when 'RBA::DeviceClassBJT3Transistor', 'RBA::DeviceClassBJT4Transistor'
               prefix = 'Q' 
+            else
+              puts "#{ref.device_class.class} does not match"
             end
             dname = ref.expanded_name
             if dname =~ /^\d+$/
-              ba_data[c][dname] ||= {}
+              device = prefix + dname
+              ba_data[cname][device] ||= {}
               ext && ext.device_class.parameter_definitions.each{|p|
-                ba_data[c][dname][p.name] = ext.parameter(p.name)
+                ba_data[cname][device][p.name] = ext.parameter(p.name)
               }
             elsif dname =~ /^(.*)\.(\d+)$/
               ckt = $1
               device = prefix + $2
-              ba_data[c][ckt] ||= {}
-              ba_data[c][ckt][device] ||= {}
+              ba_data[cname][ckt] ||= {}
+              ba_data[cname][ckt][device] ||= {}
               ext && ext.device_class.parameter_definitions.each{|p|
-                ba_data[c][ckt][device][p.name] = ext.parameter(p.name)
+                ba_data[cname][ckt][device][p.name] = ext.parameter(p.name)
               }
             end
           end
         }
       }
-      File.open(target + '_ba.yaml', 'w'){|f|
-        f.puts ba_data.to_yaml
+      Dir.chdir(File.dirname @source.path){
+        File.open(target + '_ba.yaml', 'w'){|f|
+          f.puts ba_data.to_yaml
+        }
       }
     end
   end
