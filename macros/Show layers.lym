@@ -14,7 +14,8 @@
  <menu-path/>
  <interpreter>ruby</interpreter>
  <dsl-interpreter-name/>
- <text>module ShowLayers
+ <text># Show layers v0.1 Nov. 29 2022 Copy right Seijiro Moriyama
+module ShowLayers
  
   include MinedaCommon
 
@@ -32,12 +33,28 @@
       layer_index.each_pair{|l, it|
         layer_mapping[it[0].to_i] = l
       }
-      puts layer_index.inspect
-      cv.cell.each_inst{|inst|
-        puts inst.cell.name
-        inst.cell.layout.layer_indexes.each{|lay_ind|
-        puts "#{layer_mapping[lay_ind]}: #{inst.cell.shapes(lay_ind).size}" if inst.cell.shapes(lay_ind).size&gt;0
+      # puts layer_index.inspect
+      # puts layer_mapping.inspect
+      layout = cv.cell.layout
+      instances = []
+      cv.cell.each_inst{|inst| instances &lt;&lt; inst}
+ 
+      if cv.cell.bbox.width &gt; cv.cell.bbox.height
+        sorted_instances = instances.sort_by{|inst| inst.bbox.center.x}
+      else
+        sorted_instances = instances.sort_by{|inst| inst.bbox.center.y}.reverse
+      end
+      sorted_instances.each{|inst|
+        puts '[' + inst.cell.name + ']'
+        displayed_layers = []
+        layout.layer_indexes.each{|layer|
+          lay_ind = layout.get_info(layer).layer
+          unless inst.cell.begin_shapes_rec(layer).at_end?
+            # puts "#{layer_mapping[lay_ind]}(#{lay_ind}): #{inst.cell.shapes(layer).size}" # if inst.cell.shapes(layer).size&gt;0
+            displayed_layers &lt;&lt; layer_mapping[lay_ind]
+          end
         }
+        puts displayed_layers.join(', ')
       }
     end
   end
