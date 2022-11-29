@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<klayout-macro>
+ <description/>
+ <version/>
+ <category/>
+ <prolog/>
+ <epilog/>
+ <doc/>
+ <autorun>false</autorun>
+ <autorun-early>false</autorun-early>
+ <shortcut/>
+ <show-in-menu>false</show-in-menu>
+ <group-name/>
+ <menu-path/>
+ <interpreter>ruby</interpreter>
+ <dsl-interpreter-name/>
+ <text>module ShowLayers
+ 
+  include MinedaCommon
+
+  class ShowLayers
+    include MinedaCommon
+    #mpc = MinedaPCellCommon::new
+    #mpc.set_technology 'VIS05'
+    #mpc.set_basic_library 'VIS05_Basic'
+    def initialize
+      cv = ConvertPCells::current_cellview
+      tech =cv.cell.layout.technology
+      lyp_file = File.join(tech.base_path, tech.layer_properties_file)
+      layer_index = MinedaPCell::MinedaPCellCommon::get_layer_index_from_file lyp_file
+      layer_mapping = {}
+      layer_index.each_pair{|l, it|
+        layer_mapping[it[0].to_i] = l
+      }
+      puts layer_index.inspect
+      cv.cell.each_inst{|inst|
+        puts inst.cell.name
+        inst.cell.layout.layer_indexes.each{|lay_ind|
+        puts "#{layer_mapping[lay_ind]}: #{inst.cell.shapes(lay_ind).size}" if inst.cell.shapes(lay_ind).size&gt;0
+        }
+      }
+    end
+  end
+  
+  ShowLayers.new  ..
+
+end
+</text>
+</klayout-macro>
