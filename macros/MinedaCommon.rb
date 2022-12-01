@@ -5,7 +5,7 @@
 #   PCellTest v0.2 August 22nd 2022 S. Moriyama
 #   DRC_helper::find_cells_to_exclude v0.1 Sep 23rd 2022 S. Moriyama
 #   MinedaInput v0.2 Oct. 3rd 2022 S. Moriyama
-#   MinedaPCellCommon v0.11 Nov. 15th 2022 S. Moriyama
+#   MinedaPCellCommon v0.13 Nov. 30th 2022 S. Moriyama
 #   Create Backannotation data v0.11 Nov. 25th 2022 S. Moriyama
 
 module MinedaPCellCommonModule
@@ -149,36 +149,28 @@ module MinedaPCellCommonModule
       xmin = ymin = 10000000
       xmax = ymax = -xmin
       cell.shapes(original).each{|shape|
-        if shape.is_box?
-          box = shape.box
-          x1, y1, x2, y2 = [box.p1.x, box.p1.y, box.p2.x, box.p2.y]
-          puts "[x1, y1, x2, y2]=#{[x1, y1, x2, y2].inspect}"
-          xmin = [xmin, x1].min
-          ymin = [ymin, y1].min
-          xmax = [xmax, x2].max
-          ymax = [ymax, y2].max
-        end
+        box = shape.bbox
+        x1, y1, x2, y2 = [box.p1.x, box.p1.y, box.p2.x, box.p2.y]
+        puts "[x1, y1, x2, y2]=#{[x1, y1, x2, y2].inspect}"
+        xmin = [xmin, x1].min
+        ymin = [ymin, y1].min
+        xmax = [xmax, x2].max
+        ymax = [ymax, y2].max
       }
       [xmin, ymin, xmax, ymax] unless xmin == 10000000
     end
-  
-=begin
-    def fill_area area, square_size, layer_index=nil
-      x1, y1, x2, y2, xmargin, ymargin = area
-      xmargin ||= 0
-      ymargin ||= xmargin
-      create_box layer_index, x1, y1, x2, y2 if layer_index
-      n = ((x2 - x1 - 2*xmargin)/square_size).to_i
-      xoffset = (x2 - x1 - n * square_size)/2 + xmargin
-      m = ((y2 - y1 - 2*ymargin)/square_size).to_i
-      yoffset = (y2 - y1 - m * square_size)/2 + ymargin
-      for i in 0..n-1
-        for j in 0..m-1
-          yield x1 + xoffset + i*square_size + square_size/2, y1 + yoffset + j*square_size+ square_size/2
+    
+    def cell_bbox index
+      result = nil
+      cell.each_inst{|inst|
+        if inst.cell_index == index
+          result = [inst.bbox.p1.x, inst.bbox.p1.y, inst.bbox.p2.x, inst.bbox.p2.y]
+          break
         end
-      end
+      }
+      result
     end
-=end
+  
     def fill_area area, square_size, layer_index=nil
       x1, y1, x2, y2, margin = area
       margin ||= 0
