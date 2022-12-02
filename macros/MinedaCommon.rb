@@ -6,7 +6,7 @@
 #   DRC_helper::find_cells_to_exclude v0.1 Sep 23rd 2022 S. Moriyama
 #   MinedaInput v0.2 Oct. 3rd 2022 S. Moriyama
 #   MinedaPCellCommon v0.14 Dec. 1st 2022 S. Moriyama
-#   Create Backannotation data v0.11 Nov. 25th 2022 S. Moriyama
+#   Create Backannotation data v0.12 Dec. 2nd 2022 S. Moriyama
 
 module MinedaPCellCommonModule
   include RBA
@@ -305,15 +305,17 @@ module MinedaCommon
         prefix
     end
     
-    def create_ba_table lvs_data
+def create_ba_table lvs_data
       ext_name = File.extname @source.path
       target = File.basename(@source.path).sub(ext_name, '') 
+      trans_data = []
       ba_data = {}
       lvs_data.xref.each_circuit_pair.each{|c|
         lvs_data.xref.each_device_pair(c).each{|device| 
           next unless ext = device.first
+          trans_data << ext.trans
           unless prefix = find_prefix(ext.device_class.class.name)
-            puts "#{ref.device_class.class} does not match"
+            puts "#{ref.device_class.class} does not match" if ref
             prefix = ''
           end
           case prefix
@@ -331,6 +333,7 @@ module MinedaCommon
           f.puts ba_data.to_yaml
         }
       }
+      trans_data
     end
       
     def create_ba_data lvs_data
@@ -341,7 +344,7 @@ module MinedaCommon
         cname = c.second.name
         ba_data[cname] = {}
         lvs_data.xref.each_device_pair(c).each{|device| 
-          ext = device.first
+          next unless ext = device.first
           if ref = device.second
             unless prefix = find_prefix(ext.device_class.class.name)
               puts "#{ref.device_class.class} does not match"

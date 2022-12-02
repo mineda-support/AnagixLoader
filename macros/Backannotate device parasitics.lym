@@ -14,16 +14,17 @@
  <menu-path/>
  <interpreter>ruby</interpreter>
  <dsl-interpreter-name/>
- <text># Back Annotate v0.1 Oct. 22, 2022 Copy right Seijiro Moriyama
+ <text># Back Annotate v0.2 Dec 2nd 2022 Copy right Seijiro Moriyama
 module Backannotate
   include RBA
-  require 'YAML'
+  # require 'YAML'
   class Backannotate
     def initialize file
       @ba = YAML.load File.read(file)
       @converted = []
     end  
     def backannotate file, ba=@ba
+      ba['.TOP'] &amp;&amp; ba = ba['.TOP']
       netlist = File.read(file).encode('UTF-8')
       header = netlist.slice(0..100)
       if header =~ /xschem/
@@ -33,61 +34,63 @@ module Backannotate
       end
     end
     def ba_xschem netlist, file, ba
-      File.open(file, 'w'){|f|
-        netlist.each_line{|l|
-          if l =~ /^C {(.*)\.sym}.*name=x(\d+)/
-            cell = "#{$1}.sch"
-            unless @converted.include? cell
-              ba_xschem File.read(cell), cell, ba[$2]
-              @converted &lt;&lt; cell
-            end
-          elsif l =~ /^C {(.*)\.sym}.*name=(M\d+) (.*)}/
-            current = $3
-            params = ba[$2]
+      new_netlist = ''
+      netlist.each_line{|l|
+        if l =~ /^C {(.*)\.sym}.*name=x(\d+)/
+          cell = "#{$1}.sch"
+          unless @converted.include? cell
+            ba_xschem File.read(cell), cell, ba[$2]
+            @converted &lt;&lt; cell
+          end
+        elsif l =~ /^C {(.*)\.sym}.*name=(M\d+) (.*)}/
+          current = $3
+          params = ba[$2]
+          as = params['AS'].to_f.round(5)
+          ad = params['AD'].to_f.round(5)
+          ps = params['PS'].to_f.round(5)
+          pd = params['PD'].to_f.round(5)
+          erased = current.gsub(/ [ap][sd]=\S+/, '')
+          new_netlist &lt;&lt; l.sub(current, erased + " as=#{as}p ad=#{ad}p ps=#{ps}u pd=#{pd}u")
+          next
+        end
+        new_netlist &lt;&lt; l
+      }
+      File.open(file, 'w'){|f| f.puts new_netlist}
+      puts "#{file} updated"
+    end
+    def ba_ltspice netlist, file, ba
+      #puts ba.inspect
+      new_netlist = ''
+      symbol = prefix = id = nil
+      netlist.each_line{|l|
+        if l =~ /^SYMBOL (\w+)/
+          symbol = $1
+        elsif l =~ /^SYMATTR InstName X(\d+)/
+          id = $1
+          cell = "#{symbol}.asc"
+          unless @converted.include? cell
+            ba_ltspice File.read(cell), cell, ba['X' + id]
+            @converted &lt;&lt; cell
+          end
+        elsif l =~ /^SYMATTR InstName (\w)(\d+)/
+          prefix = $1
+          id = $2
+        elsif l =~ /^SYMATTR Value2 (.*)$/
+          if prefix == 'M'
+            current = $1
+            params = ba[prefix+id]
             as = params['AS'].to_f.round(5)
             ad = params['AD'].to_f.round(5)
             ps = params['PS'].to_f.round(5)
             pd = params['PD'].to_f.round(5)
             erased = current.gsub(/ [ap][sd]=\S+/, '')
-            f.print l.sub current, erased + " as=#{as}p ad=#{ad}p ps=#{ps}u pd=#{pd}u"
+            new_netlist &lt;&lt;  l.sub(current, erased  + " as=#{as}p ad=#{ad}p ps=#{ps}u pd=#{pd}u")
             next
           end
-          f.print l
-        }
+        end
+        new_netlist &lt;&lt; l
       }
-    end
-    def ba_ltspice netlist, file, ba
-      File.open(file, 'w'){|f|
-        symbol = prefix = id = nil
-        netlist.each_line{|l|
-          if l =~ /^SYMBOL (\w+)/
-            symbol = $1
-          elsif l =~ /^SYMATTR InstName X(\d+)/
-            id = $1
-            cell = "#{symbol}.asc"
-            unless @converted.include? cell
-              ba_ltspice File.read(cell), cell, ba[id]
-              @converted &lt;&lt; cell
-            end
-          elsif l =~ /^SYMATTR InstName (\w)(\d+)/
-            prefix = $1
-            id = $2
-          elsif l =~ /^SYMATTR Value2 (.*)$/
-            if prefix == 'M'
-              current = $1
-              params = ba[prefix+id]
-              as = params['AS'].to_f.round(5)
-              ad = params['AD'].to_f.round(5)
-              ps = params['PS'].to_f.round(5)
-              pd = params['PD'].to_f.round(5)
-              erased = current.gsub(/ [ap][sd]=\S+/, '')
-              f.print l.sub current, erased + " as=#{as}p ad=#{ad}p ps=#{ps}u pd=#{pd}u"
-              next
-            end
-          end
-          f.print l
-        }
-      }
+      File.open(file, 'w'){|f| f.puts new_netlist}
       puts "#{file} updated"
     end
   end
@@ -95,12 +98,16 @@ module Backannotate
   mw = app.main_window
   cv = mw.current_view.active_cellview  
   ba_file = File.basename(cv.filename).sub(/\..*/,'_ba.yaml')
-  if File.exist? ba_file
-    ba = Backannotate.new ba_file
-    sch = QFileDialog::getOpenFileName(mw, 'Schematic file', File.dirname(cv.filename), 'schematic(*.asc *.sch)')
-    #ba.backannotate 'op2_tb.sch'
-    ba.backannotate sch
-  end
+  Dir.chdir(File.dirname(cv.filename)){
+    if File.exist? ba_file
+      ba = Backannotate.new ba_file
+      sch = QFileDialog::getOpenFileName(mw, 'Schematic file', File.dirname(cv.filename), 'schematic(*.asc *.sch)')
+      #ba.backannotate 'op2_tb.sch'
+      ba.backannotate sch
+    else
+      puts "Error: #{ba_file} does not exist under #{Dir.pwd}!"
+    end
+  }
 end
 </text>
 </klayout-macro>
