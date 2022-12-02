@@ -1,5 +1,5 @@
 # coding: utf-8
-# MinedaPCell v0.731 Nov. 125h 2022 copy right S. Moriyama (Anagix Corporation)
+# MinedaPCell v0.731 Nov. 15th 2022 copy right S. Moriyama (Anagix Corporation)
 #
 #include MinedaPCellCommonModule
 module MinedaPCell

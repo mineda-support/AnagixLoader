@@ -5,7 +5,7 @@
 #   PCellTest v0.2 August 22nd 2022 S. Moriyama
 #   DRC_helper::find_cells_to_exclude v0.1 Sep 23rd 2022 S. Moriyama
 #   MinedaInput v0.2 Oct. 3rd 2022 S. Moriyama
-#   MinedaPCellCommon v0.14 Dec. 1st 2022 S. Moriyama
+#   MinedaPCellCommon v0.15 Dec. 2nd 2022 S. Moriyama
 #   Create Backannotation data v0.12 Dec. 2nd 2022 S. Moriyama
 
 module MinedaPCellCommonModule
@@ -117,13 +117,13 @@ module MinedaPCellCommonModule
     end
 
     def create_dcont index, x1, y1, x2, y2, vs, dcont_offset = 0
-      # puts [x1, y1, x2, y2].inspect
-      if  dcont_offset && (dcont_offset  == true || dcont_offset > vs)
-        n = (y2 - y1)/vs
+      if dcont_offset != 0
+        dcont_offset = 0 if dcont_offset == true
+        n = (y2 - y1 - 2*dcont_offset)/vs
         dcont_offset = (y2 - y1 - n*vs)/2
       end
-      # puts [y1+vs/2 + (dcont_offset || 0), y2-vs/2, vs].inspect
-      (y1+vs/2 + (dcont_offset || 0) .. y2-vs/2).step(vs){|y|
+      # puts [y1+vs/2 + dcont_offset, y2-vs/2 - dcont_offset, vs].inspect
+      (y1+vs/2 + dcont_offset .. y2-vs/2 - dcont_offset).step(vs){|y|
         # puts "insert #{index}@#{x1},#{y}"
         insert_cell index, x1, y
       }
