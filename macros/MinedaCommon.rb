@@ -1,12 +1,12 @@
 # Mineda Common
 #   Force on-grid v0.1 July 39th copy right S. Moriyama (Anagix Corp.)
-#   LVS preprocessor(get_reference) v0.661 Nov. 8th copyright by S. Moriyama (Anagix Corporation)
+#   LVS preprocessor(get_reference) v0.67 Dec. 3rd copyright by S. Moriyama (Anagix Corporation)
 #   ConvertPCells and PCellDefaults moved from MinedaPCell v0.4 Nov. 22nd 2022
 #   PCellTest v0.2 August 22nd 2022 S. Moriyama
 #   DRC_helper::find_cells_to_exclude v0.1 Sep 23rd 2022 S. Moriyama
 #   MinedaInput v0.2 Oct. 3rd 2022 S. Moriyama
 #   MinedaPCellCommon v0.151 Dec. 3rd 2022 S. Moriyama
-#   Create Backannotation data v0.12 Dec. 2nd 2022 S. Moriyama
+#   Create Backannotation data v0.13 Dec. 3rd 2022 S. Moriyama
 
 module MinedaPCellCommonModule
   include RBA
@@ -911,13 +911,19 @@ class MinedaLVS
       device_class = {}
       lines = expand_file netlist, ''
       params = get_params netlist
+      puts "params: #{params.inspect}"
       c = File.open(File.join('lvs_work', File.basename(netlist))+'.txt', 'w:UTF-8')
       prev_line = ''
-      comment_subckt = false
+      comment_subckt = inside_subckt = false
       lines.each_line{|l|
         l.gsub! 00.chr, ''
         l.tr! "@%-", "$$_"
         c.puts l
+        if l =~ /{(\S+)}/
+          ov = $1
+          rv = params[ov.upcase] || ov  #  calculation for ov like (6u*20u) should be implemented
+          l.sub! "{#{ov}}", rv
+        end
         puts "l=#{l}"
         if block_given?
           nl = yield(l)
@@ -976,22 +982,12 @@ class MinedaLVS
           # others = p.map{|a| "#{a[0]}=#{a[1]}"}.join ' '
           others = "l=#{p['L']} w=#{p['W']}" # supress other parameters like as, ps, ad and pd
           l = "#{body} #{others}\n"
-        elsif  !inside_subckt
-          if l =~ /^ *[xX]/
-            circuit_top ||= '.TOP'
-          elsif l =~ /^ *([rR]|[cC]|[dD])/ || l.downcase =~ /^ *\.(global|subckt|ends)/
+        elsif l =~ /^ *([rR]|[cC]|[dD])/ || l.downcase =~ /^ *\.(global|subckt|ends)/
             # do nothing
-          else   
-            l.sub! /^/, '*' if !(l =~ /^ *\+/) || prev_line =~ /^ *\*/ # comment
-          end
+        elsif  !inside_subckt && l =~ /^ *[xX]/
+            circuit_top ||= '.TOP'
         else
-          if l =~ /{(\S+)}/
-            ov = $1
-            rv = params[ov.upcase] || ov  #  calculation for ov like (6u*20u) should be implemented
-            l.sub! "{#{ov}}", rv
-          else
-            l.sub! /^/, '*' if !(l =~ /^ *\+/) || prev_line =~ /^ *\*/ # comment
-          end
+          l.sub! /^/, '*' if !(l =~ /^ *\+/) || prev_line =~ /^ *\*/ # comment
         end
         break if l.upcase.strip == '.END'
         prev_line = l

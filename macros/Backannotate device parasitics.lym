@@ -14,7 +14,7 @@
  <menu-path/>
  <interpreter>ruby</interpreter>
  <dsl-interpreter-name/>
- <text># Back Annotate v0.2 Dec 2nd 2022 Copy right Seijiro Moriyama
+ <text># Back Annotate v0.3 Dec 3rd 2022 Copy right Seijiro Moriyama
 module Backannotate
   include RBA
   # require 'YAML'
@@ -24,7 +24,10 @@ module Backannotate
       @converted = []
     end  
     def backannotate file, ba=@ba
-      ba['.TOP'] &amp;&amp; ba = ba['.TOP']
+      ckt_name = File.basename(file).sub(File.extname(file), '').upcase
+      # puts "ckt_name=#{ckt_name}"
+      # puts "ba: #{ba.inspect}"
+      (ba[ckt_name] &amp;&amp; ba = ba[ckt_name])||(ba['.TOP'] &amp;&amp; ba = ba['.TOP'])
       netlist = File.read(file).encode('UTF-8')
       header = netlist.slice(0..100)
       if header =~ /xschem/
