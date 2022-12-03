@@ -5,7 +5,7 @@
 #   PCellTest v0.2 August 22nd 2022 S. Moriyama
 #   DRC_helper::find_cells_to_exclude v0.1 Sep 23rd 2022 S. Moriyama
 #   MinedaInput v0.2 Oct. 3rd 2022 S. Moriyama
-#   MinedaPCellCommon v0.15 Dec. 2nd 2022 S. Moriyama
+#   MinedaPCellCommon v0.151 Dec. 3rd 2022 S. Moriyama
 #   Create Backannotation data v0.12 Dec. 2nd 2022 S. Moriyama
 
 module MinedaPCellCommonModule
@@ -116,7 +116,8 @@ module MinedaPCellCommonModule
       cell.shapes(index).insert(Path::new(points, w, be, ee))
     end
 
-    def create_dcont index, x1, y1, x2, y2, vs, dcont_offset = 0
+    def create_dcont index, x1, y1, x2, y2, vs, dcont_offset=nil
+      dcont_offset ||= 0
       if dcont_offset != 0
         dcont_offset = 0 if dcont_offset == true
         n = (y2 - y1 - 2*dcont_offset)/vs
