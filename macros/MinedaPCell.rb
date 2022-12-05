@@ -1,5 +1,5 @@
 # coding: utf-8
-# MinedaPCell v0.731 Nov. 15th 2022 copy right S. Moriyama (Anagix Corporation)
+# MinedaPCell v0.74 Dec. 5th 2022 copy right S. Moriyama (Anagix Corporation)
 #
 #include MinedaPCellCommonModule
 module MinedaPCell
@@ -127,7 +127,8 @@ module MinedaPCell
           else
             insert_cell indices[:pcont], x, y
             insert_cell indices[:via], x, y if with_via
-            y = y - u1/2
+            pcont_size = params[:pcont_size] || vs
+            y = y - pcont_size/2 + pol_width/2
             create_path2 indices[:pol], x, y, x1+vs+u1/2+dgl, y, x1+vs+u1/2+dgl, y2-vs + gate_ext - u1, pol_width, 0, 0
           end
         end
@@ -415,7 +416,8 @@ module MinedaPCell
           else
             insert_cell indices[:pcont], x, y
             insert_cell indices[:via], x, y if with_via
-            y = y + u1/2
+            pcont_size = params[:pcont_size] || vs
+            y = y + pcont_size/2 - pol_width/2
             create_path2 indices[:pol], x, y, x1+vs+u1/2+dgl, y, x1+vs+u1/2+dgl, y1+vs - gate_ext + u1, pol_width, 0, 0
           end
         end
