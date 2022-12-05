@@ -1,5 +1,5 @@
 # coding: utf-8
-# MinedaPCell v0.74 Dec. 5th 2022 copy right S. Moriyama (Anagix Corporation)
+# MinedaPCell v0.75 Dec. 5th 2022 copy right S. Moriyama (Anagix Corporation)
 #
 #include MinedaPCellCommonModule
 module MinedaPCell
@@ -63,9 +63,10 @@ module MinedaPCell
       gate_ext = params[:gate_ext] || vs/2 + u1/8
       sd_width = [gw, vs + vs_extra].max
       offset = 0
+      mw1 = params[:m1_width] || u1
       (n+1).times{|i|
         x = offset + vs/2 - xshift
-        create_path(indices[:m1], x, vs-yshift+u1, x, vs-yshift+u1-u1cut+sd_width, vs, 0, 0)
+        create_path(indices[:m1], x, vs-yshift+u1, x, vs-yshift+u1-u1cut+sd_width, mw1, 0, 0)
         create_path(indices[:li1], x, vs-yshift+u1, x, vs-yshift+u1-u1cut+sd_width, u1, 0, 0) if indices[:li1]
         create_dcont(indices[:dcont], x, vs-yshift+u1, x, vs-yshift+u1+sd_width, vs + vs_extra, params[:dcont_offset])
         x = x + vs/2 + gl/2 + dgl
