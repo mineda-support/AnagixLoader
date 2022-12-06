@@ -5,7 +5,7 @@
 #   PCellTest v0.2 August 22nd 2022 S. Moriyama
 #   DRC_helper::find_cells_to_exclude v0.1 Sep 23rd 2022 S. Moriyama
 #   MinedaInput v0.2 Oct. 3rd 2022 S. Moriyama
-#   MinedaPCellCommon v0.151 Dec. 3rd 2022 S. Moriyama
+#   MinedaPCellCommon v0.152 Dec. 6th 2022 S. Moriyama
 #   Create Backannotation data v0.14 Dec. 4th 2022 S. Moriyama
 
 module MinedaPCellCommonModule
@@ -195,6 +195,15 @@ module MinedaPCellCommonModule
                 Point::new(xs, ys)]
       cell.shapes(index).insert(Path::new(points, w, w/2, -w/2).simple_polygon)           
     end
+    
+    def enlarge_area area, delta_x, delta_y
+      new_area = area
+      new_area[0] = new_area[0] - delta_x
+      new_area[1] = new_area[1] - delta_y
+      new_area[2] = new_area[2] + delta_x
+      new_area[3] = new_area[3] + delta_y
+      new_area
+    end      
   end
 end
 

@@ -1,9 +1,9 @@
 # coding: utf-8
-# MinedaPCell v0.76 Dec. 6th 2022 copy right S. Moriyama (Anagix Corporation)
+# MinedaPCell v0.761 Dec. 6th 2022 copy right S. Moriyama (Anagix Corporation)
 #
 #include MinedaPCellCommonModule
 module MinedaPCell
-  version = '0.73'
+  version = '0.761'
   include MinedaPCellCommonModule
   # The PCell declaration for the Mineda MOSFET
   class MinedaMOS < MinedaPCellCommon
@@ -121,16 +121,19 @@ module MinedaPCell
         end
         if with_pcont
           pol_width = params[:pol_width] || u1 + u1/4
+          pol_width = [gl, vs/2].max if pol_width > gl
           if n == 1 && !with_sdcont
             insert_cell indices[:pcont], x1+vs+dgl+gl/2, y
             insert_cell indices[:via], x1+vs+dgl+gl/2, y if with_via
-            create_path indices[:pol], x1+vs+dgl+gl/2, y, x1+vs+dgl+gl/2, y2-vs + gate_ext - u1, pol_width, 0,0
+            x3 = x1+vs+pol_width/2+dgl
+            create_path indices[:pol], x3, y, x3, y2-vs + gate_ext - u1, pol_width, 0,0
           else
             insert_cell indices[:pcont], x, y
             insert_cell indices[:via], x, y if with_via
             pcont_size = params[:pcont_size] || vs
             y = y - pcont_size/2 + pol_width/2
-            create_path2 indices[:pol], x, y, x1+vs+u1/2+dgl, y, x1+vs+u1/2+dgl, y2-vs + gate_ext - u1, pol_width, 0, 0
+            x3 = x1+vs+pol_width/2+dgl
+            create_path2 indices[:pol], x, y, x3, y, x3, y2-vs + gate_ext - u1, pol_width, 0, 0
           end
         end
         offset = x1
@@ -410,16 +413,19 @@ module MinedaPCell
         end
         if with_pcont
           pol_width = params[:pol_width] || u1 + u1/4
+          pol_width = [gl, vs/2].max if pol_width > gl
           if n == 1 && !with_sdcont
             insert_cell indices[:pcont], x1+vs+dgl+gl/2, y
             insert_cell indices[:via], x1+vs+dgl+gl/2, y if with_via
-            create_path indices[:pol], x1+vs+dgl+gl/2, y, x1+vs+dgl+gl/2, y1+vs - gate_ext + u1, pol_width, 0,0
+            x3 = x1+vs+pol_width/2+dgl
+            create_path indices[:pol], x3, y, x3, y1+vs - gate_ext + u1, pol_width, 0,0
           else
             insert_cell indices[:pcont], x, y
             insert_cell indices[:via], x, y if with_via
             pcont_size = params[:pcont_size] || vs
             y = y + pcont_size/2 - pol_width/2
-            create_path2 indices[:pol], x, y, x1+vs+u1/2+dgl, y, x1+vs+u1/2+dgl, y1+vs - gate_ext + u1, pol_width, 0, 0
+            x3 = x1+vs+pol_width/2+dgl
+            create_path2 indices[:pol], x, y, x3, y, x3, y1+vs - gate_ext + u1, pol_width, 0, 0
           end
         end
         offset = x1
@@ -464,9 +470,9 @@ module MinedaPCell
         offset = offset - 2*dgl
          # nsubcont and via
         if with_nsubcont && use_nwell
-          # nsubcont_dx = params[:nsubont_dx] || 0
+          nsubcont_dx = params[:nsubcont_dx] || 0
           nsubcont_dy = params[:nsubcont_dy] ||  u1/2 + u1
-          x = offset - gl - vs/2 + (with_via ? u1/2 : 0)
+          x = offset - gl - vs/2 + (with_via ? u1/2 : 0) + nsubcont_dx
           if n % 2 == 0
             y = y1 + vs/2 - nsubcont_dy - (wide_metal ? u1 : 0)
           else
@@ -626,9 +632,9 @@ module MinedaPCell
         offset = offset - 2*dgl
         # nsubcont and via
         if with_nsubcont && use_nwell
-          # nsubcont_dx = params[:nsubont_dx] || 0
+          nsubcont_dx = params[:nsubont_dx] || 0
           nsubcont_dy = params[:nsubcont_dy] ||  u1/2 + u1
-          x = offset - gl - vs/2 + (with_via ? u1/2 : 0)
+          x = offset - gl - vs/2 + (with_via ? u1/2 : 0) + nsubcont_dx
           if n % 2 == 0
             y = y1 + vs/2 - nsubcont_dy - (wide_metal ? u1 : 0)
           else
