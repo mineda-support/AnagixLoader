@@ -6,7 +6,7 @@
 #   DRC_helper::find_cells_to_exclude v0.1 Sep 23rd 2022 S. Moriyama
 #   MinedaInput v0.2 Oct. 3rd 2022 S. Moriyama
 #   MinedaPCellCommon v0.2 Dec. 8th 2022 S. Moriyama
-#   Create Backannotation data v0.14 Dec. 4th 2022 S. Moriyama
+#   Create Backannotation data v0.15 Dec. 12th 2022 S. Moriyama
 
 module MinedaPCellCommonModule
   include RBA
@@ -318,36 +318,39 @@ module MinedaCommon
         prefix
     end
     
-def create_ba_table lvs_data
+    def create_ba_table l2n_data
       ext_name = File.extname @source.path
       target = File.basename(@source.path).sub(ext_name, '') 
-      trans_data = []
+      # trans_data = []
       ba_data = {}
-      lvs_data.xref.each_circuit_pair.each{|c|
-        lvs_data.xref.each_device_pair(c).each{|device| 
-          next unless ext = device.first
-          trans_data << ext.trans
-          unless prefix = find_prefix(ext.device_class.class.name)
-            puts "#{ref.device_class.class} does not match" if ref
-            prefix = ''
-          end
+      l2n_data.netlist.each_circuit{|c|
+        puts c.name
+        rest = []
+        c.each_device{|device|
+          puts [device.name,device.trans.to_s].inspect
+          # trans_data << device.trans
+          prefix = find_prefix(device.device_class.class.name)
           case prefix
           when 'M' 
-            l = ext.parameter('L')
-            w = ext.parameter('W')
-            displacement = ext.trans.disp
-            rest = [[displacement.x, displacement.y]]+[['AS', 'AD', 'PS', 'PD'].map{|p| ext.parameter(p)}]
-            ba_data[l] ||= {}
-            ba_data[l][w] ||= rest
+            l = device.parameter('L')
+            w = device.parameter('W')
+            displacement = device.trans.disp
+            rest << [[displacement.x, displacement.y]]+ # , device.trans.to_s
+                   [['AS', 'AD', 'PS', 'PD'].map{|p| device.parameter(p)}]
+            ba_data[prefix] ||= {}
+            ba_data[prefix][l] ||= {}
+            ba_data[prefix][l][w] ||= rest
           end
         }
       }
       Dir.chdir(File.dirname @source.path){
-        File.open(target + '_table.yaml', 'w'){|f|
+        table_file = target + '_table.yaml'
+        File.open(table_file, 'w'){|f|
           f.puts ba_data.to_yaml
         }
+        puts "#{table_file} created under #{Dir.pwd}"
       }
-      trans_data
+      # trans_data
     end
       
     def create_ba_data lvs_data

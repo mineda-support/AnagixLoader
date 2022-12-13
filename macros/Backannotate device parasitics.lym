@@ -34,12 +34,12 @@ module Backannotate
     end
     def initialize_ba_data ba_file, cv
       layout = cv.cell.layout
-      ba_table = YAML.load File.read(ba_file)
+      ba_table = YAML.load(File.read(ba_file))['M']
       cv.cell.each_inst{|inst|
         ba_table.each_pair{|l, w_etc|
           w_etc.each_pair{|w, a|
             # puts [a[0], inst.bbox.to_s].inspect
-            x, y = a[0].map{|b| (b/layout.dbu).to_i}
+            x, y, = a[0][0..1].map{|b| (b/layout.dbu).to_i}
             if inside?(inst.bbox, x, y)
               puts [inst.cell.name, x, y].inspect
               ba_table[l][w].push([inst.cell.name, inst.pcell_parameters])
