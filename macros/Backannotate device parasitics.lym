@@ -14,7 +14,7 @@
  <menu-path/>
  <interpreter>ruby</interpreter>
  <dsl-interpreter-name/>
- <text># Back Annotate v0.4 Dec 14th 2022 Copy right Seijiro Moriyama
+ <text># Back Annotate v0.41 Dec 14th 2022 Copy right Seijiro Moriyama
 module Backannotate
   include RBA
   # require 'YAML'
@@ -38,8 +38,8 @@ module Backannotate
       ba_table.each_pair{|type, device|
         ba_data[type] ||= {}
         device.each_pair{|l, w_group|
-          as_tot = ad_tot = ps_tot = pd_tot = 0
           w_group.each_pair{|w, w_params|
+            as_tot = ad_tot = ps_tot = pd_tot = 0
             w_params.each{|params|
               puts "params=#{params.inspect}"  
               as, ad, ps, pd = params[1]
@@ -48,9 +48,10 @@ module Backannotate
               ps_tot = ps_tot + ps
               pd_tot = pd_tot + pd
             }
-            key = "#{w}/#{l}"
+            m = w_params.size
+            key = "#{w}/#{l}" + (m &gt; 1 ? "/#{m}" : '')
             ba_data[type][key] ||= {}
-            ba_data[type][key] = {'AS' =&gt; as_tot.round(6), 'AD' =&gt; ad_tot.round(6), 
+            ba_data[type][key] = {'M' =&gt; m, 'AS' =&gt; as_tot.round(6), 'AD' =&gt; ad_tot.round(6), 
                                          'PS' =&gt; ps_tot.round(6), 'PD' =&gt; pd_tot.round(6)}
             puts "#{type}: l=#{l} w=#{w} m=#{w_params.size} =&gt; total: (#{as_tot}, #{ad_tot}, #{ps_tot}, #{pd_tot})"
           } 
@@ -69,7 +70,8 @@ module Backannotate
         # puts "ckt_name=#{ckt_name}"
         # puts "ba: #{ba.inspect}"
         (ba[ckt_name] &amp;&amp; ba = ba[ckt_name])||(ba['.TOP'] &amp;&amp; ba = ba['.TOP'])
-        netlist = File.read(file).encode('UTF-8')
+        #netlist = File.read(file).encode('UTF-8')
+        netlist = File.open(file, 'r:Windows-1252').read.encode('UTF-8', invalid: :replace)
         header = netlist.slice(0..100)
         if ['.net', '.cir', '.spice', '.spc', '.sp'].include? File.extname(file).downcase
           ba_netlist netlist, file, ba, &amp;block
@@ -80,16 +82,53 @@ module Backannotate
         end
       }
     end
+    def v_in_micron desc
+      if desc =~ /(\S+)[uU]/
+        $1.to_f.round(4)
+      elsif desc =~/(\S+)[nN]/
+        ($1.to_f * 1.0e-3).round(4)
+      else
+        (desc.to_f * 1.0e6).round(4)
+      end
+    end
     def ba_netlist netlist, file, ba_data=@ba, &amp;block
       new_netlist = ''
       netlist.each_line{|l|
-        if l.upcase =~ /^M\S+ +\S+ +\S+ +\S+ +\S+ +(\S+) +(.*)$/
+        if l =~ /^[Mm]\S+ +\S+ +\S+ +\S+ +\S+ +(\S+) +(.*)$/
           dc = $1
-          current = $2
-          param = current.scan(/(\S+) *= *(\S+)/).to_h
-          if ba_data[dc] &amp;&amp; params = ba_data[dc]["#{param['W']}/#{param['L']}"]
-            yield  l, params, current, new_netlist
-            next
+          if ba_data[dc]
+            puts ba_data[dc].inspect
+            current = $2
+            param = current.upcase.scan(/(\S+) *= *(\S+)/).to_h
+            m = param['M'] ? param['M'].to_i : 1
+            width = v_in_micron param['W']
+            length = v_in_micron param['L']
+            key = "#{width}/#{length}"
+            key &lt;&lt; "/#{m}" if m &gt; 1
+            puts "key=#{key} for #{param}"
+            if params = ba_data[dc][key]
+              puts '=&gt; OK'
+              yield  l, params, current, new_netlist
+              next
+            else
+              total_width = width * m
+              n = 2
+              puts "Try width =  #{(total_width/n).round(4)} &gt; #{length}"
+              done = false
+              while (width = (total_width/n).round(4)) &gt; length
+                key = "#{width}/#{length}/#{n}"
+                puts "Try key=#{key}"
+                if params = ba_data[dc][key]
+                  params['M']  = n
+                  params['W'] = width
+                  yield  l, params, current, new_netlist
+                  done = true
+                  break
+                end
+                n = n + 1
+              end
+              next if done
+            end
           end
         end
         new_netlist &lt;&lt; l
@@ -158,12 +197,18 @@ module Backannotate
     #ba.backannotate 'op2_tb.sch'
     (sch == '' &amp;&amp; sch =nil) || net = QFileDialog::getOpenFileName(mw, 'Netlist file', File.dirname(cv.filename), 'schematic(*.net *.cir *.spice *.sp *.spc)')
     ba.backannotate(sch||net){|l, params, current, new_netlist|
-      as = params['AS'].to_f.round(5)
-      ad = params['AD'].to_f.round(5)
-      ps = params['PS'].to_f.round(5)
-      pd = params['PD'].to_f.round(5)
-      erased = current.gsub(/ [ap][sd]=\S+/, '')
-      new_netlist &lt;&lt;  l.sub(current, erased  + " as=#{as}p ad=#{ad}p ps=#{ps}u pd=#{pd}u")
+      as = params['AS'].to_f
+      ad = params['AD'].to_f
+      ps = params['PS'].to_f
+      pd = params['PD'].to_f
+      erased = current.gsub(/ [apAP][sdSD]=\S+/, '') 
+      if m = params['M']
+        m = params['M'].to_i
+        w = params['W'].to_f
+        erased = erased.sub(/ [mMwW]=\S+/, '') + " w=#{w}u m=#{m}"
+      end
+      new_netlist &lt;&lt;  l.sub(current, erased  + 
+        " as=#{(as/m).round(4)}p ad=#{(ad/m).round(4)}p ps=#{(ps/m).round(4)}u pd=#{(pd/m).round(4)}u")
     }    
   rescue =&gt; error
     puts error

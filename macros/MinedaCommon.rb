@@ -341,10 +341,12 @@ module MinedaCommon
             ba_data[prefix] ||= {}
             ba_data[prefix][dcname] ||= {}
             ba_data[prefix][dcname][l] ||= {}
-            ba_data[prefix][dcname][l][w] ||= rest
+            ba_data[prefix][dcname][l][w] = rest
           end
         }
+        # puts "size=#{rest.size}"
       }
+      # puts ba_data.inspect
       Dir.chdir(File.dirname @source.path){
         table_file = target + '_table.yaml'
         File.open(table_file, 'w'){|f|
