@@ -14,7 +14,7 @@
  <menu-path/>
  <interpreter>ruby</interpreter>
  <dsl-interpreter-name/>
- <text># Back Annotate v0.31 Dec 4th 2022 Copy right Seijiro Moriyama
+ <text># Back Annotate v0.4 Dec 14th 2022 Copy right Seijiro Moriyama
 module Backannotate
   include RBA
   # require 'YAML'
@@ -28,28 +28,36 @@ module Backannotate
       else
         ba_file = cv.filename.sub(/\..*/,'_table.yaml')
         if File.exist? ba_file
-          initialize_ba_data ba_file, cv
+          initialize_ba_data ba_file
         end
       end
     end
-    def initialize_ba_data ba_file, cv
-      layout = cv.cell.layout
+    def initialize_ba_data ba_file
       ba_table = YAML.load(File.read(ba_file))['M']
-      cv.cell.each_inst{|inst|
-        ba_table.each_pair{|l, w_etc|
-          w_etc.each_pair{|w, a|
-            # puts [a[0], inst.bbox.to_s].inspect
-            x, y, = a[0][0..1].map{|b| (b/layout.dbu).to_i}
-            if inside?(inst.bbox, x, y)
-              puts [inst.cell.name, x, y].inspect
-              ba_table[l][w].push([inst.cell.name, inst.pcell_parameters])
-              #break
-            end
-          }
+      ba_data = {}
+      ba_table.each_pair{|type, device|
+        ba_data[type] ||= {}
+        device.each_pair{|l, w_group|
+          as_tot = ad_tot = ps_tot = pd_tot = 0
+          w_group.each_pair{|w, w_params|
+            w_params.each{|params|
+              puts "params=#{params.inspect}"  
+              as, ad, ps, pd = params[1]
+              as_tot = as_tot + as
+              ad_tot = ad_tot + ad
+              ps_tot = ps_tot + ps
+              pd_tot = pd_tot + pd
+            }
+            key = "#{w}/#{l}"
+            ba_data[type][key] ||= {}
+            ba_data[type][key] = {'AS' =&gt; as_tot.round(6), 'AD' =&gt; ad_tot.round(6), 
+                                         'PS' =&gt; ps_tot.round(6), 'PD' =&gt; pd_tot.round(6)}
+            puts "#{type}: l=#{l} w=#{w} m=#{w_params.size} =&gt; total: (#{as_tot}, #{ad_tot}, #{ps_tot}, #{pd_tot})"
+          } 
         }
-      }
-      @ba = ba_table
-      # puts ba_table.to_yaml
+      }      
+      @ba = ba_data
+      puts ba_data.to_yaml
     end
     def inside? box, x, y
       (x &gt; box.p1.x) &amp;&amp; (x &lt; box.p2.x) &amp;&amp;
@@ -63,12 +71,31 @@ module Backannotate
         (ba[ckt_name] &amp;&amp; ba = ba[ckt_name])||(ba['.TOP'] &amp;&amp; ba = ba['.TOP'])
         netlist = File.read(file).encode('UTF-8')
         header = netlist.slice(0..100)
-        if header =~ /xschem/
+        if ['.net', '.cir', '.spice', '.spc', '.sp'].include? File.extname(file).downcase
+          ba_netlist netlist, file, ba, &amp;block
+        elsif header =~ /xschem/
           ba_xschem netlist, file, ba, &amp;block
         elsif header =~ /^Version 4/
           ba_ltspice netlist, file, ba, &amp;block
         end
       }
+    end
+    def ba_netlist netlist, file, ba_data=@ba, &amp;block
+      new_netlist = ''
+      netlist.each_line{|l|
+        if l.upcase =~ /^M\S+ +\S+ +\S+ +\S+ +\S+ +(\S+) +(.*)$/
+          dc = $1
+          current = $2
+          param = current.scan(/(\S+) *= *(\S+)/).to_h
+          if ba_data[dc] &amp;&amp; params = ba_data[dc]["#{param['W']}/#{param['L']}"]
+            yield  l, params, current, new_netlist
+            next
+          end
+        end
+        new_netlist &lt;&lt; l
+      }
+      File.open(file, 'w'){|f| f.puts new_netlist}
+      puts "#{file} updated"
     end
     def ba_xschem netlist, file, ba_data=@ba, &amp;block
       new_netlist = ''
@@ -126,10 +153,11 @@ module Backannotate
   mw = app.main_window
   cv = mw.current_view.active_cellview  
   ba = Backannotate.new cv
-  if ba.ba
+  begin
     sch = QFileDialog::getOpenFileName(mw, 'Schematic file', File.dirname(cv.filename), 'schematic(*.asc *.sch)')
     #ba.backannotate 'op2_tb.sch'
-    ba.backannotate(sch){|l, params, current, new_netlist|
+    (sch == '' &amp;&amp; sch =nil) || net = QFileDialog::getOpenFileName(mw, 'Netlist file', File.dirname(cv.filename), 'schematic(*.net *.cir *.spice *.sp *.spc)')
+    ba.backannotate(sch||net){|l, params, current, new_netlist|
       as = params['AS'].to_f.round(5)
       ad = params['AD'].to_f.round(5)
       ps = params['PS'].to_f.round(5)
@@ -137,8 +165,9 @@ module Backannotate
       erased = current.gsub(/ [ap][sd]=\S+/, '')
       new_netlist &lt;&lt;  l.sub(current, erased  + " as=#{as}p ad=#{ad}p ps=#{ps}u pd=#{pd}u")
     }    
-  else
-    puts "Error: backannotation does not exist under #{File.dirname cv.filename}!"
+  rescue =&gt; error
+    puts error
+    puts "Backannotation might not exist under #{File.dirname cv.filename}!"
   end
 end
 </text>

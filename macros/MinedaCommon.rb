@@ -327,19 +327,21 @@ module MinedaCommon
         puts c.name
         rest = []
         c.each_device{|device|
-          puts [device.name,device.trans.to_s].inspect
+          puts [device.expanded_name, device.device_class.name, device.device_abstract.name, device.trans.to_s].inspect
           # trans_data << device.trans
           prefix = find_prefix(device.device_class.class.name)
           case prefix
           when 'M' 
-            l = device.parameter('L')
-            w = device.parameter('W')
+            l = device.parameter('L').round(4)
+            w = device.parameter('W').round(4)
             displacement = device.trans.disp
-            rest << [[displacement.x, displacement.y]]+ # , device.trans.to_s
-                   [['AS', 'AD', 'PS', 'PD'].map{|p| device.parameter(p)}]
+            rest << [[displacement.x.round(6), displacement.y.round(6)]]+ # , device.trans.to_s
+                   [['AS', 'AD', 'PS', 'PD'].map{|p| device.parameter(p).round(6)}]
+            dcname = device.device_class.name
             ba_data[prefix] ||= {}
-            ba_data[prefix][l] ||= {}
-            ba_data[prefix][l][w] ||= rest
+            ba_data[prefix][dcname] ||= {}
+            ba_data[prefix][dcname][l] ||= {}
+            ba_data[prefix][dcname][l][w] ||= rest
           end
         }
       }
