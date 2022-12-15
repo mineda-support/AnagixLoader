@@ -14,7 +14,7 @@
  <menu-path/>
  <interpreter>ruby</interpreter>
  <dsl-interpreter-name/>
- <text># Back Annotate v0.41 Dec 14th 2022 Copy right Seijiro Moriyama
+ <text># Back Annotate v0.42 Dec 15th 2022 Copy right Seijiro Moriyama
 module Backannotate
   include RBA
   # require 'YAML'
@@ -38,7 +38,10 @@ module Backannotate
       ba_table.each_pair{|type, device|
         ba_data[type] ||= {}
         device.each_pair{|l, w_group|
-          w_group.each_pair{|w, w_params|
+          w_group.each_pair{|w_m, w_params|
+            w_m =~ /(\S+)\*(Sd+)/
+            w = $1.to_f
+            m = $2.to_i
             as_tot = ad_tot = ps_tot = pd_tot = 0
             w_params.each{|params|
               puts "params=#{params.inspect}"  
@@ -48,8 +51,8 @@ module Backannotate
               ps_tot = ps_tot + ps
               pd_tot = pd_tot + pd
             }
-            m = w_params.size
-            key = "#{w}/#{l}" + (m &gt; 1 ? "/#{m}" : '')
+            puts "m for #{w}/#{l} weird!" if m != w_params.size
+            key = "#{w}/#{l}/#{m}"
             ba_data[type][key] ||= {}
             ba_data[type][key] = {'M' =&gt; m, 'AS' =&gt; as_tot.round(6), 'AD' =&gt; ad_tot.round(6), 
                                          'PS' =&gt; ps_tot.round(6), 'PD' =&gt; pd_tot.round(6)}

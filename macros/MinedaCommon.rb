@@ -326,6 +326,9 @@ module MinedaCommon
       l2n_data.netlist.each_circuit{|c|
         puts c.name
         rest = []
+        devices_count = 0
+        c.each_device{|device| devices_count = devices_count + 1}
+        count = 0
         c.each_device{|device|
           puts [device.expanded_name, device.device_class.name, device.device_abstract.name, device.trans.to_s].inspect
           # trans_data << device.trans
@@ -341,10 +344,14 @@ module MinedaCommon
             ba_data[prefix] ||= {}
             ba_data[prefix][dcname] ||= {}
             ba_data[prefix][dcname][l] ||= {}
-            ba_data[prefix][dcname][l][w] = rest
+            count = count + 1
+            if count == devices_count
+              w_key = "#{w}*#{rest.size}"
+              ba_data[prefix][dcname][l][w_key] ||= {}
+              ba_data[prefix][dcname][l][w_key] = rest
+            end
           end
-        }
-        # puts "size=#{rest.size}"
+       }
       }
       # puts ba_data.inspect
       Dir.chdir(File.dirname @source.path){
@@ -405,6 +412,7 @@ module MinedaCommon
           f.puts ba_data.to_yaml
         }
       }
+      status
     end
   end
 
