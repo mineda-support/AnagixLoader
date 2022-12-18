@@ -14,21 +14,24 @@
  <menu-path/>
  <interpreter>ruby</interpreter>
  <dsl-interpreter-name/>
- <text># Back Annotate v0.42 Dec 15th 2022 Copy right Seijiro Moriyama
+ <text># Back Annotate v0.43 Dec 17th 2022 Copy right Seijiro Moriyama
 module Backannotate
   include RBA
   # require 'YAML'
   class Backannotate
-    attr_accessor :ba
+    attr_accessor :ba, :ba_type
     def initialize cv
+      @ba_type = '*unknown*'
       ba_file = cv.filename.sub(/\..*/,'_ba.yaml')
       if File.exist? ba_file
         @ba = YAML.load File.read(ba_file)
         @converted = []
+        @ba_type = '*final*'
       else
         ba_file = cv.filename.sub(/\..*/,'_table.yaml')
         if File.exist? ba_file
           initialize_ba_data ba_file
+          @ba_type = '*initial*'
         end
       end
     end
@@ -39,7 +42,7 @@ module Backannotate
         ba_data[type] ||= {}
         device.each_pair{|l, w_group|
           w_group.each_pair{|w_m, w_params|
-            w_m =~ /(\S+)\*(Sd+)/
+            w_m =~ /(\S+)\*(\S+)/
             w = $1.to_f
             m = $2.to_i
             as_tot = ad_tot = ps_tot = pd_tot = 0
@@ -51,7 +54,7 @@ module Backannotate
               ps_tot = ps_tot + ps
               pd_tot = pd_tot + pd
             }
-            puts "m for #{w}/#{l} weird!" if m != w_params.size
+            puts "m(#{m}) for #{w}/#{l} weird! should be #{w_params.size}" if m != w_params.size
             key = "#{w}/#{l}/#{m}"
             ba_data[type][key] ||= {}
             ba_data[type][key] = {'M' =&gt; m, 'AS' =&gt; as_tot.round(6), 'AD' =&gt; ad_tot.round(6), 
@@ -77,13 +80,43 @@ module Backannotate
         netlist = File.open(file, 'r:Windows-1252').read.encode('UTF-8', invalid: :replace)
         header = netlist.slice(0..100)
         if ['.net', '.cir', '.spice', '.spc', '.sp'].include? File.extname(file).downcase
-          ba_netlist netlist, file, ba, &amp;block
+          ba_netlist netlist, file, ba, &amp;block if @ba_type == '*initial*'
+          ba_netlist_final netlist, file, ba, &amp;block if @ba_type == '*final*'
         elsif header =~ /xschem/
-          ba_xschem netlist, file, ba, &amp;block
+          ba_xschem netlist, file, ba, &amp;block  if @ba_type == '*initial*'
+          ba_xschem_final netlist, file, ba, &amp;block  if @ba_type == '*final*'
         elsif header =~ /^Version 4/
-          ba_ltspice netlist, file, ba, &amp;block
+          ba_ltspice netlist, file, ba, &amp;block    if @ba_type == '*initial*'
+          ba_ltspice_final netlist, file, ba, &amp;block    if @ba_type == '*final*'
         end
       }
+    end
+    def formalize_parameters w, m, as, ad, ps, pd, formalize=false
+      if formalize
+        if m == 1
+        " as=#{as}=&gt;{#{w}u*#{(as/w).round(4)}u} ps=#{ps}u=&gt;{(#{w}u+#{(ps/2 - w).round(4)}u)*2}"
+        else
+        " as=#{as}=&gt;{#{w}u*#{(as/w).round(4)}u} ps=#{ps}u=&gt;{(#{w}u+#{((ps*m/2 - w)/m).round(4)}u*#{m})*2/#{m}}"
+        end
+      else # {(2u+4u)*2} = ps
+        " as=#{as}p ad=#{ad}p ps=#{ps}u pd=#{pd}u"
+      end
+    end
+    def update_parameters l, params, current, new_netlist
+      as = params['AS'].to_f
+      ad = params['AD'].to_f
+      ps = params['PS'].to_f
+      pd = params['PD'].to_f
+      w = params['W'].to_f
+      erased = current.gsub(/ [apAP][sdSD]=\S+/, '') 
+      if m = params['M']
+        m = params['M'].to_i
+        erased = erased.gsub(/ [mMwW]=\S+/, '') + " w=#{w}u m=#{m}"
+      else
+        erased = erased.gsub(/ [mMwW]=\S+/, '') + " w=#{w}u"
+      end
+      new_netlist &lt;&lt;  l.sub(current, erased  + 
+        formalize_parameters(w, m, (as/m).round(4), (ad/m).round(4), (ps/m).round(4), (pd/m).round(4), true)) 
     end
     def v_in_micron desc
       if desc =~ /(\S+)[uU]/
@@ -99,19 +132,20 @@ module Backannotate
       netlist.each_line{|l|
         if l =~ /^[Mm]\S+ +\S+ +\S+ +\S+ +\S+ +(\S+) +(.*)$/
           dc = $1
+          current = $2
           if ba_data[dc]
             puts ba_data[dc].inspect
-            current = $2
             param = current.upcase.scan(/(\S+) *= *(\S+)/).to_h
             m = param['M'] ? param['M'].to_i : 1
             width = v_in_micron param['W']
             length = v_in_micron param['L']
-            key = "#{width}/#{length}"
-            key &lt;&lt; "/#{m}" if m &gt; 1
+            key = "#{width}/#{length}/#{m}"
             puts "key=#{key} for #{param}"
             if params = ba_data[dc][key]
-              puts '=&gt; OK'
-              yield  l, params, current, new_netlist
+              puts '=&gt; OK'                  
+              params['W'] = width
+              #yield  l, params, current, new_netlist
+              update_parameters l, params, current, new_netlist
               next
             else
               total_width = width * m
@@ -124,7 +158,8 @@ module Backannotate
                 if params = ba_data[dc][key]
                   params['M']  = n
                   params['W'] = width
-                  yield  l, params, current, new_netlist
+                  #yield  l, params, current, new_netlist
+                  update_parameters l, params, current, new_netlist
                   done = true
                   break
                 end
@@ -132,6 +167,36 @@ module Backannotate
               end
               next if done
             end
+          end
+        end
+        new_netlist &lt;&lt; l
+      }
+      File.open(file, 'w'){|f| f.puts new_netlist}
+      puts "#{file} updated"
+    end
+    def ba_netlist_final netlist, file, ba_source=@ba, &amp;block
+      new_netlist = ''
+      ba_data = nil
+      netlist.each_line{|l|
+        if l.upcase =~ /^\.SUBCKT +(\S+)/
+          cname = $1
+          ba_data = ba_source[cname]
+        elsif l =~ /^([Mm]\S+) +\S+ +\S+ +\S+ +\S+ +(\S+) +(.*)$/
+          en = $1
+          # dc = $2
+          current = $3         
+          if params = ba_data[en]
+            puts ba_data[en].inspect
+            param = current.upcase.scan(/(\S+) *= *(\S+)/).to_h
+            # params['W'] = v_in_micron param['W'] if param['W'] == '0' || param['W'] == '0.0u'
+            if m = param['M']
+              params['M'] = m.to_i
+              params['W'] = params['W'].to_f / params['M']
+            end
+            # arams['L'] = v_in_micron param['L']
+            #yield  l, params, current, new_netlist
+            update_parameters l, params, current, new_netlist
+            next
           end
         end
         new_netlist &lt;&lt; l
@@ -151,7 +216,8 @@ module Backannotate
         elsif l =~ /^C {(.*)\.sym}.*name=(M\d+) (.*)}/
           current = $3
           params = ba_data[$2]
-          yield l, params, current, new_netlist
+          #yield l, params, current, new_netlist
+          update_parameters l, params, current, new_netlist
           next
         end
         new_netlist &lt;&lt; l
@@ -181,7 +247,8 @@ module Backannotate
           current = $1
           if prefix == 'M'
             params = ba_data[prefix+id]
-            yield l, params, current, new_netlist
+            #yield l, params, current, new_netlist
+            update_parameters l, params, current, new_netlist
             next
           end
         end
@@ -199,24 +266,11 @@ module Backannotate
     sch = QFileDialog::getOpenFileName(mw, 'Schematic file', File.dirname(cv.filename), 'schematic(*.asc *.sch)')
     #ba.backannotate 'op2_tb.sch'
     (sch == '' &amp;&amp; sch =nil) || net = QFileDialog::getOpenFileName(mw, 'Netlist file', File.dirname(cv.filename), 'schematic(*.net *.cir *.spice *.sp *.spc)')
-    ba.backannotate(sch||net){|l, params, current, new_netlist|
-      as = params['AS'].to_f
-      ad = params['AD'].to_f
-      ps = params['PS'].to_f
-      pd = params['PD'].to_f
-      erased = current.gsub(/ [apAP][sdSD]=\S+/, '') 
-      if m = params['M']
-        m = params['M'].to_i
-        w = params['W'].to_f
-        erased = erased.sub(/ [mMwW]=\S+/, '') + " w=#{w}u m=#{m}"
-      end
-      new_netlist &lt;&lt;  l.sub(current, erased  + 
-        " as=#{(as/m).round(4)}p ad=#{(ad/m).round(4)}p ps=#{(ps/m).round(4)}u pd=#{(pd/m).round(4)}u")
-    }    
+    ba.backannotate(sch||net)
   rescue =&gt; error
     puts error
     puts "Backannotation might not exist under #{File.dirname cv.filename}!"
-  end
+  end  
 end
 </text>
 </klayout-macro>
