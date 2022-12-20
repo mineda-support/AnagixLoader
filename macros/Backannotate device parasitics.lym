@@ -14,7 +14,7 @@
  <menu-path/>
  <interpreter>ruby</interpreter>
  <dsl-interpreter-name/>
- <text># Back Annotate v0.43 Dec 17th 2022 Copy right Seijiro Moriyama
+ <text># Back Annotate v0.44 Dec 20th 2022 Copy right Seijiro Moriyama
 module Backannotate
   include RBA
   # require 'YAML'
@@ -102,7 +102,7 @@ module Backannotate
         " as=#{as}p ad=#{ad}p ps=#{ps}u pd=#{pd}u"
       end
     end
-    def update_parameters l, params, current, new_netlist
+    def update_parameters params, current
       as = params['AS'].to_f
       ad = params['AD'].to_f
       ps = params['PS'].to_f
@@ -115,8 +115,8 @@ module Backannotate
       else
         erased = erased.gsub(/ [mMwW]=\S+/, '') + " w=#{w}u"
       end
-      new_netlist &lt;&lt;  l.sub(current, erased  + 
-        formalize_parameters(w, m, (as/m).round(4), (ad/m).round(4), (ps/m).round(4), (pd/m).round(4), true)) 
+      erased  + formalize_parameters(w, m, (as/m).round(4), (ad/m).round(4),
+                                                  (ps/m).round(4), (pd/m).round(4), true)
     end
     def v_in_micron desc
       if desc =~ /(\S+)[uU]/
@@ -127,6 +127,39 @@ module Backannotate
         (desc.to_f * 1.0e6).round(4)
       end
     end
+    def backannotate_parameters current, ba_data, 
+      param = current.upcase.scan(/(\S+) *= *(\S+)/).to_h
+      m = param['M'] ? param['M'].to_i : 1
+      width = v_in_micron param['W']
+      length = v_in_micron param['L']
+      key = "#{width}/#{length}/#{m}"
+      puts "key=#{key} for #{param}"
+      if params = ba_data[key]
+        puts '=&gt; OK'                  
+        params['W'] = width
+        #yield  l, params, current, new_netlist
+        return update_parameters(params, current)
+      else
+        total_width = width * m
+        n = 2
+        puts "Try width =  #{(total_width/n).round(4)} &gt; #{length}"
+        done = false
+        while (width = (total_width/n).round(4)) &gt; length
+          key = "#{width}/#{length}/#{n}"
+          puts "Try key=#{key}"
+          if params = ba_data[key]
+            params['M']  = n
+            params['W'] = width
+            #yield  l, params, current, new_netlist
+            new = update_parameters(params, current)
+            done = true
+            break
+          end
+          n = n + 1
+        end
+        return new if done
+      end
+    end
     def ba_netlist netlist, file, ba_data=@ba, &amp;block
       new_netlist = ''
       netlist.each_line{|l|
@@ -135,41 +168,13 @@ module Backannotate
           current = $2
           if ba_data[dc]
             puts ba_data[dc].inspect
-            param = current.upcase.scan(/(\S+) *= *(\S+)/).to_h
-            m = param['M'] ? param['M'].to_i : 1
-            width = v_in_micron param['W']
-            length = v_in_micron param['L']
-            key = "#{width}/#{length}/#{m}"
-            puts "key=#{key} for #{param}"
-            if params = ba_data[dc][key]
-              puts '=&gt; OK'                  
-              params['W'] = width
-              #yield  l, params, current, new_netlist
-              update_parameters l, params, current, new_netlist
+            if new = backannotate_parameters(current, ba_data[dc])
+              new_netlist &lt;&lt; l.sub(current,  new)
               next
-            else
-              total_width = width * m
-              n = 2
-              puts "Try width =  #{(total_width/n).round(4)} &gt; #{length}"
-              done = false
-              while (width = (total_width/n).round(4)) &gt; length
-                key = "#{width}/#{length}/#{n}"
-                puts "Try key=#{key}"
-                if params = ba_data[dc][key]
-                  params['M']  = n
-                  params['W'] = width
-                  #yield  l, params, current, new_netlist
-                  update_parameters l, params, current, new_netlist
-                  done = true
-                  break
-                end
-                n = n + 1
-              end
-              next if done
             end
           end
+          new_netlist &lt;&lt; l
         end
-        new_netlist &lt;&lt; l
       }
       File.open(file, 'w'){|f| f.puts new_netlist}
       puts "#{file} updated"
@@ -195,7 +200,7 @@ module Backannotate
             end
             # arams['L'] = v_in_micron param['L']
             #yield  l, params, current, new_netlist
-            update_parameters l, params, current, new_netlist
+            new_netlist &lt;&lt; l.sub(current, update_parameters(params, current))
             next
           end
         end
@@ -217,7 +222,7 @@ module Backannotate
           current = $3
           params = ba_data[$2]
           #yield l, params, current, new_netlist
-          update_parameters l, params, current, new_netlist
+          new_netlist &lt;&lt; l.sub(current, update_parameters(params, current))
           next
         end
         new_netlist &lt;&lt; l
@@ -248,7 +253,7 @@ module Backannotate
           if prefix == 'M'
             params = ba_data[prefix+id]
             #yield l, params, current, new_netlist
-            update_parameters l, params, current, new_netlist
+            new_netlist &lt;&lt; l.sub(current, update_parameters(params, current))
             next
           end
         end
