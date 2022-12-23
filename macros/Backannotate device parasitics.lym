@@ -14,7 +14,7 @@
  <menu-path/>
  <interpreter>ruby</interpreter>
  <dsl-interpreter-name/>
- <text># Back Annotate v0.45 Dec 21st 2022 Copy right Seijiro Moriyama
+ <text># Back Annotate v0.46 Dec 22nd 2022 Copy right Seijiro Moriyama
 module Backannotate
   include RBA
   # require 'YAML'
@@ -23,9 +23,9 @@ module Backannotate
     def initialize cv
       @ba_type = '*unknown*'
       ba_file = cv.filename.sub(/\..*/,'_ba.yaml')
+      @converted = []
       if File.exist? ba_file
         @ba = YAML.load File.read(ba_file)
-        @converted = []
         @ba_type = '*final*'
       else
         ba_file = cv.filename.sub(/\..*/,'_table.yaml')
@@ -70,7 +70,7 @@ module Backannotate
       (x &gt; box.p1.x) &amp;&amp; (x &lt; box.p2.x) &amp;&amp;
       (y &gt; box.p1.y) &amp;&amp; (y &lt; box.p2.y)
     end
-    def backannotate file, ba=@ba, &amp;block
+    def backannotate file, ba=@ba
       Dir.chdir(File.dirname file){
         ckt_name = File.basename(file).sub(File.extname(file), '').upcase
         # puts "ckt_name=#{ckt_name}"
@@ -80,14 +80,19 @@ module Backannotate
         netlist = File.open(file, 'r:Windows-1252').read.encode('UTF-8', invalid: :replace)
         header = netlist.slice(0..100)
         if ['.net', '.cir', '.spice', '.spc', '.sp'].include? File.extname(file).downcase
-          ba_netlist netlist, file, ba, &amp;block if @ba_type == '*initial*'
-          ba_netlist_final netlist, file, ba, &amp;block if @ba_type == '*final*'
+          ba_netlist netlist, file, ba if @ba_type == '*initial*'
+          ba_netlist_final netlist, file, ba if @ba_type == '*final*'
         elsif header =~ /xschem/
-          ba_xschem netlist, file, ba, &amp;block  if @ba_type == '*initial*'
-          ba_xschem_final netlist, file, ba, &amp;block  if @ba_type == '*final*'
+          ba_xschem netlist, file, ba  if @ba_type == '*initial*'
+          ba_xschem_final netlist, file, ba  if @ba_type == '*final*'
         elsif header =~ /^Version 4/
-          ba_ltspice netlist, file, ba, &amp;block    if @ba_type == '*initial*'
-          ba_ltspice_final netlist, file, ba, &amp;block    if @ba_type == '*final*'
+          if @ba_type == '*initial*'
+            @device_class = create_device_table file.sub('.asc', '.net')
+            puts @device_class
+            ba_ltspice netlist, file, ba
+          elsif @ba_type == '*final*'
+            ba_ltspice_final netlist, file, ba
+          end
         end
       }
     end
@@ -98,7 +103,7 @@ module Backannotate
           " as={#{w}u*#{(as/w).round(4)}u} ad={#{w}u*#{(ad/w).round(4)}u} ps={(#{w}u+#{(ps/2 - w).round(4)}u)*2} pd={(#{w}u+#{(pd/2 - w).round(4)}u)*2}"
         else
           #" as=#{as}=&gt;{#{w}u*#{(as/w).round(4)}u} ps=#{ps}u=&gt;{(#{w}u+#{((ps*m/2 - w)/m).round(4)}u*#{m})*2/#{m}}"
-          " as={#{w}u*#{(as/w).round(4)}u} ad={#{w}u*#{(ad/w).round(4)}u} ps={(#{w}u+#{((ps*m/2 - w)/m).round(4)}u*#{m})*2/#{m}} pd={(#{w}u+#{((pd*m/2 - w)/m).round(4)}u*#{m})*2/#{m}"
+          " as={#{w}u*#{(as/w).round(4)}u} ad={#{w}u*#{(ad/w).round(4)}u} ps={(#{w}u+#{((ps*m/2 - w)/m).round(4)}u*#{m})*2/#{m}} pd={(#{w}u+#{((pd*m/2 - w)/m).round(4)}u*#{m})*2/#{m}}"
         end
       else # {(2u+4u)*2} = ps
         " as=#{as}p ad=#{ad}p ps=#{ps}u pd=#{pd}u"
@@ -162,7 +167,7 @@ module Backannotate
         return new if done
       end
     end
-    def ba_netlist netlist, file, ba_data=@ba, &amp;block
+    def ba_netlist netlist, file, ba_data=@ba
       new_netlist = ''
       netlist.each_line{|l|
         if l =~ /^[Mm]\S+ +\S+ +\S+ +\S+ +\S+ +(\S+) +(.*)$/
@@ -181,7 +186,7 @@ module Backannotate
       File.open(file, 'w'){|f| f.puts new_netlist}
       puts "#{file} updated"
     end
-    def ba_netlist_final netlist, file, ba_source=@ba, &amp;block
+    def ba_netlist_final netlist, file, ba_source=@ba
       new_netlist = ''
       ba_data = nil
       netlist.each_line{|l|
@@ -211,8 +216,7 @@ module Backannotate
       File.open(file, 'w'){|f| f.puts new_netlist}
       puts "#{file} updated"
     end
-    def ba_xschem netlist, file, ba_data=@ba, &amp;block
-      new_netlist = ''
+    def ba_xschem netlist, file, ba_data=@ba
       netlist.each_line{|l|
         if l =~ /^C {(.*)\.sym}.*name=x(\d+)/
           cell = "#{$1}.sch"
@@ -232,16 +236,18 @@ module Backannotate
       File.open(file, 'w'){|f| f.puts new_netlist}
       puts "#{file} updated"
     end
-    def ba_xschem_final netlist, file, ba_data=@ba, &amp;block
+    def ba_xschem_final netlist, file, ba_data=@ba
       puts 'not implemented yet'
     end
     DC_MAP = {'pch' =&gt; 'PMOS', 'nch' =&gt; 'NMOS'}          
     def create_device_table file
       device_class = {}
       ckt_name = '.TOP'
-      netlist = File.read(file)
+      netlist = File.open(file, 'r:Windows-1252').read.encode('UTF-8', invalid: :replace)
       netlist.each_line{|l|
-        puts "ckt_name:#{ckt_name}:#{l}"
+        l.gsub! 0.chr, ''
+       # puts "ckt_name:#{ckt_name}:#{l}"
+        puts ":#{File.basename file}:#{l}"
         device_class[ckt_name] ||= {}
         if l =~ /^([Mm]\S+) +\S+ +\S+ +\S+ +\S+ +(\S+) +(.*)$/
           name = $1
@@ -253,11 +259,9 @@ module Backannotate
       }
       device_class
     end
-    def ba_ltspice netlist, file, ba_data, &amp;block
+    def ba_ltspice netlist, file, ba_data
       #puts ba.inspect
       ckt_name = File.basename(file).sub(File.extname(file), '').upcase
-      device_class = create_device_table file.sub('.asc', '.net')
-      puts device_class
       new_netlist = ''
       symbol = prefix = id = dc = nil
       netlist.each_line{|l|
@@ -269,7 +273,7 @@ module Backannotate
           cell = "#{symbol}.asc"
           unless @converted.include? cell
             data = ba_data['X' + id] || ba_data[symbol.upcase]
-            ba_ltspice File.read(cell), cell, data, &amp;block
+            ba_ltspice File.read(cell), cell, data
             @converted &lt;&lt; cell
           end
         elsif l =~ /^SYMATTR InstName (\w)(\d+)/
@@ -278,7 +282,7 @@ module Backannotate
         elsif l =~ /^SYMATTR Value2 (.*)$/
           current = $1
           if prefix == 'M'
-            dc = device_class[ckt_name][prefix+id]
+            dc = @device_class[ckt_name][prefix+id]
             if new = backannotate_parameters(current, ba_data[dc])
               new_netlist &lt;&lt; l.sub(current,  new)
               next
@@ -290,7 +294,7 @@ module Backannotate
       File.open(file, 'w'){|f| f.puts new_netlist}
       puts "#{file} updated"
     end
-    def ba_ltspice_final netlist, file, ba_data, &amp;block
+    def ba_ltspice_final netlist, file, ba_data
       #puts ba.inspect
       new_netlist = ''
       symbol = prefix = id = nil
@@ -302,7 +306,7 @@ module Backannotate
           cell = "#{symbol}.asc"
           unless @converted.include? cell
             data = ba_data['X' + id] || ba_data[symbol.upcase]
-            ba_ltspice_final File.read(cell), cell, data, &amp;block
+            ba_ltspice_final File.read(cell), cell, data
             @converted &lt;&lt; cell
           end
         elsif l =~ /^SYMATTR InstName (\w)(\d+)/
