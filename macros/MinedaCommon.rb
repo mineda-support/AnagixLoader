@@ -620,8 +620,8 @@ module MinedaCommon
           w = $4
           l_desc = $1
           w_desc = $3
-          new_l = l_desc.sub(l, (l.to_f*factor).to_s)
-          new_w = w_desc.sub(w, (w.to_f*factor).to_s)
+          new_l = l_desc.sub(l, (l.to_f*factor).round(4).to_s)
+          new_w = w_desc.sub(w, (w.to_f*factor).round(4).to_s)
           line = line.sub(w_desc, new_w).sub(l_desc, new_l)
         end
         f.puts line

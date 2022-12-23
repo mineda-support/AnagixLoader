@@ -6,7 +6,7 @@
  <prolog/>
  <epilog/>
  <doc/>
- <autorun>false</autorun>
+ <autorun>true</autorun>
  <autorun-early>false</autorun-early>
  <shortcut/>
  <show-in-menu>false</show-in-menu>
@@ -14,21 +14,25 @@
  <menu-path/>
  <interpreter>ruby</interpreter>
  <dsl-interpreter-name/>
- <text># Back Annotate v0.46 Dec 22nd 2022 Copy right Seijiro Moriyama
-module Backannotate
-  include RBA
+ <text># Back Annotate v0.5 Dec 22nd 2022 Copy right Seijiro Moriyama
+module BackannotateModule
   # require 'YAML'
   class Backannotate
+    include RBA
     attr_accessor :ba, :ba_type
-    def initialize cv
+    def initialize device_class_map = nil
+      @dc_map = device_class_map
+      app = Application.instance
+      @mw = app.main_window
+      @cv = @mw.current_view.active_cellview  
       @ba_type = '*unknown*'
-      ba_file = cv.filename.sub(/\..*/,'_ba.yaml')
+      ba_file = @cv.filename.sub(/\..*/,'_ba.yaml')
       @converted = []
       if File.exist? ba_file
         @ba = YAML.load File.read(ba_file)
         @ba_type = '*final*'
       else
-        ba_file = cv.filename.sub(/\..*/,'_table.yaml')
+        ba_file = @cv.filename.sub(/\..*/,'_table.yaml')
         if File.exist? ba_file
           initialize_ba_data ba_file
           @ba_type = '*initial*'
@@ -171,7 +175,7 @@ module Backannotate
       new_netlist = ''
       netlist.each_line{|l|
         if l =~ /^[Mm]\S+ +\S+ +\S+ +\S+ +\S+ +(\S+) +(.*)$/
-          dc = $1
+          dc = @dc_map[$1.to_sym] || @dc_map[$1.upcase.to_sym]
           current = $2
           if ba_data[dc]
             puts ba_data[dc].inspect
@@ -239,7 +243,7 @@ module Backannotate
     def ba_xschem_final netlist, file, ba_data=@ba
       puts 'not implemented yet'
     end
-    DC_MAP = {'pch' =&gt; 'PMOS', 'nch' =&gt; 'NMOS'}          
+    # DC_MAP = {'pch' =&gt; 'PMOS', 'nch' =&gt; 'NMOS'}          
     def create_device_table file
       device_class = {}
       ckt_name = '.TOP'
@@ -252,7 +256,7 @@ module Backannotate
         if l =~ /^([Mm]\S+) +\S+ +\S+ +\S+ +\S+ +(\S+) +(.*)$/
           name = $1
           dc = $2
-          device_class[ckt_name] [name] = DC_MAP[dc] || dc
+          device_class[ckt_name] [name] = (@dc_map &amp;&amp; @dcmap[dc]) || dc
         elsif  l.upcase =~ /^\.SUBCKT +(\S+)/
           ckt_name = $1
         end
@@ -326,24 +330,24 @@ module Backannotate
       File.open(file, 'w'){|f| f.puts new_netlist}
       puts "#{file} updated"
     end
-  end
-  app = Application.instance
-  mw = app.main_window
-  cv = mw.current_view.active_cellview  
-  ba = Backannotate.new cv
-  begin
-    sch = QFileDialog::getOpenFileName(mw, 'Schematic file', File.dirname(cv.filename), 'schematic(*.asc *.sch)')
-    #ba.backannotate 'op2_tb.sch'
-    puts sch.inspect
-    if sch == '' || sch == nil
-      sch = nil
-      net = QFileDialog::getOpenFileName(mw, 'Netlist file', File.dirname(cv.filename), 'schematic(*.net *.cir *.spice *.sp *.spc)')
+    def do_backannotate
+      begin
+        sch = QFileDialog::getOpenFileName(@mw, 'Schematic file', File.dirname(@cv.filename), 'schematic(*.asc *.sch)')
+        #ba.backannotate 'op2_tb.sch'
+        puts sch.inspect
+        if sch == '' || sch == nil
+          sch = nil
+          net = QFileDialog::getOpenFileName(@mw, 'Netlist file', File.dirname(@cv.filename), 'schematic(*.net *.cir *.spice *.sp *.spc)')
+        end
+        backannotate(sch||net)
+      rescue =&gt; error
+        puts error
+        puts "Backannotation might not exist under #{File.dirname @cv.filename}!"
+      end 
     end
-    ba.backannotate(sch||net)
-  rescue =&gt; error
-    puts error
-    puts "Backannotation might not exist under #{File.dirname cv.filename}!"
-  end  
+  end
+  # ba = Backannotate.new
+  # ba.do_backannotate
 end
 </text>
 </klayout-macro>
