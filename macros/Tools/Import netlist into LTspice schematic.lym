@@ -15,7 +15,7 @@
  <interpreter>ruby</interpreter>
  <dsl-interpreter-name/>
  <text>module MyMacro
-   # import netlist into LTspice
+   # import netlist into LTspice v0.2 Dec. 25th 2022 copy right Seijiro Moriyama
   class ImportNetlist
     include RBA
     def initialize 
@@ -55,6 +55,7 @@
         new_netlist = ''
         symbol = prefix = id = nil
         netlist.each_line{|l|
+          puts l
           if l =~ /^SYMBOL (\w+)/
             symbol = $1
           elsif l =~ /^SYMATTR InstName X(\d+)/
@@ -67,10 +68,12 @@
           elsif l =~ /^SYMATTR Value2 (.*)$/
             current = $1
             if prefix == 'M'
-              params = @ba_data[symbol][prefix+id]
+              params = @ba_data[File.basename(file).sub('.asc', '').upcase][prefix+id]
               new_netlist &lt;&lt; l.sub(current, params)
+              next
             end
           end
+          new_netlist &lt;&lt; l
         }
         File.open(file, 'w'){|f| f.puts new_netlist}
         puts "#{file} updated"

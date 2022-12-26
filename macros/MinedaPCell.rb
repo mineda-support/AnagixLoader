@@ -1,5 +1,5 @@
 # coding: utf-8
-# MinedaPCell v0.761 Dec. 6th 2022 copy right S. Moriyama (Anagix Corporation)
+# MinedaPCell v0.77 Dec. 26th 2022 copy right S. Moriyama (Anagix Corporation)
 #
 #include MinedaPCellCommonModule
 module MinedaPCell
@@ -121,16 +121,16 @@ module MinedaPCell
         end
         if with_pcont
           pol_width = params[:pol_width] || u1 + u1/4
-          pol_width = [gl, vs/2].max if pol_width > gl
           if n == 1 && !with_sdcont
             insert_cell indices[:pcont], x1+vs+dgl+gl/2, y
             insert_cell indices[:via], x1+vs+dgl+gl/2, y if with_via
+            pol_width = [gl, vs/2].max if pol_width > gl            
             x3 = x1+vs+pol_width/2+dgl
             create_path indices[:pol], x3, y, x3, y2-vs + gate_ext - u1, pol_width, 0,0
           else
-            insert_cell indices[:pcont], x, y
+            pcont_inst = insert_cell indices[:pcont], x, y
+            pcont_size = pcont_inst.bbox.width
             insert_cell indices[:via], x, y if with_via
-            pcont_size = params[:pcont_size] || vs
             y = y - pcont_size/2 + pol_width/2
             x3 = x1+vs+pol_width/2+dgl
             create_path2 indices[:pol], x, y, x3, y, x3, y2-vs + gate_ext - u1, pol_width, 0, 0
@@ -420,9 +420,9 @@ module MinedaPCell
             x3 = x1+vs+pol_width/2+dgl
             create_path indices[:pol], x3, y, x3, y1+vs - gate_ext + u1, pol_width, 0,0
           else
-            insert_cell indices[:pcont], x, y
+            pcont_inst = insert_cell indices[:pcont], x, y
+            pcont_size = pcont_inst.bbox.width
             insert_cell indices[:via], x, y if with_via
-            pcont_size = params[:pcont_size] || vs
             y = y + pcont_size/2 - pol_width/2
             x3 = x1+vs+pol_width/2+dgl
             create_path2 indices[:pol], x, y, x3, y, x3, y1+vs - gate_ext + u1, pol_width, 0, 0
