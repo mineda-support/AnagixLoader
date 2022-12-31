@@ -1,9 +1,9 @@
 # coding: utf-8
-# MinedaPCell v0.77 Dec. 26th 2022 copy right S. Moriyama (Anagix Corporation)
+# MinedaPCell v0.78 Dec. 30th 2022 copy right S. Moriyama (Anagix Corporation)
 #
 #include MinedaPCellCommonModule
 module MinedaPCell
-  version = '0.761'
+  version = '0.78'
   include MinedaPCellCommonModule
   # The PCell declaration for the Mineda MOSFET
   class MinedaMOS < MinedaPCellCommon
@@ -198,21 +198,21 @@ module MinedaPCell
         create_box indices[:narea], x1-narea_bw, y1+vs+u1-narea_bw, offset-gl+narea_bw, y2-vs-u1+narea_bw
         # create_box indices[:lvhvt], x1-narea_bw, y1+vs+u1-narea_bw, offset-gl+narea_bw, y2-vs-u1+narea_bw if indices[:lvhvt]
         create_box indices[:nhd], x1-narea_bw, y1+vs+u1-narea_bw, offset-gl+narea_bw, y2-vs-u1+narea_bw if indices[:nhd] # special for PTS06
+        delta = params[:nex_delta] || u1*5
         if indices[:nex]
-          delta = params[:nex_delta] || u1*5
           create_box indices[:nex], x1-delta, y1+vs-u1/2-delta-u1, offset-gl+delta, y2-vs+u1/2+delta+u1
           delta = delta + delta
           create_box indices[:ar], x1-delta, y1+vs-u1/2-delta-u1, offset-gl+delta, y2-vs+u1/2+delta+u1 if indices[:ar]
         end
-         if indices[:pwl] && use_pwell
-           if one = params[:pwl_bw] #        one = u1*6.25
-             if indices[:nex]
-               create_box indices[:pwl], x1-delta-one, [y1+vs-u1/2-delta-u1-one, y2-vs+u1/2+delta+u1-4*one].min,
-                     [offset-gl+delta+one, x1-delta+4*one].max, y2-vs+u1/2+delta+u1+one
-             else
-               create_box indices[:pwl], x1-delta-one, y1+vs+u1-delta-one, offset-gl+delta+onr, y2-vs-u1+delta+one
-             end
-           end
+        if indices[:pwl] && use_pwell
+          if one = params[:pwl_bw] #        one = u1*6.25
+            if indices[:nex]
+              create_box indices[:pwl], x1-delta-one, [y1+vs-u1/2-delta-u1-one, y2-vs+u1/2+delta+u1-4*one].min,
+                    [offset-gl+delta+one, x1-delta+4*one].max, y2-vs+u1/2+delta+u1+one
+            else
+              create_box indices[:pwl], x1-delta-one, y1+vs+u1-delta-one, offset-gl+delta+one, y2-vs-u1+delta+one
+            end
+          end
         end
       }
     end
@@ -911,7 +911,7 @@ module MinedaPCell
 
       if polcnt_outside
         create_box indices[:pol], -u2-vs, 0, cw + cap_ext, cl
-        create_contacts_vertically indices, -u1-vs/2, 0, cl, vs, u1, params[:vpitch], :true # false
+        create_contacts_vertically indices, -u1-vs/2, 0, cl, vs, u1, params[:vpitch], true # false
       else
         create_box indices[:pol], -u1, 0, cw + cap_ext, cl
         create_contacts_vertically indices, u1+vs/2, 0, cl, vs, u1, params[:vpitch], true # false
@@ -931,6 +931,7 @@ module MinedaPCell
     def initialize
       super
       param(:cval, TypeDouble, "Capacitor value", :default => 0, :hidden=> true)
+      param(:polcnt_outside, TypeBoolean, "Poly contact outside?", :default => true, :hidden => false)
     end
 
     def display_text_impl
@@ -948,8 +949,13 @@ module MinedaPCell
       offset = vs+ u2+u1/2+u1/8
       create_box indices[:m1], 0, 0, offset + cw + cap_ext, cl
       create_box indices[:cap], offset, 0, offset + cw, cl
-      create_box indices[:pol], offset, -cap_ext, offset + cw , cl+u2+vs + pcont_dy
-      create_contacts_horizontally indices, offset,  offset + cw, cl + vs/2 + u1 + pcont_dy, vs, u1, params[:hpitch]
+      if polcnt_outside
+        create_box indices[:pol], offset, -cap_ext, offset + cw , cl+u2+vs + pcont_dy
+        create_contacts_horizontally indices, offset,  offset + cw, cl + vs/2 + u1 + pcont_dy, vs, u1, params[:hpitch]
+      else
+        create_box indices[:pol], offset, -cap_ext, offset + cw , cl-u2-vs + pcont_dy
+        create_contacts_horizontally indices, offset,  offset + cw, cl - vs/2 - u1 + pcont_dy, vs, u1, params[:hpitch]
+      end
     end
   end
 
