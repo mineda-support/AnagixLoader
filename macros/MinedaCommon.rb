@@ -1,6 +1,6 @@
 # Mineda Common
-#   Force on-grid v0.1 July 39th copy right S. Moriyama (Anagix Corp.)
-#   LVS preprocessor(get_reference) v0.67 Dec. 3rd copyright by S. Moriyama (Anagix Corporation)
+#   Force on-grid v0.1 July 39th 2022 copy right S. Moriyama (Anagix Corp.)
+#   LVS preprocessor(get_reference) v0.68 Jan. 2nd 2023 copyright by S. Moriyama (Anagix Corporation)
 #   * ConvertPCells and PCellDefaults moved from MinedaPCell v0.4 Nov. 22nd 2022
 #   ConvertPCells v0.1 Dec. 26th 2022  copy right S. Moriyama
 #   PCellTest v0.2 August 22nd 2022 S. Moriyama
@@ -955,6 +955,7 @@ class MinedaLVS
       c = File.open(File.join('lvs_work', File.basename(netlist))+'.txt', 'w:UTF-8')
       prev_line = ''
       comment_subckt = inside_subckt = false
+      subckt_params = []
       lines.each_line{|l|
         l.gsub! 00.chr, ''
         l.tr! "@%-", "$$_"
@@ -979,12 +980,14 @@ class MinedaLVS
         #   l.sub! /^/, '*'
         #  els
         if l =~ /^\.ends/
+          subckt_paras = []
           inside_subckt = false
           desc << '***' if comment_subckt
           comment_subckt = false
         elsif l=~/^\.subckt *(\S+)/
           subckt_name = $1
           inside_subckt = true
+          subckt_params = l.scan /(\S+)=(\S+)/
           if subckt_name.upcase == cell.name.upcase
             circuit_top = subckt_name
           else
@@ -999,6 +1002,7 @@ class MinedaLVS
           body = $1
           name=$2
           others = ($4 && $4.upcase)
+          subckt_params.each{|a, b| puts others.sub!(/=#{a}/, "=#{b}")}
           model = $3
           # device_class['NMOS'] = model if model && model.upcase =~ /NCH|NMOS/
           # device_class['PMOS'] = model if model && model.upcase =~ /PCH|PMOS/
@@ -1021,9 +1025,10 @@ class MinedaLVS
           end   
           # others = p.map{|a| "#{a[0]}=#{a[1]}"}.join ' '
           others = "l=#{p['L']} w=#{p['W']}" # supress other parameters like as, ps, ad and pd
+          others << " m=#{p['M']}" if p['M']
           l = "#{body} #{others}\n"
         elsif l =~ /^ *([rR]|[cC]|[dD])/ || l.downcase =~ /^ *\.(global|subckt|ends)/
-            # do nothing
+          subckt_params.each{|a, b| puts l.sub!(/ #{a} /, " #{b} ")}
         elsif  !inside_subckt && l =~ /^ *[xX]/
             circuit_top ||= '.TOP'
         else
