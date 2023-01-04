@@ -5,7 +5,7 @@
 #   ConvertPCells v0.1 Dec. 26th 2022  copy right S. Moriyama
 #   PCellTest v0.2 August 22nd 2022 S. Moriyama
 #   DRC_helper::find_cells_to_exclude v0.1 Sep 23rd 2022 S. Moriyama
-#   MinedaInput v0.2 Oct. 3rd 2022 S. Moriyama
+#   MinedaInput v0.31 Jan. 4th 2023 S. Moriyama
 #   MinedaPCellCommon v0.2 Dec. 8th 2022 S. Moriyama
 #   Create Backannotation data v0.15 Dec. 12th 2022 S. Moriyama
 
@@ -289,6 +289,17 @@ module MinedaCommon
       if File.exist? "#{@lvs_work}/#{@target}_lvs_settings.rb"
         "#{@lvs_work}/#{@target}_lvs_settings.rb"
       end
+    end
+    
+    def start exclude
+      reference, output = get_reference
+      if settings = get_settings
+        load settings
+        if defined? set_blank_layout
+          exclude = set_blank_layout
+        end
+      end
+      [reference, output, settings]
     end
     
     def lvs reference, output, lvs_data, l2n_data
