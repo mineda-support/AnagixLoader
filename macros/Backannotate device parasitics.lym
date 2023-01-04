@@ -8,13 +8,14 @@
  <doc/>
  <autorun>true</autorun>
  <autorun-early>false</autorun-early>
+ <priority>0</priority>
  <shortcut/>
  <show-in-menu>true</show-in-menu>
  <group-name/>
  <menu-path/>
  <interpreter>ruby</interpreter>
  <dsl-interpreter-name/>
- <text># Back Annotate v0.52Dec 25th 2022 Copy right Seijiro Moriyama
+ <text># Back Annotate v0.6 Jan 4th 2023 Copy right Seijiro Moriyama
 module BackannotateModule
   # require 'YAML'
   class Backannotate
@@ -37,6 +38,9 @@ module BackannotateModule
           initialize_ba_data ba_file
           @ba_type = '*initial*'
         end
+      end
+      if @ba_type == '*unknown*'
+        raise "Error: both #{@cv.filename.sub(/\..*/,'_ba.yaml')} and @{@cv.filename.sub(/\..*/,'_table.yaml')} do not exist!"
       end
     end
     def initialize_ba_data ba_file
@@ -122,9 +126,10 @@ module BackannotateModule
       erased = current.gsub(/ [apAP][sdSD]=\S+/, '') 
       if m = params['M']
         m = params['M'].to_i
-        erased = erased.gsub(/ [mMwW]=\S+/, '') + " w=#{w}u m=#{m}"
+        #erased = erased.gsub(/ [mMwW]=\S+/, '') + " w=#{w}u m=#{m}"
       else
-        erased = erased.gsub(/ [mMwW]=\S+/, '') + " w=#{w}u"
+        m = 1
+        #erased = erased.gsub(/ [mMwW]=\S+/, '') + " w=#{w}u"
       end
       erased  + formalize_parameters(w, m, (as/m).round(4), (ad/m).round(4),
                                                   (ps/m).round(4), (pd/m).round(4), true)
@@ -319,7 +324,8 @@ module BackannotateModule
         elsif l =~ /^SYMATTR Value2 (.*)$/
           current = $1
           if prefix == 'M'
-            params = ba_data[symbol||'.TOP'][prefix+id]
+            #params = ba_data[symbol||'.TOP'][prefix+id]
+            params = ba_data[prefix+id]
             #yield l, params, current, new_netlist
             new_netlist &lt;&lt; l.sub(current, update_parameters(params, current))
             next

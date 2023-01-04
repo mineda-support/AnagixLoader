@@ -291,6 +291,16 @@ module MinedaCommon
       end
     end
     
+    def lvs reference, output, lvs_data, l2n_data
+      if File.exist? reference
+        yield
+        create_ba_data lvs_data
+        make_symlink output
+      else
+        create_ba_table l2n_data
+      end
+    end
+    
     def make_symlink output
       # Netlist vs. netlist
       slink = "#{@lvs_work}/#{File.basename output}.txt"
