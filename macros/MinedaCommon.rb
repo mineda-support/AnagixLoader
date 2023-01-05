@@ -5,7 +5,7 @@
 #   ConvertPCells v0.1 Dec. 26th 2022  copy right S. Moriyama
 #   PCellTest v0.2 August 22nd 2022 S. Moriyama
 #   DRC_helper::find_cells_to_exclude v0.1 Sep 23rd 2022 S. Moriyama
-#   MinedaInput v0.31 Jan. 4th 2023 S. Moriyama
+#   MinedaInput v0.32 Jan. 5th 2023 S. Moriyama
 #   MinedaPCellCommon v0.2 Dec. 8th 2022 S. Moriyama
 #   Create Backannotation data v0.15 Dec. 12th 2022 S. Moriyama
 
@@ -302,13 +302,13 @@ module MinedaCommon
       [reference, output, settings]
     end
     
-    def lvs reference, output, lvs_data, l2n_data
+    def lvs reference, output, lvs_data, l2n_data, is_deep = false
       if File.exist? reference
         yield
         create_ba_data lvs_data
         make_symlink output
       else
-        create_ba_table l2n_data
+        create_ba_table l2n_data, is_deep
       end
     end
     
@@ -340,7 +340,11 @@ module MinedaCommon
         prefix
     end
     
-    def create_ba_table l2n_data
+    def create_ba_table l2n_data, is_deep
+      unless is_deep
+        puts "Caution: backannotation table (xxx.table.yaml) will be created only when LVS mode is deep"
+        return
+      end
       ext_name = File.extname @source.path
       target = File.basename(@source.path).sub(ext_name, '') 
       # trans_data = []
