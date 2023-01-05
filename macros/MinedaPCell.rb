@@ -1,9 +1,9 @@
 # coding: utf-8
-# MinedaPCell v0.78 Dec. 30th 2022 copy right S. Moriyama (Anagix Corporation)
+# MinedaPCell v0.781 Jan. 5th 2023 copy right S. Moriyama (Anagix Corporation)
 #
 #include MinedaPCellCommonModule
 module MinedaPCell
-  version = '0.78'
+  version = '0.781'
   include MinedaPCellCommonModule
   # The PCell declaration for the Mineda MOSFET
   class MinedaMOS < MinedaPCellCommon
@@ -382,7 +382,7 @@ module MinedaPCell
               create_box indices[:pwl], x1-delta-one, [y1+vs-u1/2-delta-u1-one, y2-vs+u1/2+delta+u1-4*one].min,
                      [offset-gl+delta+one, x1-delta+4*one].max, y2-vs+u1/2+delta+u1+one
             else
-               create_box indices[:pwl], x1-delta-one, y1+vs+u1-delta-one, offset-gl+delta+onr, y2-vs-u1+delta+one
+               create_box indices[:pwl], x1-delta-one, y1+vs+u1-delta-one, offset-gl+delta+one, y2-vs-u1+delta+one
             end
           end
         end
