@@ -95,8 +95,8 @@ module BackannotateModule
           ba_xschem_final netlist, file, ba  if @ba_type == '*final*'
         elsif header =~ /^Version 4/
           if @ba_type == '*initial*'
-            @device_class = create_device_table file.sub('.asc', '.net')
-            puts @device_class
+            @device_class_map = create_device_table file.sub('.asc', '.net')
+            puts @device_class_map
             ba_ltspice netlist, file, ba
           elsif @ba_type == '*final*'
             ba_ltspice_final netlist, file, ba
@@ -269,14 +269,38 @@ module BackannotateModule
       }
       device_class
     end
+    def update_symattr symattr, current, prefix, ckt_name, id, ba_data
+      if symattr 
+        new_netlist = ''
+        if prefix == 'M'
+          if @device_class_map[ckt_name].nil?
+            raise 'Error: @device_class_map is broken --- maybe netlist is broken'
+          end
+          dc = @device_class_map[ckt_name][prefix+id]
+        end
+        if current &amp;&amp; new = backannotate_parameters(current, ba_data[dc])              # new_netlist &lt;&lt; l.sub(current,  new)       
+          symattr[:Value2].sub!(current,  new)
+        end
+        symattr.values.each{|l|
+          new_netlist &lt;&lt; l
+          puts l
+        }
+        new_netlist
+      end
+    end
     def ba_ltspice netlist, file, ba_data
       #puts ba.inspect
       ckt_name = File.basename(file).sub(File.extname(file), '').upcase
       new_netlist = ''
-      symbol = prefix = id = dc = nil
+      symbol = prefix = id = dc = current = symattr = nil
       netlist.each_line{|l|
-        if l =~ /^SYMBOL (\w+)/
+        if l =~ /^SYMBOL (\S+)/
+          puts symbol
+          if update = update_symattr(symattr, current, prefix, ckt_name, id, ba_data)
+            new_netlist &lt;&lt; update
+          end
           symbol = $1
+          symattr = {}
         elsif l =~ /^SYMATTR InstName X(\d+)/
           id = $1
           ckt_name = symbol
@@ -286,21 +310,23 @@ module BackannotateModule
             ba_ltspice File.read(cell), cell, ba_data
             @converted &lt;&lt; cell
           end
+          #symattr[:InstName] = l
+          #next
         elsif l =~ /^SYMATTR InstName (\w)(\d+)/
           prefix = $1
           id = $2
+          symattr[:InstName] = l
+          next
         elsif l =~ /^SYMATTR Value2 (.*)$/
           current = $1
-          if prefix == 'M'
-            dc = @device_class[ckt_name][prefix+id]
-            if new = backannotate_parameters(current, ba_data[dc])
-              new_netlist &lt;&lt; l.sub(current,  new)
-              next
-            end
-          end
+          symattr[:Value2] = l
+          next
         end
         new_netlist &lt;&lt; l
       }
+      if update = update_symattr(symattr, current, prefix, ckt_name, id, ba_data)
+        new_netlist &lt;&lt; update
+      end
       File.open(file, 'w'){|f| f.puts new_netlist}
       puts "#{file} updated"
     end
@@ -309,7 +335,7 @@ module BackannotateModule
       new_netlist = ''
       symbol = prefix = id = nil
       netlist.each_line{|l|
-        if l =~ /^SYMBOL (\w+)/
+        if l =~ /^SYMBOL (\S+)/
           symbol = $1
         elsif l =~ /^SYMATTR InstName X(\d+)/
           id = $1
