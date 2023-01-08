@@ -544,7 +544,7 @@ module MinedaCommon
       cell.each_inst{|inst|
         t = inst.trans
         inst_cell_name = (@device_mapping && @device_mapping[inst.cell.name]) || inst.cell.name          
-        # puts inst.cell.name
+        puts inst.cell.name
         inst_cell_name.sub! /\$.*$/, ''
         if inst.cell.is_pcell_variant?
           next if inst.cell.library == lib # already converted

@@ -143,7 +143,8 @@ module BackannotateModule
         (desc.to_f * 1.0e6).round(4)
       end
     end
-    def backannotate_parameters current, ba_data, 
+    def backannotate_parameters current, ba_data
+      puts "current = #{current} for #{ba_data}"
       param = current.upcase.scan(/(\S+) *= *(\S+)/).to_h
       m = param['M'] ? param['M'].to_i : 1
       width = v_in_micron param['W']
