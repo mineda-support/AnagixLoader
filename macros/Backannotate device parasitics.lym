@@ -15,7 +15,7 @@
  <menu-path/>
  <interpreter>ruby</interpreter>
  <dsl-interpreter-name/>
- <text># Back Annotate v0.62 Jan 9th 2023 Copy right Seijiro Moriyama
+ <text># Back Annotate v0.63 Jan 9th 2023 Copy right Seijiro Moriyama
 module BackannotateModule
   # require 'YAML'
   class Backannotate
@@ -131,7 +131,7 @@ module BackannotateModule
         m = 1
         #erased = erased.gsub(/ [mMwW]=\S+/, '') + " w=#{w}u"
       end
-      erased  + formalize_parameters(w, m, (as/m).round(4), (ad/m).round(4),
+      erased  + formalize_parameters(w.round(4), m, (as/m).round(4), (ad/m).round(4),
                                                   (ps/m).round(4), (pd/m).round(4), true)
     end
     def v_in_micron desc
@@ -350,11 +350,12 @@ module BackannotateModule
           puts symbol
           symbol = $1
           new_netlist &lt;&lt; update_symattr_final(symattr, current, prefix, id, ba_data)
+          symattr = {}
         elsif l =~ /^SYMATTR InstName X(\d+)/
           id = $1
           cell = "#{symbol}.asc"
           unless @converted.include? cell
-            data = ba_data['X' + id] || ba_data[symbol.upcase]
+            data = ba_data['X' + id] || ba_data[symbol.upcase] || ba_data
             ba_ltspice_final File.read(cell), cell, data
             @converted &lt;&lt; cell
           end
