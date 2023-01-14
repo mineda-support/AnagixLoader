@@ -6,7 +6,7 @@
 #   PCellTest v0.2 August 22nd 2022 S. Moriyama
 #   DRC_helper::find_cells_to_exclude v0.1 Sep 23rd 2022 S. Moriyama
 #   MinedaInput v0.32 Jan. 5th 2023 S. Moriyama
-#   MinedaPCellCommon v0.2 Dec. 8th 2022 S. Moriyama
+#   MinedaPCellCommon v0.21 Jan. 14th 2023 S. Moriyama
 #   Create Backannotation data v0.15 Dec. 12th 2022 S. Moriyama
 
 module MinedaPCellCommonModule
@@ -242,7 +242,7 @@ module MinedaCommon
         p2 = box.p2
         box = RBA::Box::new(p1.x + @st, p1.y + @st, p2.x - @st, p2.y - @st)
         @cv. cell.shapes(@layer).insert(box.transformed trans)
-        puts "#{inst_cell_name} @ #{inst.bbox}, #{trans}"
+        puts "#{inst.cell.name} @ #{inst.bbox}, #{trans}"
       end
     end
   end
