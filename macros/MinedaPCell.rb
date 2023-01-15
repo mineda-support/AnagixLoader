@@ -1,9 +1,9 @@
 # coding: utf-8
-# MinedaPCell v0.781 Jan. 5th 2023 copy right S. Moriyama (Anagix Corporation)
+# MinedaPCell v0.782 Jan. 15th 2023 copy right S. Moriyama (Anagix Corporation)
 #
 #include MinedaPCellCommonModule
 module MinedaPCell
-  version = '0.781'
+  version = '0.782'
   include MinedaPCellCommonModule
   # The PCell declaration for the Mineda MOSFET
   class MinedaMOS < MinedaPCellCommon
@@ -244,10 +244,10 @@ module MinedaPCell
             insert_cell indices[:pcont], x, y
             insert_cell indices[:via], x, y if with_via
             y = y #- u1/2 # necessary to eliminate POL gap error
-            x0 = x1+vs+u1/2+dgl
+            x0 = x1+vs+gl/2+dgl
             unless no_finger_conn
               if defined?(soi_bridge) && soi_bridge
-                create_path2 indices[:m1], x, y, x0+u1, y, x0+u1, y2-vs + gate_ext - u1, pol_width, 0, 0
+                create_path2 indices[:m1], x, y, x0, y, x0, y2-vs + gate_ext - u1, pol_width, 0, 0
               else
                 create_path2 indices[:pol], x, y, x0, y, x0, y2-vs + gate_ext - u1, pol_width, 0, 0
               end
@@ -535,10 +535,10 @@ module MinedaPCell
             insert_cell indices[:pcont], x, y
             insert_cell indices[:via], x, y if with_via
             y = y # + u1/2 # necessary to eliminate POL gap error
-            x0 = x1+vs+u1/2+dgl
+            x0 = x1+vs+gl/2+dgl
             unless no_finger_conn
               if defined?(soi_bridge) && soi_bridge
-                create_path2 indices[:m1], x, y, x0+u1, y, x0+u1, y1+vs - gate_ext + u1, pol_width, 0, 0
+                create_path2 indices[:m1], x, y, x0, y, x0, y1+vs - gate_ext + u1, pol_width, 0, 0
               else
                 create_path2 indices[:pol], x, y, x0, y, x0, y1+vs - gate_ext + u1, pol_width, 0, 0
               end
