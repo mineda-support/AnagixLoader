@@ -1,9 +1,9 @@
 # coding: utf-8
-# MinedaPCell v0.782 Jan. 15th 2023 copy right S. Moriyama (Anagix Corporation)
+# MinedaPCell v0.783 Jan. 15th 2023 copy right S. Moriyama (Anagix Corporation)
 #
 #include MinedaPCellCommonModule
 module MinedaPCell
-  version = '0.782'
+  version = '0.783'
   include MinedaPCellCommonModule
   # The PCell declaration for the Mineda MOSFET
   class MinedaMOS < MinedaPCellCommon
@@ -248,9 +248,8 @@ module MinedaPCell
             unless no_finger_conn
               if defined?(soi_bridge) && soi_bridge
                 create_path2 indices[:m1], x, y, x0, y, x0, y2-vs + gate_ext - u1, pol_width, 0, 0
-              else
-                create_path2 indices[:pol], x, y, x0, y, x0, y2-vs + gate_ext - u1, pol_width, 0, 0
               end
+              create_path2 indices[:pol], x, y, x0, y, x0, y2-vs + gate_ext - u1, pol_width, 0, 0
             end
           end
         end
@@ -539,9 +538,8 @@ module MinedaPCell
             unless no_finger_conn
               if defined?(soi_bridge) && soi_bridge
                 create_path2 indices[:m1], x, y, x0, y, x0, y1+vs - gate_ext + u1, pol_width, 0, 0
-              else
-                create_path2 indices[:pol], x, y, x0, y, x0, y1+vs - gate_ext + u1, pol_width, 0, 0
               end
+              create_path2 indices[:pol], x, y, x0, y, x0, y1+vs - gate_ext + u1, pol_width, 0, 0
             end
           end
         end
