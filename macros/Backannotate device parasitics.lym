@@ -15,7 +15,7 @@
  <menu-path/>
  <interpreter>ruby</interpreter>
  <dsl-interpreter-name/>
- <text># Back Annotate v0.63 Jan 9th 2023 Copy right Seijiro Moriyama
+ <text># Back Annotate v0.64 Jan 18th 2023 Copy right Seijiro Moriyama
 module BackannotateModule
   # require 'YAML'
   class Backannotate
@@ -277,11 +277,11 @@ module BackannotateModule
             raise 'Error: @device_class_map is broken --- maybe netlist is broken'
           end
           dc = @device_class_map[ckt_name][prefix+id]
+          if current &amp;&amp; new = backannotate_parameters(current, ba_data[dc])              # new_netlist &lt;&lt; l.sub(current,  new)       
+            symattr[:Value2].sub!(current,  new)
+          end
         end
-        if current &amp;&amp; new = backannotate_parameters(current, ba_data[dc])              # new_netlist &lt;&lt; l.sub(current,  new)       
-          symattr[:Value2].sub!(current,  new)
-        end
-        symattr.values.each{|l|
+       symattr.values.each{|l|
           new_netlist &lt;&lt; l
           puts l
         }
