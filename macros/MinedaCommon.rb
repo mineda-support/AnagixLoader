@@ -294,6 +294,7 @@ module MinedaCommon
     def start exclude
       reference, output = get_reference
       if settings = get_settings
+        undef set_blank_layout if defined? set_blank_layout
         load settings
         if defined? set_blank_layout
           exclude = set_blank_layout

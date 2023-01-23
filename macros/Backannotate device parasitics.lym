@@ -15,7 +15,7 @@
  <menu-path/>
  <interpreter>ruby</interpreter>
  <dsl-interpreter-name/>
- <text># Back Annotate v0.64 Jan 18th 2023 Copy right Seijiro Moriyama
+ <text># Back Annotate v0.65 Jan 23rd 2023 Copy right Seijiro Moriyama
 module BackannotateModule
   # require 'YAML'
   class Backannotate
@@ -297,7 +297,7 @@ module BackannotateModule
         if l =~ /^SYMBOL (\S+)/
           puts symbol # previous symbol name
           symbol = $1          
-          new_netlist &lt;&lt; update_symattr(symattr, current, prefix, ckt_name, id, ba_data)
+          new_netlist &lt;&lt; update_symattr(symattr, current, prefix, ckt_name.upcase, id, ba_data)
           symattr = {}
         elsif l =~ /^SYMATTR InstName X(\d+)/
           id = $1
@@ -322,7 +322,7 @@ module BackannotateModule
         end
         new_netlist &lt;&lt; l
       }
-      new_netlist &lt;&lt; update_symattr(symattr, current, prefix, ckt_name, id, ba_data)
+      new_netlist &lt;&lt; update_symattr(symattr, current, prefix, ckt_name.upcase, id, ba_data)
       File.open(file, 'w'){|f| f.puts new_netlist}
       puts "#{file} updated"
     end
