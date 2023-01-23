@@ -1,6 +1,6 @@
 # Mineda Common
 #   Force on-grid v0.1 July 39th 2022 copy right S. Moriyama (Anagix Corp.)
-#   LVS preprocessor(get_reference) v0.68 Jan. 2nd 2023 copyright by S. Moriyama (Anagix Corporation)
+#   LVS preprocessor(get_reference) v0.69 Jan. 23rd 2023 copyright by S. Moriyama (Anagix Corporation)
 #   * ConvertPCells and PCellDefaults moved from MinedaPCell v0.4 Nov. 22nd 2022
 #   ConvertPCells v0.1 Dec. 26th 2022  copy right S. Moriyama
 #   PCellTest v0.2 August 22nd 2022 S. Moriyama
@@ -1055,10 +1055,10 @@ class MinedaLVS
           l = "#{body} #{others}\n"
         elsif l =~ /^ *([rR]|[cC]|[dD])/ || l.downcase =~ /^ *\.(global|subckt|ends)/
           subckt_params.each{|a, b| puts l.sub!(/ #{a} /, " #{b} ")}
-        elsif  !inside_subckt && l =~ /^ *[xX]/
-            circuit_top ||= '.TOP'
+        elsif l =~ /^ *[xX]/
+            circuit_top ||= '.TOP'  unless inside_subckt
         else
-          l.sub! /^/, '*' if !(l =~ /^ *\+/) || prev_line =~ /^ *\*/ # comment
+          l.sub! /^/, '*' if !(l =~ /^ *\+/) || prev_line =~ /^ *\*/ # comment_subckt
         end
         break if l.upcase.strip == '.END'
         prev_line = l
