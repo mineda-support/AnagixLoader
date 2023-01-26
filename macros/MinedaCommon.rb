@@ -420,7 +420,7 @@ module MinedaCommon
               device = prefix + dname
               ba_data[cname][device] ||= {}
               ext && ext.device_class.parameter_definitions.each{|p|
-                ba_data[cname][device][p.name] = ext.parameter(p.name)
+                ba_data[cname][device][p.name] = ext.parameter(p.name).round(5)
               }
             elsif dname =~ /^(.*)\.(\d+)$/
               ckt = $1
@@ -428,7 +428,7 @@ module MinedaCommon
               ba_data[cname][ckt] ||= {}
               ba_data[cname][ckt][device] ||= {}
               ext && ext.device_class.parameter_definitions.each{|p|
-                ba_data[cname][ckt][device][p.name] = ext.parameter(p.name)
+                ba_data[cname][ckt][device][p.name] = ext.parameter(p.name).round(5)
               }
             end
           end
