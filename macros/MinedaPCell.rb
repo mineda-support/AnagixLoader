@@ -1,5 +1,5 @@
 # coding: utf-8
-# MinedaPCell v0.784 Jan. 16th 2023 copy right S. Moriyama (Anagix Corporation)
+# MinedaPCell v0.79 Feb. 3rd 2023 copy right S. Moriyama (Anagix Corporation)
 #
 #include MinedaPCellCommonModule
 module MinedaPCell
@@ -248,8 +248,10 @@ module MinedaPCell
             unless no_finger_conn
               if defined?(soi_bridge) && soi_bridge
                 create_path2 indices[:m1], x, y, x0, y, x0, y2-vs + gate_ext - u1, pol_width, 0, 0
+                create_path2 indices[:pol], x, y, x0, y, x0, y2-vs + gate_ext - u1, pol_width, 0, 0  if gl > vs
+              else
+                create_path2 indices[:pol], x, y, x0, y, x0, y2-vs + gate_ext - u1, pol_width, 0, 0
               end
-              create_path2 indices[:pol], x, y, x0, y, x0, y2-vs + gate_ext - u1, pol_width, 0, 0  if gl > vs
             end
           end
         end
@@ -324,9 +326,12 @@ module MinedaPCell
             #create_path(indices[:pol], x, vs, x, vs+u1+gw + u1, gl, 0, 0)
             if defined?(soi_bridge) && soi_bridge
               x = x + vs/2 + gl/2 + dgl
-              insert_cell indices[:pcont], x, [u1+gw, vs+u1+vs/2].max
+              yc = [u1+gw, vs+u1+vs/2].max
+              #insert_cell indices[:pcont], x, [u1+gw, vs+u1+vs/2].max
+              cs = vs - u1 # 5um
+              create_box indices[:cnt], x - cs/2, yc - cs/2, x + cs/2, yc + cs/2
               insert_cell indices[:pcont], x, vs+u1+gw +vs/2 + u1 if i > 0
-              create_path indices[:m1], x, [u1+gw, vs+u1+vs/2].max, x, vs+u1+gw +vs/2 + u1, vs, 0, 0
+              create_path indices[:m1], x, yc - vs/2, x, vs+u1+gw +vs/2 + u1, vs, 0, 0
             end
           end
           offset = offset + vs + gl + 2*dgl
@@ -538,8 +543,10 @@ module MinedaPCell
             unless no_finger_conn
               if defined?(soi_bridge) && soi_bridge
                 create_path2 indices[:m1], x, y, x0, y, x0, y1+vs - gate_ext + u1, pol_width, 0, 0
+                create_path2 indices[:pol], x, y, x0, y, x0, y1+vs - gate_ext + u1, pol_width, 0, 0 if gl > vs
+              else
+                create_path2 indices[:pol], x, y, x0, y, x0, y1+vs - gate_ext + u1, pol_width, 0, 0
               end
-              create_path2 indices[:pol], x, y, x0, y, x0, y1+vs - gate_ext + u1, pol_width, 0, 0 if gl > vs
             end
           end
         end
@@ -612,9 +619,12 @@ module MinedaPCell
             #create_path(indices[:pol], x, vs, x, vs+u1+gw + u1, gl, 0, 0)
             if defined?(soi_bridge) && soi_bridge
               x = x + vs/2 + gl/2 + dgl
-              insert_cell indices[:pcont], x, [y1+vs+vs+u1, y1+vs+u1+gw-vs/2].min
+              yc = [y1+vs+vs+u1, y1+vs+u1+gw-vs/2].min
+              #insert_cell indices[:pcont], x, [y1+vs+vs+u1, y1+vs+u1+gw-vs/2].min
+              cs = vs - u1 # 5um
+              create_box indices[:cnt], x - cs/2, yc - cs/2, x + cs/2, yc + cs/2
               insert_cell indices[:pcont],  x, y1+vs/2 if i> 0
-              create_path indices[:m1], x, y1+vs/2, x,[y1+vs+vs+u1, y1+vs+u1+gw-vs/2].min, vs, 0, 0
+              create_path indices[:m1], x, y1+vs/2, x, yc + vs/2, vs, 0, 0
             end
           end
           offset = offset + vs + gl + 2*dgl
