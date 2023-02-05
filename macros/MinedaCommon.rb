@@ -355,15 +355,16 @@ module MinedaCommon
         rest = []
         devices_count = 0
         c.each_device{|device| devices_count = devices_count + 1}
+        puts "devices_count = #{devices_count}"
         count = 0
         c.each_device{|device|
-          puts [device.expanded_name, device.device_class.name, device.device_abstract.name, device.trans.to_s].inspect
           # trans_data << device.trans
           prefix = find_prefix(device.device_class.class.name)
           case prefix
           when 'M' 
             l = device.parameter('L').round(4)
             w = device.parameter('W').round(4)
+            puts [count, device.expanded_name, device.device_class.name, [l, w], device.trans.to_s].inspect
             displacement = device.trans.disp
             rest << [[displacement.x.round(6), displacement.y.round(6)]]+ # , device.trans.to_s
                    [['AS', 'AD', 'PS', 'PD'].map{|p| device.parameter(p).round(6)}]
@@ -643,7 +644,7 @@ module MinedaCommon
     def convert_circuit org_cir, tgt_cir, factor
       f = File.open(tgt_cir, 'w')
       File.read(org_cir).encode('UTF-8', invalid: :replace).each_line{|line|
-        if line =~ /^M.* +(L=(.*)[UN]) +(W=(.*)[UN])/
+        if line =~ /^M.* +(L=(.*)[UN])\S* +(W=(.*)[UN])\S*/
           l = $2
           w = $4
           l_desc = $1

@@ -15,7 +15,7 @@
  <menu-path/>
  <interpreter>ruby</interpreter>
  <dsl-interpreter-name/>
- <text># Back Annotate v0.7 Jan 26th 2023 Copy right Seijiro Moriyama
+ <text># Back Annotate v0.71 Feb. 4th 2023 Copy right Seijiro Moriyama
 module BackannotateModule
   # require 'YAML'
   class Backannotate
@@ -123,13 +123,13 @@ module BackannotateModule
       ps = params['PS'].to_f
       pd = params['PD'].to_f
       w = params['W'].to_f
-      erased = current.gsub(/ [apAP][sdSD]=\S+/, '') 
+      erased = current.gsub(/ [apAP][sdSD]=\S+/, '')
       if m = params['M']
         m = params['M'].to_i
-        #erased = erased.gsub(/ [mMwW]=\S+/, '') + " w=#{w}u m=#{m}"
+        erased = erased.gsub(/ [mMwW]=\S+/, '') + " w=#{w.round(4)}u m=#{m}"
       else
         m = 1
-        #erased = erased.gsub(/ [mMwW]=\S+/, '') + " w=#{w}u"
+        erased = erased.gsub(/ [mMwW]=\S+/, '') + " w=#{w.round(4)}u"
       end
       erased  + formalize_parameters(w.round(4), m, (as/m).round(4), (ad/m).round(4),
                                                   (ps/m).round(4), (pd/m).round(4), true)
@@ -253,6 +253,9 @@ module BackannotateModule
     def create_device_table file
       device_class = {}
       ckt_name = '.TOP'
+      unless File.exist? file
+        raise "Error: netlist for #{file} is not available --- please generate it with LTspice"
+      end
       netlist = File.open(file, 'r:Windows-1252').read.encode('UTF-8', invalid: :replace)
       netlist.each_line{|l|
         l.gsub! 0.chr, ''

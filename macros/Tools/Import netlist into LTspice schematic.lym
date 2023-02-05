@@ -8,6 +8,7 @@
  <doc/>
  <autorun>false</autorun>
  <autorun-early>false</autorun-early>
+ <priority>0</priority>
  <shortcut/>
  <show-in-menu>false</show-in-menu>
  <group-name/>
@@ -15,7 +16,7 @@
  <interpreter>ruby</interpreter>
  <dsl-interpreter-name/>
  <text>module MyMacro
-   # import netlist into LTspice v0.2 Dec. 25th 2022 copy right Seijiro Moriyama
+   # import netlist into LTspice v0.3 Feb. 4th 2022 copy right Seijiro Moriyama
   class ImportNetlist
     include RBA
     def initialize 
@@ -49,15 +50,32 @@
        sch = QFileDialog::getOpenFileName(@mw, 'Schematic file', File.dirname(@cv.filename), 'schematic(*.asc)')
        update_schematic sch if sch != ''
     end
+    def update_symattr symattr, current, prefix, file, id
+      new_netlist = ''
+      if symattr 
+        if prefix == 'M'
+          if current &amp;&amp; new = @ba_data[File.basename(file).sub('.asc', '').upcase][prefix+id]
+            symattr[:Value2].sub!(current,  new)
+          end
+        end
+        symattr.values.each{|l|
+          new_netlist &lt;&lt; l
+          puts l
+        }
+      end
+      new_netlist
+    end
     def update_schematic file
       netlist = File.open(file, 'r:Windows-1252').read.encode('UTF-8', invalid: :replace)
       Dir.chdir(File.dirname file){
         new_netlist = ''
-        symbol = prefix = id = nil
+        symbol = prefix = id = symattr = current = nil
         netlist.each_line{|l|
           puts l
           if l =~ /^SYMBOL (\w+)/
             symbol = $1
+            new_netlist &lt;&lt; update_symattr(symattr, current, prefix, file, id)
+            symattr = {}
           elsif l =~ /^SYMATTR InstName X(\d+)/
             id = $1
             cell = "#{symbol}.asc"
@@ -65,16 +83,16 @@
           elsif l =~ /^SYMATTR InstName (\w)(\d+)/
             prefix = $1
             id = $2
+            symattr[:InstName] = l
+            next
           elsif l =~ /^SYMATTR Value2 (.*)$/
             current = $1
-            if prefix == 'M'
-              params = @ba_data[File.basename(file).sub('.asc', '').upcase][prefix+id]
-              new_netlist &lt;&lt; l.sub(current, params)
-              next
-            end
+            symattr[:Value2] = l
+            next
           end
           new_netlist &lt;&lt; l
         }
+        new_netlist &lt;&lt; update_symattr(symattr, current, prefix, file, id)
         File.open(file, 'w'){|f| f.puts new_netlist}
         puts "#{file} updated"
       }
