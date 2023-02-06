@@ -15,7 +15,7 @@
  <menu-path/>
  <interpreter>ruby</interpreter>
  <dsl-interpreter-name/>
- <text># Back Annotate v0.71 Feb. 4th 2023 Copy right Seijiro Moriyama
+ <text># Back Annotate v0.72 Feb. 6th 2023 Copy right Seijiro Moriyama
 module BackannotateModule
   # require 'YAML'
   class Backannotate
@@ -174,7 +174,11 @@ module BackannotateModule
           end
           n = n + 1
         end
-        return new if done
+        if done
+          return new
+        else
+          raise "Error: backannotation data for '#{current}' is not available --- please convert cells with routing_scale_factor: larger than pcell_scale_factor and run LVS again"
+        end
       end
     end
     def ba_netlist netlist, file, ba_data=@ba
@@ -193,7 +197,7 @@ module BackannotateModule
           new_netlist &lt;&lt; l
         end
       }
-      File.open(file, 'w'){|f| f.puts new_netlist}
+      File.open(file, 'w:Windows-1252'){|f| f.puts new_netlist}
       puts "#{file} updated"
     end
     def ba_netlist_final netlist, file, ba_source=@ba
@@ -223,7 +227,7 @@ module BackannotateModule
         end
         new_netlist &lt;&lt; l
       }
-      File.open(file, 'w'){|f| f.puts new_netlist}
+      File.open(file, 'w:Windows-1252'){|f| f.puts new_netlist}
       puts "#{file} updated"
     end
     def ba_xschem netlist, file, ba_data=@ba
@@ -326,7 +330,7 @@ module BackannotateModule
         new_netlist &lt;&lt; l
       }
       new_netlist &lt;&lt; update_symattr(symattr, current, prefix, ckt_name.upcase, id, ba_data)
-      File.open(file, 'w'){|f| f.puts new_netlist}
+      File.open(file, 'w:Windows-1252'){|f| f.puts new_netlist}
       puts "#{file} updated"
     end
     def update_symattr_final symattr, current, prefix, id, top_ckt, inst_sym, ids
@@ -398,7 +402,7 @@ module BackannotateModule
       }
       new_netlist &lt;&lt; update_symattr_final(symattr, current, prefix, id, top_ckt, inst_sym, ids)
       unless $debug
-        File.open(file, 'w'){|f| f.puts new_netlist}
+        File.open(file, 'w:Windows-1252'){|f| f.puts new_netlist}
         puts "#{file} updated"
       end
     end
