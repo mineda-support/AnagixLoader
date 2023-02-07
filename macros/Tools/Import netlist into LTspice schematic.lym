@@ -16,7 +16,7 @@
  <interpreter>ruby</interpreter>
  <dsl-interpreter-name/>
  <text>module MyMacro
-   # import netlist into LTspice v0.3 Feb. 4th 2022 copy right Seijiro Moriyama
+   # import netlist into LTspice v0.31 Feb. 7th 2022 copy right Seijiro Moriyama
   class ImportNetlist
     include RBA
     def initialize 
@@ -93,7 +93,7 @@
           new_netlist &lt;&lt; l
         }
         new_netlist &lt;&lt; update_symattr(symattr, current, prefix, file, id)
-        File.open(file, 'w'){|f| f.puts new_netlist}
+        File.open(file, 'w:Windows-1252'){|f| f.puts new_netlist}
         puts "#{file} updated"
       }
       @converted &lt;&lt; file

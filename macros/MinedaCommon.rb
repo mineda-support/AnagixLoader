@@ -307,7 +307,7 @@ module MinedaCommon
       if File.exist? reference
         yield
         create_ba_data lvs_data
-        make_symlink output
+        # make_symlink output
       else
         create_ba_table l2n_data, is_deep
       end
