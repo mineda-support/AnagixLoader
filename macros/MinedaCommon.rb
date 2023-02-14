@@ -284,6 +284,14 @@ module MinedaCommon
       [reference, output]
     end
     
+    def report_netlist_file
+      "#{@lvs_work}/#{@target}.l2ndb"
+    end
+    
+    def target
+      @target
+    end
+    
     def get_settings
       puts "settings file: #{@lvs_work}/#{@target}_lvs_settings.rb"
       if File.exist? "#{@lvs_work}/#{@target}_lvs_settings.rb"
