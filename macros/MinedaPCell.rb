@@ -1,9 +1,9 @@
 # coding: utf-8
-# MinedaPCell v0.79 Feb. 3rd 2023 copy right S. Moriyama (Anagix Corporation)
+# MinedaPCell v0.791 Feb. 27th 2023 copy right S. Moriyama (Anagix Corporation)
 #
 #include MinedaPCellCommonModule
 module MinedaPCell
-  version = '0.784'
+  version = '0.791'
   include MinedaPCellCommonModule
   # The PCell declaration for the Mineda MOSFET
   class MinedaMOS < MinedaPCellCommon
@@ -80,9 +80,9 @@ module MinedaPCell
         offset = offset + vs + gl + 2*dgl
       }
       if gw > vs + vs_extra
-        create_box indices[:diff], -xshift, vs-yshift+u1, offset - gl - 2*dgl - xshift, vs-yshift+u1-u1cut+gw
+        create_box indices[:diff], -xshift, vs-yshift+u1, offset - gl - 2*dgl - xshift, vs-yshift+u1+gw
       else
-        create_box indices[:diff], -xshift, vs-yshift+u1+(vs+vs_extra)/2-gw/2, offset - gl - 2*dgl - xshift, vs-yshift+u1-u1cut+gw+(vs+vs_extra)/2-gw/2
+        create_box indices[:diff], -xshift, vs-yshift+u1+(vs+vs_extra)/2-gw/2, offset - gl - 2*dgl - xshift, vs-yshift+u1+gw+(vs+vs_extra)/2-gw/2
       end
       yield -xshift, -yshift, vs*2+gl-xshift, (vs+u1)*2+sd_width-yshift, gl, gw, dgl
     end

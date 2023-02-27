@@ -15,7 +15,7 @@
  <menu-path/>
  <interpreter>ruby</interpreter>
  <dsl-interpreter-name/>
- <text># Back Annotate v0.72 Feb. 6th 2023 Copy right Seijiro Moriyama
+ <text># Back Annotate v0.73 Feb. 27th 2023 Copy right Seijiro Moriyama
 module BackannotateModule
   # require 'YAML'
   class Backannotate
@@ -184,7 +184,7 @@ module BackannotateModule
     def ba_netlist netlist, file, ba_data=@ba
       new_netlist = ''
       netlist.each_line{|l|
-        if l =~ /^[Mm]\S+ +\S+ +\S+ +\S+ +\S+ +(\S+) +(.*)$/
+        if l =~ /^[Xx]*[Mm]\S+ +\S+ +\S+ +\S+ +\S+ +(\S+) +(.*)$/
           dc = @dc_map[$1.to_sym] || @dc_map[$1.upcase.to_sym]
           current = $2
           if ba_data[dc]
@@ -194,6 +194,7 @@ module BackannotateModule
               next
             end
           end
+        else
           new_netlist &lt;&lt; l
         end
       }
