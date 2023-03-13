@@ -7,7 +7,7 @@
 #   DRC_helper::find_cells_to_exclude v0.1 Sep 23rd 2022 S. Moriyama
 #   MinedaInput v0.32 Jan. 5th 2023 S. Moriyama
 #   MinedaPCellCommon v0.21 Jan. 14th 2023 S. Moriyama
-#   Create Backannotation data v0.16 Jan 26th 2022 S. Moriyama
+#   Create Backannotation data v0.17 Mar. 12th 2023 S. Moriyama
 
 module MinedaPCellCommonModule
   include RBA
@@ -365,6 +365,7 @@ module MinedaCommon
         c.each_device{|device| devices_count = devices_count + 1}
         puts "devices_count = #{devices_count}"
         count = 0
+        old_dcname = old_w = nil
         c.each_device{|device|
           # trans_data << device.trans
           prefix = find_prefix(device.device_class.class.name)
@@ -373,21 +374,30 @@ module MinedaCommon
             l = device.parameter('L').round(4)
             w = device.parameter('W').round(4)
             puts [count, device.expanded_name, device.device_class.name, [l, w], device.trans.to_s].inspect
-            displacement = device.trans.disp
-            rest << [[displacement.x.round(6), displacement.y.round(6)]]+ # , device.trans.to_s
-                   [['AS', 'AD', 'PS', 'PD'].map{|p| device.parameter(p).round(6)}]
             dcname = device.device_class.name
+            displacement = device.trans.disp
+            latest = [[displacement.x.round(6), displacement.y.round(6)]]+ # , device.trans.to_s 
+                     [['AS', 'AD', 'PS', 'PD'].map{|p| device.parameter(p).round(6)}]
             ba_data[prefix] ||= {}
             ba_data[prefix][dcname] ||= {}
             ba_data[prefix][dcname][l] ||= {}
             count = count + 1
             if count == devices_count
+              rest << latest
               w_key = "#{w}*#{rest.size}"
-              ba_data[prefix][dcname][l][w_key] ||= {}
-              ba_data[prefix][dcname][l][w_key] = rest
+              ba_data[prefix][old_dcname][l][w_key] = rest
+            elsif old_dcname && dcname != old_dcname
+              w_key = "#{old_w}*#{rest.size}"
+              ba_data[prefix][old_dcname][l][w_key] = rest
+              rest = [latest]
+            else
+              rest << latest
             end
+            old_dcname = dcname
+            old_w = w
           end
        }
+
       }
       # puts ba_data.inspect
       Dir.chdir(File.dirname @source.path){
