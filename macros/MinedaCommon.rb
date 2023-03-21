@@ -2,7 +2,7 @@
 #   Force on-grid v0.1 July 39th 2022 copy right S. Moriyama (Anagix Corp.)
 #   LVS preprocessor(get_reference) v0.69 Jan. 23rd 2023 copyright by S. Moriyama (Anagix Corporation)
 #   * ConvertPCells and PCellDefaults moved from MinedaPCell v0.4 Nov. 22nd 2022
-#   ConvertLibraryCells (ConvertPCells) v0.2 Feb. 6th 2023  copy right S. Moriyama
+#   ConvertLibraryCells (ConvertPCells) v0.3 Mar. 21st 2023  copy right S. Moriyama
 #   PCellTest v0.2 August 22nd 2022 S. Moriyama
 #   DRC_helper::find_cells_to_exclude v0.1 Sep 23rd 2022 S. Moriyama
 #   MinedaInput v0.32 Jan. 5th 2023 S. Moriyama
@@ -581,16 +581,16 @@ module MinedaCommon
               end
             end
           end
-          if force_defaults
-            @defaults[inst_cell_name] && @defaults[inst_cell_name].each_pair{|p, v|
-              name = p.sub '_hidden', ''
-              if pcell_params[name]
-                if force_defaults.class != Array || force_defaults.include?(name)
-                  pcell_params[name] = v
-                end
+          @defaults[inst_cell_name] && @defaults[inst_cell_name].each_pair{|p, v|
+            name = p.sub '_hidden', ''
+            if pcell_params[name]
+              if force_defaults && (force_defaults.class != Array || force_defaults.include?(name))
+                pcell_params[name] = v
+              else
+                pcell_params[name] ||=  v
               end
-            }
-          end
+            end
+          }
           puts "pcell parameters for #{inst.trans}(#{inst_cell_name}): #{pcell_params.inspect}"
           next unless pd = lib.layout.pcell_declaration(inst_cell_name) 
           pcv = cell.layout.add_pcell_variant(lib, pd.id, pcell_params)
