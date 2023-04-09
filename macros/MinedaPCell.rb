@@ -1,9 +1,9 @@
 # coding: utf-8
-# MinedaPCell v0.792 Mar. 18th 2023 copy right S. Moriyama (Anagix Corporation)
+# MinedaPCell v0.793 Apr. 9th 2023 copy right S. Moriyama (Anagix Corporation)
 #
 #include MinedaPCellCommonModule
 module MinedaPCell
-  version = '0.792'
+  version = '0.793'
   include MinedaPCellCommonModule
   # The PCell declaration for the Mineda MOSFET
   class MinedaMOS < MinedaPCellCommon
@@ -899,7 +899,7 @@ module MinedaPCell
       cl = (l*oo_layout_dbu).to_i
       u2 = u1 + u1
       cap_ext = params[:cap_ext] || u1
-      create_box indices[:diff], 0, -cap_ext, cw, cl+vs+u1+u1/2
+      create_box indices[:diff], 0, -cap_ext, cw, cl+vs+u1
       create_box indices[:cap], 0, 0, cw, cl
       # create_box indices[:cap], 0, 0, cw, cl+u1+vs
       diff_enclosure = params[:diff_enclosure] || 0
