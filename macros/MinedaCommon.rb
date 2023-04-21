@@ -1,6 +1,6 @@
 # Mineda Common
 #   Force on-grid v0.1 July 39th 2022 copy right S. Moriyama (Anagix Corp.)
-#   LVS preprocessor(get_reference) v0.69 Jan. 23rd 2023 copyright by S. Moriyama (Anagix Corporation)
+#   LVS preprocessor(get_reference) v0.7 Apr. 20th 2023 copyright by S. Moriyama (Anagix Corporation)
 #   * ConvertPCells and PCellDefaults moved from MinedaPCell v0.4 Nov. 22nd 2022
 #   ConvertLibraryCells (ConvertPCells) v0.3 Mar. 21st 2023  copy right S. Moriyama
 #   PCellTest v0.2 August 22nd 2022 S. Moriyama
@@ -941,6 +941,151 @@ class MinedaGridCheck
   end
 end
 
+class SubcktParams
+  #  def initialize file='FUSE_12BIT.spice'
+  def initialize netlist
+    @subckt = {}
+    building = name = nets = params = nil
+    @lines = netlist
+    @lines.each_line{|l|
+      next if l =~ /^\*/
+      if l =~ /^.(ends|ENDS)/
+        # @subckt[name] << "end\n"
+        building = nil
+      elsif building
+        #puts "LLL l=#{l}"
+        @subckt[name][1] << translate(l, nets)
+      elsif l =~ /^.(subckt|SUBCKT) +(\S*) +([^=]*) +(\S+ *=.+$)/
+        name = $2
+        nets = $3.split
+        params = Hash[*($4.scan(/(\S+) *= *(\S+)/)).flatten]
+        # puts "subckt #{name}"
+        # puts "nets: #{nets}"
+        # puts "params: #{params}"
+        building = true
+        @subckt[name] = [nets, [], params] # "def #{name} nets params\n"
+      end
+    }
+    @subckt.each_pair{|f, c|
+      puts "#{f}: #{c}"
+    }
+  end
+
+  def convert params
+    new_l = ''
+    params.scan(/(\S+)=(\S+)/).each{|p, v|
+      if v=~ /['{](\S+)['}]/
+        new_l << " #{p}="+'#{eval_params('+ v +', params)}'
+      else
+        new_l << " #{p}="+'#{params[' + "'#{v}'" + ']' + "||'#{v}'}"
+      end
+    }
+    new_l
+  end
+
+  def translate l, nets
+    if l =~ /^[xX](\S*) +([^=]*) +([^=]+) +(\S+ *=.+$)/
+      inst = $1
+      n = $2.split
+      s = $3
+      p = $4
+      new_l = [inst, s, n]
+      new_l << convert(p)
+    elsif l =~ /(^\S+) +([^=]*) +([^=]+) +(\S+ *=.+$)/
+      inst = $1
+      n = $2
+      m = $3
+      p = $4
+      if inst[0].downcase == 'r' || inst[0].downcase == 'c' 
+        v = '#{params[' + "'#{m}'" + ']' + "||'#{m}'}"
+        new_l = [inst, n, v]
+      else
+        new_l = [inst, n, m]
+      end
+      new_l << convert(p)
+    else
+      new_l = l
+    end
+    new_l
+  end
+
+  def expand
+    return @lines if @subckt.size == 0
+    desc = ''
+    @lines.each_line{|l|
+      if l =~ /^\*/ || l =~ /^\./
+        #puts l
+        desc << l
+      elsif l =~ /(^\S+) +([^=]*) +([^=]+) +(\S+ *=.+$)/
+        inst = $1
+        nets = $2.split
+        sub_name = $3
+        params = $4.scan(/(\S+) *= *(\S+)/)
+        # puts "#{inst} nets: #{nets}"
+        if inst[0].downcase == 'x'
+          inst_params = @subckt[sub_name][2] # instance defaults
+          params.each{|p, v| 
+            inst_params[p] = v
+          }
+          # puts "instance: #{inst_params}"
+          # puts "subckt: #{subckt_name} inst_params: #{inst_params}"
+          # subckt_nets = @subckt[subckt_name][0]
+          #puts '*' + l
+          desc << '*' + l
+          desc << substitute(sub_name, nets, inst, inst_params)
+        else
+          model_name = sub_name
+          #puts l
+          desc << l
+          #puts "model: #{model_name} inst_params: #{inst_params}"
+        end
+      else # including subckt call w/o params and '+' continuation
+        #puts l 
+        desc << l
+      end
+    }
+    desc
+  end
+
+  def substitute name, inst_nets, inst_name, params
+    desc = ''
+    nets = @subckt[name][0]
+    map = {}
+    nets.each_with_index{|n, i|
+      map[n] = inst_nets[i]
+    }
+    # puts 'map:', map.inspect
+    contents = @subckt[name][1]
+    contents.each{|l|
+      inst, nets, sub_name, sub_params = l
+      #puts "sub_params=#{sub_params}"
+      #puts "inst_params=#{params}"
+      inst_params = eval('"' + sub_params + '"')
+      #puts '=>', inst_params
+      new_nets = []
+      nets.split.each{|n|
+        new_nets << (map[n] || "#{inst_name}:#{n}")
+      }
+      new_value = eval('"' + sub_name + '"')
+      #puts ([inst+'.'+inst_name]+new_nets+[new_value]).join(' ')+inst_params
+      desc << ([inst+'.'+inst_name]+new_nets+[new_value]).join(' ')+inst_params + "\n"
+    }
+    desc
+  end
+
+  def eval_params equation, params
+    # puts "*equation: #{equation} @ #{params}"
+    equation # temporarily return as is
+  end
+end
+
+#file = 'TOP.spice'
+##file = 'SerPar_tb.net.txt' # 'haruna_ab_tb.net.txt'
+#lines = File.open(file, 'r:Windows-1252').read.encode('UTF-8').gsub(181.chr(Encoding::UTF_8), 'u')
+#ckt = SubcktParams.new lines
+#lines = ckt.expand
+#puts lines
+
 class MinedaLVS
   include RBA # unless $0 == __FILE__
   require 'fileutils'
@@ -1002,6 +1147,10 @@ class MinedaLVS
       circuit_top = nil
       device_class = {}
       lines = expand_file netlist, ''
+      
+      ckt = SubcktParams.new lines
+      lines = ckt.expand
+      
       params = get_params netlist
       puts "params: #{params.inspect}"
       c = File.open(File.join('lvs_work', File.basename(netlist))+'.txt', 'w:UTF-8')
