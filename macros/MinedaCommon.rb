@@ -1,6 +1,6 @@
 # Mineda Common
 #   Force on-grid v0.1 July 39th 2022 copy right S. Moriyama (Anagix Corp.)
-#   LVS preprocessor(get_reference) v0.7 Apr. 20th 2023 copyright by S. Moriyama (Anagix Corporation)
+#   LVS preprocessor(get_reference) v0.71 Apr. 22nd 2023 copyright by S. Moriyama (Anagix Corporation)
 #   * ConvertPCells and PCellDefaults moved from MinedaPCell v0.4 Nov. 22nd 2022
 #   ConvertLibraryCells (ConvertPCells) v0.3 Mar. 21st 2023  copy right S. Moriyama
 #   PCellTest v0.2 August 22nd 2022 S. Moriyama
@@ -1147,10 +1147,10 @@ class MinedaLVS
       circuit_top = nil
       device_class = {}
       lines = expand_file netlist, ''
-      
-      ckt = SubcktParams.new lines
-      lines = ckt.expand
-      
+      unless settings[:do_not_expand_sub_params] # == cv.technology
+        ckt = SubcktParams.new lines
+        lines = ckt.expand
+      end
       params = get_params netlist
       puts "params: #{params.inspect}"
       c = File.open(File.join('lvs_work', File.basename(netlist))+'.txt', 'w:UTF-8')
@@ -1181,7 +1181,6 @@ class MinedaLVS
         #   l.sub! /^/, '*'
         #  els
         if l =~ /^\.ends/
-          subckt_paras = []
           inside_subckt = false
           desc << '***' if comment_subckt
           comment_subckt = false
@@ -1189,6 +1188,9 @@ class MinedaLVS
           subckt_name = $1
           inside_subckt = true
           subckt_params = l.scan /(\S+)=(\S+)/
+          unless settings[:do_not_expand_sub_params] == cv.technology
+            l.sub! /\S+=.*$/, ''
+          end
           if subckt_name.upcase == cell.name.upcase
             circuit_top = subckt_name
           else
@@ -1202,36 +1204,53 @@ class MinedaLVS
         elsif l=~/^(([mM]\S+) *\S+ *\S+ *\S+ *\S+ *(\S+)) *(.*)/
           body = $1
           name=$2
-          others = ($4 && $4.upcase)
-          subckt_params.each{|a, b| puts others.sub!(/=#{a}/, "=#{b}")}
           model = $3
+          others = ($4 && $4.upcase)
+          if  (settings[:do_not_expand_sub_params] &&
+               settings[:do_not_expand_sub_params]  != cv.technology)
+            subckt_params.each{|a, b| puts others.sub!(/=#{a}/, "=#{b}")}
+          end
           # device_class['NMOS'] = model if model && model.upcase =~ /NCH|NMOS/
           # device_class['PMOS'] = model if model && model.upcase =~ /PCH|PMOS/
           p = {}
-          others && others.split.each{|equation|
-            if equation =~ /(\S+) *= *{(\S+)}/
-              ov = $2
-              p[$1] = params[ov.upcase] || ov
-            elsif equation =~ /(\S+) *= *(\S+)/
-              p[$1] = params[$2] || $2
+          if subckt_params.size == 0 # subcircuit parameters not present
+            others && others.split.each{|equation|
+              if equation =~ /(\S+) *= *{(\S+)}/
+                ov = $2
+                p[$1] = params[ov.upcase] || ov
+              elsif equation =~ /(\S+) *= *(\S+)/
+                p[$1] = params[$2] || $2
+              end
+            }
+            if p['M'] && p['M'] > "1"
+              if p['W'] =~ /([^U]+) *(U*)/
+                new_w  = "#{$1.to_f * p['M'].to_f}#{$2}"
+                puts "Caution for #{name}: w=#{p['W']} replaced with w=#{new_w} because m=#{p['M']}"
+                p['W'] = new_w
+                p['M'] = '1'
+              end
             end
-          }
-          if p['M'] && p['M'] > "1"
-            if p['W'] =~ /([^U]+) *(U*)/
-              new_w  = "#{$1.to_f * p['M'].to_f}#{$2}"
-              puts "Caution for #{name}: w=#{p['W']} replaced with w=#{new_w} because m=#{p['M']}"
-              p['W'] = new_w
-              p['M'] = '1'
-            end
-          end   
-          # others = p.map{|a| "#{a[0]}=#{a[1]}"}.join ' '
-          others = "l=#{p['L']} w=#{p['W']}" # supress other parameters like as, ps, ad and pd
-          others << " m=#{p['M']}" if p['M']
+            # others = p.map{|a| "#{a[0]}=#{a[1]}"}.join ' '
+            others = "l=#{p['L']} w=#{p['W']}" # supress other parameters like as, ps, ad and pd
+            others << " m=#{p['M']}" if p['M']
+          end
           l = "#{body} #{others}\n"
-        elsif l =~ /^ *([rR]|[cC]|[dD])/ || l.downcase =~ /^ *\.(global|subckt|ends)/
-          subckt_params.each{|a, b| puts l.sub!(/ #{a} /, " #{b} ")}
+        elsif l =~ /^ *(([rR]|[cC]|[dD])\S+ +\S+ +\S+) +(\S+) +(.*)$/ || l.downcase =~ /^ *\.(global|subckt|ends)/
+           body = $1
+           value = $3
+           rest = $4
+          puts "value=#{value} @ #{l}&subckt_params=#{subckt_params}"
+          if  (settings[:do_not_expand_sub_params] &&
+               settings[:do_not_expand_sub_params]  != cv.technology)          
+            subckt_params.each{|a, b| puts value.sub!(/#{a}/, "#{b}")}
+            l = "#{body} #{value} #{rest}\n"
+          end
         elsif l =~ /^ *[xX]/
-            circuit_top ||= '.TOP'  unless inside_subckt
+          if  (settings[:do_not_expand_sub_params] &&
+               settings[:do_not_expand_sub_params]  != cv.technology)
+            l.sub! /\S+=.*$/, ''
+          end
+          circuit_top ||= '.TOP'  unless inside_subckt
         else
           l.sub! /^/, '*' if !(l =~ /^ *\+/) || prev_line =~ /^ *\*/ # comment_subckt
         end
