@@ -2,14 +2,14 @@
 # $priority: 1
 # Mineda Common
 #   Force on-grid v0.1 July 39th 2022 copy right S. Moriyama (Anagix Corp.)
-#   LVS preprocessor(get_reference) v0.69 Jan. 23rd 2023 copyright by S. Moriyama (Anagix Corporation)
+#   LVS preprocessor(get_reference) v0.71 Apr. 22nd 2023 copyright by S. Moriyama (Anagix Corporation)
 #   * ConvertPCells and PCellDefaults moved from MinedaPCell v0.4 Nov. 22nd 2022
-#   ConvertLibraryCells (ConvertPCells) v0.2 Feb. 6th 2023  copy right S. Moriyama
+#   ConvertLibraryCells (ConvertPCells) v0.3 Mar. 21st 2023  copy right S. Moriyama
 #   PCellTest v0.2 August 22nd 2022 S. Moriyama
 #   DRC_helper::find_cells_to_exclude v0.1 Sep 23rd 2022 S. Moriyama
 #   MinedaInput v0.32 Jan. 5th 2023 S. Moriyama
 #   MinedaPCellCommon v0.21 Jan. 14th 2023 S. Moriyama
-#   Create Backannotation data v0.16 Jan 26th 2022 S. Moriyama
+#   Create Backannotation data v0.17 Mar. 12th 2023 S. Moriyama
 
 module MinedaPCellCommonModule
   include RBA
@@ -367,6 +367,7 @@ module MinedaCommon
         c.each_device{|device| devices_count = devices_count + 1}
         puts "devices_count = #{devices_count}"
         count = 0
+        old_dcname = old_w = nil
         c.each_device{|device|
           # trans_data << device.trans
           prefix = find_prefix(device.device_class.class.name)
@@ -375,21 +376,30 @@ module MinedaCommon
             l = device.parameter('L').round(4)
             w = device.parameter('W').round(4)
             puts [count, device.expanded_name, device.device_class.name, [l, w], device.trans.to_s].inspect
-            displacement = device.trans.disp
-            rest << [[displacement.x.round(6), displacement.y.round(6)]]+ # , device.trans.to_s
-                   [['AS', 'AD', 'PS', 'PD'].map{|p| device.parameter(p).round(6)}]
             dcname = device.device_class.name
+            displacement = device.trans.disp
+            latest = [[displacement.x.round(6), displacement.y.round(6)]]+ # , device.trans.to_s 
+                     [['AS', 'AD', 'PS', 'PD'].map{|p| device.parameter(p).round(6)}]
             ba_data[prefix] ||= {}
             ba_data[prefix][dcname] ||= {}
             ba_data[prefix][dcname][l] ||= {}
             count = count + 1
             if count == devices_count
+              rest << latest
               w_key = "#{w}*#{rest.size}"
-              ba_data[prefix][dcname][l][w_key] ||= {}
-              ba_data[prefix][dcname][l][w_key] = rest
+              ba_data[prefix][old_dcname][l][w_key] = rest
+            elsif old_dcname && dcname != old_dcname
+              w_key = "#{old_w}*#{rest.size}"
+              ba_data[prefix][old_dcname][l][w_key] = rest
+              rest = [latest]
+            else
+              rest << latest
             end
+            old_dcname = dcname
+            old_w = w
           end
        }
+
       }
       # puts ba_data.inspect
       Dir.chdir(File.dirname @source.path){
@@ -573,16 +583,16 @@ module MinedaCommon
               end
             end
           end
-          if force_defaults
-            @defaults[inst_cell_name] && @defaults[inst_cell_name].each_pair{|p, v|
-              name = p.sub '_hidden', ''
-              if pcell_params[name]
-                if force_defaults.class != Array || force_defaults.include?(name)
-                  pcell_params[name] = v
-                end
+          @defaults[inst_cell_name] && @defaults[inst_cell_name].each_pair{|p, v|
+            name = p.sub '_hidden', ''
+            if pcell_params[name]
+              if force_defaults && (force_defaults.class != Array || force_defaults.include?(name))
+                pcell_params[name] = v
+              else
+                pcell_params[name] ||=  v
               end
-            }
-          end
+            end
+          }
           puts "pcell parameters for #{inst.trans}(#{inst_cell_name}): #{pcell_params.inspect}"
           next unless pd = lib.layout.pcell_declaration(inst_cell_name) 
           pcv = cell.layout.add_pcell_variant(lib, pd.id, pcell_params)
@@ -933,6 +943,151 @@ class MinedaGridCheck
   end
 end
 
+class SubcktParams
+  #  def initialize file='FUSE_12BIT.spice'
+  def initialize netlist
+    @subckt = {}
+    building = name = nets = params = nil
+    @lines = netlist
+    @lines.each_line{|l|
+      next if l =~ /^\*/
+      if l =~ /^.(ends|ENDS)/
+        # @subckt[name] << "end\n"
+        building = nil
+      elsif building
+        #puts "LLL l=#{l}"
+        @subckt[name][1] << translate(l, nets)
+      elsif l =~ /^.(subckt|SUBCKT) +(\S*) +([^=]*) +(\S+ *=.+$)/
+        name = $2
+        nets = $3.split
+        params = Hash[*($4.scan(/(\S+) *= *(\S+)/)).flatten]
+        # puts "subckt #{name}"
+        # puts "nets: #{nets}"
+        # puts "params: #{params}"
+        building = true
+        @subckt[name] = [nets, [], params] # "def #{name} nets params\n"
+      end
+    }
+    @subckt.each_pair{|f, c|
+      puts "#{f}: #{c}"
+    }
+  end
+
+  def convert params
+    new_l = ''
+    params.scan(/(\S+)=(\S+)/).each{|p, v|
+      if v=~ /['{](\S+)['}]/
+        new_l << " #{p}="+'#{eval_params('+ v +', params)}'
+      else
+        new_l << " #{p}="+'#{params[' + "'#{v}'" + ']' + "||'#{v}'}"
+      end
+    }
+    new_l
+  end
+
+  def translate l, nets
+    if l =~ /^[xX](\S*) +([^=]*) +([^=]+) +(\S+ *=.+$)/
+      inst = $1
+      n = $2.split
+      s = $3
+      p = $4
+      new_l = [inst, s, n]
+      new_l << convert(p)
+    elsif l =~ /(^\S+) +([^=]*) +([^=]+) +(\S+ *=.+$)/
+      inst = $1
+      n = $2
+      m = $3
+      p = $4
+      if inst[0].downcase == 'r' || inst[0].downcase == 'c' 
+        v = '#{params[' + "'#{m}'" + ']' + "||'#{m}'}"
+        new_l = [inst, n, v]
+      else
+        new_l = [inst, n, m]
+      end
+      new_l << convert(p)
+    else
+      new_l = l
+    end
+    new_l
+  end
+
+  def expand
+    return @lines if @subckt.size == 0
+    desc = ''
+    @lines.each_line{|l|
+      if l =~ /^\*/ || l =~ /^\./
+        #puts l
+        desc << l
+      elsif l =~ /(^\S+) +([^=]*) +([^=]+) +(\S+ *=.+$)/
+        inst = $1
+        nets = $2.split
+        sub_name = $3
+        params = $4.scan(/(\S+) *= *(\S+)/)
+        # puts "#{inst} nets: #{nets}"
+        if inst[0].downcase == 'x'
+          inst_params = @subckt[sub_name][2] # instance defaults
+          params.each{|p, v| 
+            inst_params[p] = v
+          }
+          # puts "instance: #{inst_params}"
+          # puts "subckt: #{subckt_name} inst_params: #{inst_params}"
+          # subckt_nets = @subckt[subckt_name][0]
+          #puts '*' + l
+          desc << '*' + l
+          desc << substitute(sub_name, nets, inst, inst_params)
+        else
+          model_name = sub_name
+          #puts l
+          desc << l
+          #puts "model: #{model_name} inst_params: #{inst_params}"
+        end
+      else # including subckt call w/o params and '+' continuation
+        #puts l 
+        desc << l
+      end
+    }
+    desc
+  end
+
+  def substitute name, inst_nets, inst_name, params
+    desc = ''
+    nets = @subckt[name][0]
+    map = {}
+    nets.each_with_index{|n, i|
+      map[n] = inst_nets[i]
+    }
+    # puts 'map:', map.inspect
+    contents = @subckt[name][1]
+    contents.each{|l|
+      inst, nets, sub_name, sub_params = l
+      #puts "sub_params=#{sub_params}"
+      #puts "inst_params=#{params}"
+      inst_params = eval('"' + sub_params + '"')
+      #puts '=>', inst_params
+      new_nets = []
+      nets.split.each{|n|
+        new_nets << (map[n] || "#{inst_name}:#{n}")
+      }
+      new_value = eval('"' + sub_name + '"')
+      #puts ([inst+'.'+inst_name]+new_nets+[new_value]).join(' ')+inst_params
+      desc << ([inst+'.'+inst_name]+new_nets+[new_value]).join(' ')+inst_params + "\n"
+    }
+    desc
+  end
+
+  def eval_params equation, params
+    # puts "*equation: #{equation} @ #{params}"
+    equation # temporarily return as is
+  end
+end
+
+#file = 'TOP.spice'
+##file = 'SerPar_tb.net.txt' # 'haruna_ab_tb.net.txt'
+#lines = File.open(file, 'r:Windows-1252').read.encode('UTF-8').gsub(181.chr(Encoding::UTF_8), 'u')
+#ckt = SubcktParams.new lines
+#lines = ckt.expand
+#puts lines
+
 class MinedaLVS
   include RBA # unless $0 == __FILE__
   require 'fileutils'
@@ -994,6 +1149,10 @@ class MinedaLVS
       circuit_top = nil
       device_class = {}
       lines = expand_file netlist, ''
+      unless settings[:do_not_expand_sub_params] # == cv.technology
+        ckt = SubcktParams.new lines
+        lines = ckt.expand
+      end
       params = get_params netlist
       puts "params: #{params.inspect}"
       c = File.open(File.join('lvs_work', File.basename(netlist))+'.txt', 'w:UTF-8')
@@ -1024,7 +1183,6 @@ class MinedaLVS
         #   l.sub! /^/, '*'
         #  els
         if l =~ /^\.ends/
-          subckt_paras = []
           inside_subckt = false
           desc << '***' if comment_subckt
           comment_subckt = false
@@ -1032,6 +1190,9 @@ class MinedaLVS
           subckt_name = $1
           inside_subckt = true
           subckt_params = l.scan /(\S+)=(\S+)/
+          unless settings[:do_not_expand_sub_params] == cv.technology
+            l.sub! /\S+=.*$/, ''
+          end
           if subckt_name.upcase == cell.name.upcase
             circuit_top = subckt_name
           else
@@ -1045,36 +1206,53 @@ class MinedaLVS
         elsif l=~/^(([mM]\S+) *\S+ *\S+ *\S+ *\S+ *(\S+)) *(.*)/
           body = $1
           name=$2
-          others = ($4 && $4.upcase)
-          subckt_params.each{|a, b| puts others.sub!(/=#{a}/, "=#{b}")}
           model = $3
+          others = ($4 && $4.upcase)
+          if  (settings[:do_not_expand_sub_params] &&
+               settings[:do_not_expand_sub_params]  != cv.technology)
+            subckt_params.each{|a, b| puts others.sub!(/=#{a}/, "=#{b}")}
+          end
           # device_class['NMOS'] = model if model && model.upcase =~ /NCH|NMOS/
           # device_class['PMOS'] = model if model && model.upcase =~ /PCH|PMOS/
           p = {}
-          others && others.split.each{|equation|
-            if equation =~ /(\S+) *= *{(\S+)}/
-              ov = $2
-              p[$1] = params[ov.upcase] || ov
-            elsif equation =~ /(\S+) *= *(\S+)/
-              p[$1] = params[$2] || $2
+          if subckt_params.size == 0 # subcircuit parameters not present
+            others && others.split.each{|equation|
+              if equation =~ /(\S+) *= *{(\S+)}/
+                ov = $2
+                p[$1] = params[ov.upcase] || ov
+              elsif equation =~ /(\S+) *= *(\S+)/
+                p[$1] = params[$2] || $2
+              end
+            }
+            if p['M'] && p['M'] > "1"
+              if p['W'] =~ /([^U]+) *(U*)/
+                new_w  = "#{$1.to_f * p['M'].to_f}#{$2}"
+                puts "Caution for #{name}: w=#{p['W']} replaced with w=#{new_w} because m=#{p['M']}"
+                p['W'] = new_w
+                p['M'] = '1'
+              end
             end
-          }
-          if p['M'] && p['M'] > "1"
-            if p['W'] =~ /([^U]+) *(U*)/
-              new_w  = "#{$1.to_f * p['M'].to_f}#{$2}"
-              puts "Caution for #{name}: w=#{p['W']} replaced with w=#{new_w} because m=#{p['M']}"
-              p['W'] = new_w
-              p['M'] = '1'
-            end
-          end   
-          # others = p.map{|a| "#{a[0]}=#{a[1]}"}.join ' '
-          others = "l=#{p['L']} w=#{p['W']}" # supress other parameters like as, ps, ad and pd
-          others << " m=#{p['M']}" if p['M']
+            # others = p.map{|a| "#{a[0]}=#{a[1]}"}.join ' '
+            others = "l=#{p['L']} w=#{p['W']}" # supress other parameters like as, ps, ad and pd
+            others << " m=#{p['M']}" if p['M']
+          end
           l = "#{body} #{others}\n"
-        elsif l =~ /^ *([rR]|[cC]|[dD])/ || l.downcase =~ /^ *\.(global|subckt|ends)/
-          subckt_params.each{|a, b| puts l.sub!(/ #{a} /, " #{b} ")}
+        elsif l =~ /^ *(([rR]|[cC]|[dD])\S+ +\S+ +\S+) +(\S+) +(.*)$/ || l.downcase =~ /^ *\.(global|subckt|ends)/
+           body = $1
+           value = $3
+           rest = $4
+          puts "value=#{value} @ #{l}&subckt_params=#{subckt_params}"
+          if  (settings[:do_not_expand_sub_params] &&
+               settings[:do_not_expand_sub_params]  != cv.technology)          
+            subckt_params.each{|a, b| puts value.sub!(/#{a}/, "#{b}")}
+            l = "#{body} #{value} #{rest}\n"
+          end
         elsif l =~ /^ *[xX]/
-            circuit_top ||= '.TOP'  unless inside_subckt
+          if  (settings[:do_not_expand_sub_params] &&
+               settings[:do_not_expand_sub_params]  != cv.technology)
+            l.sub! /\S+=.*$/, ''
+          end
+          circuit_top ||= '.TOP'  unless inside_subckt
         else
           l.sub! /^/, '*' if !(l =~ /^ *\+/) || prev_line =~ /^ *\*/ # comment_subckt
         end

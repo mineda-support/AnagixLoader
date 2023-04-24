@@ -1,9 +1,9 @@
 # coding: utf-8
-# MinedaPCell v0.791 Feb. 27th 2023 copy right S. Moriyama (Anagix Corporation)
+# MinedaPCell v0.793 Apr. 9th 2023 copy right S. Moriyama (Anagix Corporation)
 #
 #include MinedaPCellCommonModule
 module MinedaPCell
-  version = '0.791'
+  version = '0.793'
   include MinedaPCellCommonModule
   # The PCell declaration for the Mineda MOSFET
   class MinedaMOS < MinedaPCellCommon
@@ -66,8 +66,8 @@ module MinedaPCell
       m1cnt_width = params[:m1cnt_width] || vs
       (n+1).times{|i|
         x = offset + vs/2 - xshift
-        create_path(indices[:m1], x, vs-yshift+u1, x, vs-yshift+u1-u1cut+sd_width, m1cnt_width, 0, 0)
-        create_path(indices[:li1], x, vs-yshift+u1, x, vs-yshift+u1-u1cut+sd_width, u1, 0, 0) if indices[:li1]
+        create_path(indices[:m1], x, vs-yshift+u1+u1cut, x, vs-yshift+u1-u1cut+sd_width, m1cnt_width, 0, 0)
+        create_path(indices[:li1], x, vs-yshift+u1+u1cut, x, vs-yshift+u1-u1cut+sd_width, u1, 0, 0) if indices[:li1]
         create_dcont(indices[:dcont], x, vs-yshift+u1, x, vs-yshift+u1+sd_width, vs + vs_extra, params[:dcont_offset])
         x = x + vs/2 + gl/2 + dgl
         if i < n
@@ -121,10 +121,10 @@ module MinedaPCell
         end
         if with_pcont
           pol_width = params[:pol_width] || u1 + u1/4
+          pol_width = [gl, vs/2].max if pol_width > gl            
           if n == 1 && !with_sdcont
             insert_cell indices[:pcont], x1+vs+dgl+gl/2, y
             insert_cell indices[:via], x1+vs+dgl+gl/2, y if with_via
-            pol_width = [gl, vs/2].max if pol_width > gl            
             x3 = x1+vs+pol_width/2+dgl
             create_path indices[:pol], x3, y, x3, y2-vs + gate_ext - u1, pol_width, 0,0
           else
@@ -899,7 +899,7 @@ module MinedaPCell
       cl = (l*oo_layout_dbu).to_i
       u2 = u1 + u1
       cap_ext = params[:cap_ext] || u1
-      create_box indices[:diff], 0, -cap_ext, cw, cl+vs+u1+u1/2
+      create_box indices[:diff], 0, -cap_ext, cw, cl+vs+u1
       create_box indices[:cap], 0, 0, cw, cl
       # create_box indices[:cap], 0, 0, cw, cl+u1+vs
       diff_enclosure = params[:diff_enclosure] || 0

@@ -15,7 +15,7 @@
  <menu-path/>
  <interpreter>ruby</interpreter>
  <dsl-interpreter-name/>
- <text># Back Annotate v0.73 Feb. 27th 2023 Copy right Seijiro Moriyama
+ <text># Back Annotate v0.74 Mar. 12 2023 Copy right Seijiro Moriyama
 module BackannotateModule
   # require 'YAML'
   class Backannotate
@@ -27,20 +27,20 @@ module BackannotateModule
       @mw = app.main_window
       @cv = @mw.current_view.active_cellview  
       @ba_type = '*unknown*'
-      ba_file = @cv.filename.sub(/\..*/,'_ba.yaml')
+      ba_file = @cv.filename.sub(/\.[^\.]*$/,'_ba.yaml')
       @converted = []
       if File.exist? ba_file
         @ba = YAML.load File.read(ba_file)
         @ba_type = '*final*'
       else
-        ba_file = @cv.filename.sub(/\..*/,'_table.yaml')
+        ba_file = @cv.filename.sub(/\.[^\.]*$/,'_table.yaml')
         if File.exist? ba_file
           initialize_ba_data ba_file
           @ba_type = '*initial*'
         end
       end
       if @ba_type == '*unknown*'
-        raise "Error: both #{@cv.filename.sub(/\..*/,'_ba.yaml')} and @{@cv.filename.sub(/\..*/,'_table.yaml')} do not exist!"
+        raise "Error: both #{@cv.filename.sub(/\.[^\.]*$/,'_ba.yaml')} and #{@cv.filename.sub(/\.[^\.]*$/,'_table.yaml')} do not exist!"
       end
     end
     def initialize_ba_data ba_file
