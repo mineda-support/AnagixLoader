@@ -1,3 +1,5 @@
+# $autorun-early
+# $priority: 1
 # Mineda Common
 #   Force on-grid v0.1 July 39th 2022 copy right S. Moriyama (Anagix Corp.)
 #   LVS preprocessor(get_reference) v0.69 Jan. 23rd 2023 copyright by S. Moriyama (Anagix Corporation)
