@@ -1,9 +1,9 @@
 # coding: utf-8
-# MinedaPCell v0.793 Apr. 9th 2023 copy right S. Moriyama (Anagix Corporation)
+# MinedaPCell v0.794 Apr. 24th 2023 copy right S. Moriyama (Anagix Corporation)
 #
 #include MinedaPCellCommonModule
 module MinedaPCell
-  version = '0.793'
+  version = '0.794'
   include MinedaPCellCommonModule
   # The PCell declaration for the Mineda MOSFET
   class MinedaMOS < MinedaPCellCommon
@@ -205,7 +205,7 @@ module MinedaPCell
           create_box indices[:ar], x1-delta, y1+vs-u1/2-delta-u1, offset-gl+delta, y2-vs+u1/2+delta+u1 if indices[:ar]
         end
         if indices[:pwl] && use_pwell
-          if one = params[:pwl_bw] #        one = u1*6.25
+          if one = (params[:pwl_bw] || 0)#        one = u1*6.25
             if indices[:nex]
               create_box indices[:pwl], x1-delta-one, [y1+vs-u1/2-delta-u1-one, y2-vs+u1/2+delta+u1-4*one].min,
                     [offset-gl+delta+one, x1-delta+4*one].max, y2-vs+u1/2+delta+u1+one
@@ -351,7 +351,7 @@ module MinedaPCell
         psubcont_dx = params[:psubcont_dx] || 0
         psubcont_dy = params[:psubcont_dy] || u1/2 + u1
         x = offset - gl - vs/2 + (with_via ? u1/2 : u1/4) + psubcont_dx
-        if with_psubcont && use_pwell
+        if with_psubcont # && use_pwell
           if n % 2 == 0
             y = y2 - vs/2 + psubcont_dy
           else
@@ -381,7 +381,7 @@ module MinedaPCell
           create_box indices[:ar], x1-delta, y1+vs-u1/2-delta-u1, offset-gl+delta, y2-vs+u1/2+delta+u1 if indices[:ar]
         end
         if indices[:pwl] && use_pwell
-          if one = params[:pwl_bw] #        one = u1*6.25
+          if one = (params[:pwl_bw] || 0) #        one = u1*6.25
             if indices[:nex]
               create_box indices[:pwl], x1-delta-one, [y1+vs-u1/2-delta-u1-one, y2-vs+u1/2+delta+u1-4*one].min,
                      [offset-gl+delta+one, x1-delta+4*one].max, y2-vs+u1/2+delta+u1+one
@@ -473,7 +473,7 @@ module MinedaPCell
         }
         offset = offset - 2*dgl
          # nsubcont and via
-        if with_nsubcont && use_nwell
+        if with_nsubcont # && use_nwell
           nsubcont_dx = params[:nsubcont_dx] || 0
           nsubcont_dy = params[:nsubcont_dy] ||  u1/2 + u1
           x = offset - gl - vs/2 + (with_via ? u1/2 : 0) + nsubcont_dx
@@ -495,7 +495,7 @@ module MinedaPCell
         delta = delta + delta
         create_box indices[:ar], x1-delta, y1+vs-u1/2-delta-u1, offset-gl+delta, y2-vs+u1/2+delta+u1 if indices[:ar]
         if indices[:nwl] && use_nwell
-          if one = params[:nwl_bw] #         one = u1*6.25
+          if one = (params[:nwl_bw] || 0) #         one = u1*6.25
             if indices[:pex]
               create_box indices[:nwl],  x1-delta-one, y1+vs-u1/2-delta-u1-one, [offset-gl+delta+one, x1-delta+4*one].max,
                      [y2-vs+u1/2+delta+u1+one, y1+vs-u1/2-delta-u1+4*one].max # just for tiascr130?
@@ -661,7 +661,7 @@ module MinedaPCell
         delta = delta + delta
         create_box indices[:ar], x1-delta, y1+vs-u1/2-delta-u1, offset-gl+delta, y2-vs+u1/2+delta+u1 if indices[:ar]
         if indices[:nwl] && use_nwell
-          if one = params[:nwl_bw] #         one = u1*6.25
+          if one = (params[:nwl_bw] || 0) #         one = u1*6.25
             if indices[:pex]
               create_box indices[:nwl],  x1-delta-one, y1+vs-u1/2-delta-u1-one, [offset-gl+delta+one, x1-delta+4*one].max,
                      [y2-vs+u1/2+delta+u1+one, y1+vs-u1/2-delta-u1+4*one].max # just for tiascr130?
@@ -906,7 +906,7 @@ module MinedaPCell
       create_box area_index, -u1/2, -u1-u1/2, cw + u1/2, cl + u1/2 + vs + u1 + diff_enclosure
       well_diff_enc = params[:wd_enc] || u1*5
       if well_index
-        if nsub_cont = indices[:psubcont]
+        if nsub_cont = indices[:nsubcont]
           create_box well_index, [-well_diff_enc, -vs-u1/2-u2].min, -u1-well_diff_enc,
                           cw + well_diff_enc, [cl + well_diff_enc + vs + u1, cl+u2+vs + u2].max
           insert_cell indices[:nsubcont], -vs-u1/2, cl+u2+vs
