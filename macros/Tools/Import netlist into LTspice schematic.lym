@@ -16,7 +16,7 @@
  <interpreter>ruby</interpreter>
  <dsl-interpreter-name/>
  <text>module MyMacro
-   # import netlist into LTspice v0.31 Feb. 7th 2022 copy right Seijiro Moriyama
+   # import netlist into LTspice v0.32 April 27th copy right Seijiro Moriyama
   class ImportNetlist
     include RBA
     def initialize 
@@ -54,10 +54,15 @@
       new_netlist = ''
       if symattr 
         if prefix == 'M'
-          if current &amp;&amp; new = @ba_data[File.basename(file).sub('.asc', '').upcase][prefix+id]
+          devices = @ba_data[File.basename(file).sub('.asc', '').upcase] || @ba_data['.TOP']
+          if current &amp;&amp; new = devices[prefix+id]
             symattr[:Value2].sub!(current[:params],  new[:params])
             if current[:model]
-              symattr[:Value].sub!(current[:model], new[:model])
+              if symattr[:Value]
+                symattr[:Value].sub!(current[:model], new[:model])
+              else
+                symattr[:Value] = "SYMATTR Value #{new[:model]}\n"
+              end
             else
               symattr[:Value] = "SYMATTR Value #{new[:model]}\n"
               symattr[:Prefix] = "SYMATTR Prefix X\n"

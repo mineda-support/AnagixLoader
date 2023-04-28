@@ -1,5 +1,5 @@
 # coding: utf-8
-# MinedaPCell v0.794 Apr. 24th 2023 copy right S. Moriyama (Anagix Corporation)
+# MinedaPCell v0.795 Apr. 28th 2023 copy right S. Moriyama (Anagix Corporation)
 #
 #include MinedaPCellCommonModule
 module MinedaPCell
@@ -907,9 +907,11 @@ module MinedaPCell
       well_diff_enc = params[:wd_enc] || u1*5
       if well_index
         if nsub_cont = indices[:nsubcont]
-          create_box well_index, [-well_diff_enc, -vs-u1/2-u2].min, -u1-well_diff_enc,
+          nsub_x = params[:nsub_x] || -vs-u1/2
+          well_diff_enc2 = params[:wd_enc2] || vs+u1/2+u2
+          create_box well_index, [-well_diff_enc, -well_diff_enc2].min, -u1-well_diff_enc,
                           cw + well_diff_enc, [cl + well_diff_enc + vs + u1, cl+u2+vs + u2].max
-          insert_cell indices[:nsubcont], -vs-u1/2, cl+u2+vs
+          insert_cell indices[:nsubcont], nsub_x, cl+u2+vs+u2-(well_diff_enc2+nsub_x)
         else
           x0 = -well_diff_enc
           x0 = [x0, -u2-vs].min if polcnt_outside
