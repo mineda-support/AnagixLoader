@@ -1,9 +1,9 @@
 # coding: utf-8
-# MinedaPCell v0.795 Apr. 28th 2023 copy right S. Moriyama (Anagix Corporation)
+# MinedaPCell v0.796 May 11th 2023 copy right S. Moriyama (Anagix Corporation)
 #
 #include MinedaPCellCommonModule
 module MinedaPCell
-  version = '0.794'
+  version = '0.796'
   include MinedaPCellCommonModule
   # The PCell declaration for the Mineda MOSFET
   class MinedaMOS < MinedaPCellCommon
@@ -495,7 +495,7 @@ module MinedaPCell
         delta = delta + delta
         create_box indices[:ar], x1-delta, y1+vs-u1/2-delta-u1, offset-gl+delta, y2-vs+u1/2+delta+u1 if indices[:ar]
         if indices[:nwl] && use_nwell
-          if one = (params[:nwl_bw] || 0) #         one = u1*6.25
+          if one = params[:nwl_bw] # bug fix 2023/5/11
             if indices[:pex]
               create_box indices[:nwl],  x1-delta-one, y1+vs-u1/2-delta-u1-one, [offset-gl+delta+one, x1-delta+4*one].max,
                      [y2-vs+u1/2+delta+u1+one, y1+vs-u1/2-delta-u1+4*one].max # just for tiascr130?
