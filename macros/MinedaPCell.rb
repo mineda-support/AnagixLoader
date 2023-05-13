@@ -1,9 +1,9 @@
 # coding: utf-8
-# MinedaPCell v0.797 May 11th 2023 copy right S. Moriyama (Anagix Corporation)
+# MinedaPCell v0.798 May 13th 2023 copy right S. Moriyama (Anagix Corporation)
 #
 #include MinedaPCellCommonModule
 module MinedaPCell
-  version = '0.797'
+  version = '0.798'
   include MinedaPCellCommonModule
   # The PCell declaration for the Mineda MOSFET
   class MinedaMOS < MinedaPCellCommon
@@ -54,9 +54,9 @@ module MinedaPCell
       else
         dgl = [dgl,  ((sdg*oo_layout_dbu).to_i - gl)/2].max if defined? sdg # sdg: minimum source-drain gap
       end
-      if defined?(soi_bridge) && soi_bridge && defined?(sdg)
-        dgl = ([gl,  (sdg*oo_layout_dbu).to_i].max - gl)/2
-      end
+#      if defined?(soi_bridge) && soi_bridge && defined?(sdg)
+#       dgl = ([gl,  (sdg*oo_layout_dbu).to_i].max - gl)/2
+#      end
       xshift = params[:xshift] || vs/2
       yshift = params[:yshift] || vs/2
       u1cut = params[:u1cut] || 0
