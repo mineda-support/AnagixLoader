@@ -9,7 +9,7 @@
 #   DRC_helper::find_cells_to_exclude v0.1 Sep 23rd 2022 S. Moriyama
 #   MinedaInput v0.32 Jan. 5th 2023 S. Moriyama
 #   MinedaPCellCommon v0.21 Jan. 14th 2023 S. Moriyama
-#   Create Backannotation data v0.17 Mar. 12th 2023 S. Moriyama
+#   Create Backannotation data v0.171 May 14th 2023 S. Moriyama
 
 module MinedaPCellCommonModule
   include RBA
@@ -328,7 +328,7 @@ module MinedaCommon
       slink = "#{@lvs_work}/#{File.basename output}.txt"
       File.delete slink if File.exist?(slink) || File.symlink?(slink)
       if /mswin32|mingw/ =~ RUBY_PLATFORM
-        File.link output, slink
+        File.link output, slink if File.exist?(output)
       else
         File.symlink "../#{File.basename output}", slink
       end
@@ -387,7 +387,7 @@ module MinedaCommon
             if count == devices_count
               rest << latest
               w_key = "#{w}*#{rest.size}"
-              ba_data[prefix][old_dcname][l][w_key] = rest
+              ba_data[prefix][old_dcname || dcname][l][w_key] = rest
             elsif old_dcname && dcname != old_dcname
               w_key = "#{old_w}*#{rest.size}"
               ba_data[prefix][old_dcname][l][w_key] = rest
