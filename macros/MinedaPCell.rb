@@ -1,9 +1,9 @@
 # coding: utf-8
-# MinedaPCell v0.795 Apr. 28th 2023 copy right S. Moriyama (Anagix Corporation)
+# MinedaPCell v0.8 May 15 2023 copy right S. Moriyama (Anagix Corporation)
 #
 #include MinedaPCellCommonModule
 module MinedaPCell
-  version = '0.794'
+  version = '0.8'
   include MinedaPCellCommonModule
   # The PCell declaration for the Mineda MOSFET
   class MinedaMOS < MinedaPCellCommon
@@ -218,7 +218,7 @@ module MinedaPCell
     end
   end
 
-  class MinedaNch_SOI < MinedaMOS
+  class MinedaNch_SOI < MinedaNch
     include RBA
 
     def produce_impl indices, vs, u1, params = {} # NMOS_SOI
@@ -514,7 +514,7 @@ module MinedaPCell
     end
   end
 
-  class MinedaPch_SOI < MinedaMOS
+  class MinedaPch_SOI < MinedaPch
     include RBA
 
     def produce_impl indices, vs, u1, params = {} # PMOS_SOI
