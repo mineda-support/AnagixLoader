@@ -54,9 +54,9 @@ module MinedaPCell
       else
         dgl = [dgl,  ((sdg*oo_layout_dbu).to_i - gl)/2].max if defined? sdg # sdg: minimum source-drain gap
       end
-      if defined?(soi_bridge) && soi_bridge && defined?(sdg)
-        dgl = ([gl,  (sdg*oo_layout_dbu).to_i].max - gl)/2
-      end
+#      if defined?(soi_bridge) && soi_bridge && defined?(sdg)
+#       dgl = ([gl,  (sdg*oo_layout_dbu).to_i].max - gl)/2
+#      end
       xshift = params[:xshift] || vs/2
       yshift = params[:yshift] || vs/2
       u1cut = params[:u1cut] || 0
@@ -205,7 +205,7 @@ module MinedaPCell
           create_box indices[:ar], x1-delta, y1+vs-u1/2-delta-u1, offset-gl+delta, y2-vs+u1/2+delta+u1 if indices[:ar]
         end
         if indices[:pwl] && use_pwell
-          if one = (params[:pwl_bw] || 0)#        one = u1*6.25
+          if one = params[:pwl_bw]
             if indices[:nex]
               create_box indices[:pwl], x1-delta-one, [y1+vs-u1/2-delta-u1-one, y2-vs+u1/2+delta+u1-4*one].min,
                     [offset-gl+delta+one, x1-delta+4*one].max, y2-vs+u1/2+delta+u1+one
@@ -379,7 +379,7 @@ module MinedaPCell
           create_box indices[:ar], x1-delta, y1+vs-u1/2-delta-u1, offset-gl+delta, y2-vs+u1/2+delta+u1 if indices[:ar]
         end
         if indices[:pwl] && use_pwell
-          if one = (params[:pwl_bw] || 0) #        one = u1*6.25
+          if one = params[:pwl_bw]
             if indices[:nex]
               create_box indices[:pwl], x1-delta-one, [y1+vs-u1/2-delta-u1-one, y2-vs+u1/2+delta+u1-4*one].min,
                      [offset-gl+delta+one, x1-delta+4*one].max, y2-vs+u1/2+delta+u1+one
@@ -493,7 +493,7 @@ module MinedaPCell
         delta = delta + delta
         create_box indices[:ar], x1-delta, y1+vs-u1/2-delta-u1, offset-gl+delta, y2-vs+u1/2+delta+u1 if indices[:ar]
         if indices[:nwl] && use_nwell
-          if one = (params[:nwl_bw] || 0) #         one = u1*6.25
+          if one = params[:nwl_bw] # bug fix 2023/5/11
             if indices[:pex]
               create_box indices[:nwl],  x1-delta-one, y1+vs-u1/2-delta-u1-one, [offset-gl+delta+one, x1-delta+4*one].max,
                      [y2-vs+u1/2+delta+u1+one, y1+vs-u1/2-delta-u1+4*one].max # just for tiascr130?
@@ -657,7 +657,7 @@ module MinedaPCell
         delta = delta + delta
         create_box indices[:ar], x1-delta, y1+vs-u1/2-delta-u1, offset-gl+delta, y2-vs+u1/2+delta+u1 if indices[:ar]
         if indices[:nwl] && use_nwell
-          if one = (params[:nwl_bw] || 0) #         one = u1*6.25
+          if one = params[:nwl_bw] 
             if indices[:pex]
               create_box indices[:nwl],  x1-delta-one, y1+vs-u1/2-delta-u1-one, [offset-gl+delta+one, x1-delta+4*one].max,
                      [y2-vs+u1/2+delta+u1+one, y1+vs-u1/2-delta-u1+4*one].max # just for tiascr130?
