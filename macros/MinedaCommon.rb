@@ -2,7 +2,7 @@
 # $priority: 1
 # Mineda Common
 #   Force on-grid v0.1 July 39th 2022 copy right S. Moriyama (Anagix Corp.)
-#   LVS preprocessor(get_reference) v0.71 Apr. 22nd 2023 copyright by S. Moriyama (Anagix Corporation)
+#   LVS preprocessor(get_reference) v0.72 May 17th 2023 copyright by S. Moriyama (Anagix Corporation)
 #   * ConvertPCells and PCellDefaults moved from MinedaPCell v0.4 Nov. 22nd 2022
 #   ConvertLibraryCells (ConvertPCells) v0.3 Mar. 21st 2023  copy right S. Moriyama
 #   PCellTest v0.2 August 22nd 2022 S. Moriyama
@@ -1237,10 +1237,10 @@ class MinedaLVS
             others << " m=#{p['M']}" if p['M']
           end
           l = "#{body} #{others}\n"
-        elsif l =~ /^ *(([rR]|[cC]|[dD])\S+ +\S+ +\S+) +(\S+) +(.*)$/ || l.downcase =~ /^ *\.(global|subckt|ends)/
+        elsif l =~ /^ *(([rR]|[cC]|[dD])\S+ +\S+ +\S+) +(\S+)($| +(.*)$)/ || l.downcase =~ /^ *\.(global|subckt|ends)/
            body = $1
            value = $3
-           rest = $4
+           rest = $5
           puts "value=#{value} @ #{l}&subckt_params=#{subckt_params}"
           if  (settings[:do_not_expand_sub_params] &&
                settings[:do_not_expand_sub_params]  != cv.technology)          
