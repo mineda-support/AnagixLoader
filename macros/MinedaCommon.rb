@@ -8,7 +8,7 @@
 #   PCellTest v0.2 August 22nd 2022 S. Moriyama
 #   DRC_helper::find_cells_to_exclude v0.1 Sep 23rd 2022 S. Moriyama
 #   MinedaInput v0.32 Jan. 5th 2023 S. Moriyama
-#   MinedaPCellCommon v0.21 Jan. 14th 2023 S. Moriyama
+#   MinedaPCellCommon v0.22 May 22nd 2023 S. Moriyama
 #   Create Backannotation data v0.171 May 14th 2023 S. Moriyama
 
 module MinedaPCellCommonModule
@@ -107,8 +107,14 @@ module MinedaPCellCommonModule
     def insert_cell via_index, x, y, rotate=false
       via = CellInstArray.new(via_index, rotate ? Trans.new(1, false, x, y) : Trans.new(x, y))
       inst = cell.insert(via)
+    end 
+    
+    def insert_contacts area, vs, contact
+          fill_area(area, vs){|x, y|
+            insert_cell contact, x, y
+          }
     end
-
+    
     def create_path index, x1, y1, x2, y2, w, be, ee
       points = [Point::new(x1, y1), Point::new(x2, y2)]
       cell.shapes(index).insert(Path::new(points, w, be, ee))
