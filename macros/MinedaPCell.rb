@@ -1,9 +1,9 @@
 # coding: utf-8
-# MinedaPCell v0.822 May 22nd 2023 copy right S. Moriyama (Anagix Corporation)
+# MinedaPCell v0.823 July 18th 2023 copy right S. Moriyama (Anagix Corporation)
 #
 #include MinedaPCellCommonModule
 module MinedaPCell
-  version = '0.822'
+  version = '0.823'
   include MinedaPCellCommonModule
   # The PCell declaration for the Mineda MOSFET
   class MinedaMOS < MinedaPCellCommon
@@ -333,7 +333,7 @@ module MinedaPCell
             elsif with_pcont
               # insert_cell indices[:pcont],  x, (y1+y2)/2
               gcw = [gw, vs*3].min
-              insert_contacts [x - vs/2, (y1+y2)/2 - gcw/2, x + vs/2, (y1+y2)/2 + gcw/2], vs, indices[:pcont]
+              insert_contacts [x - vs/2, (y1+y2)/2 - gcw/2, x + vs/2, (y1+y2)/2 + gcw/2], vs, indices[:pcont_min] || indices[:pcont]
             end
           end
           offset = offset + vs + gl + 2*dgl
@@ -628,7 +628,7 @@ module MinedaPCell
             elsif with_pcont
               # insert_cell indices[:pcont],  x, (y1+y2)/2
               gcw = [gw, vs*3].min
-              insert_contacts [x - vs/2, (y1+y2)/2 - gcw/2, x + vs/2, (y1+y2)/2 + gcw/2], vs, indices[:pcont]
+              insert_contacts [x - vs/2, (y1+y2)/2 - gcw/2, x + vs/2, (y1+y2)/2 + gcw/2], vs, indices[:pcont_min] || indices[:pcont]
             end
           end
           offset = offset + vs + gl + 2*dgl
