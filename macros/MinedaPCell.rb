@@ -1,9 +1,9 @@
 # coding: utf-8
-# MinedaPCell v0.823 July 18th 2023 copy right S. Moriyama (Anagix Corporation)
+# MinedaPCell v0.824 July 18th 2023 copy right S. Moriyama (Anagix Corporation)
 #
 #include MinedaPCellCommonModule
 module MinedaPCell
-  version = '0.823'
+  version = '0.824'
   include MinedaPCellCommonModule
   # The PCell declaration for the Mineda MOSFET
   class MinedaMOS < MinedaPCellCommon
@@ -644,7 +644,7 @@ module MinedaPCell
         offset = offset - 2*dgl
         # nsubcont and via
         if with_nsubcont && use_nwell
-          nsubcont_dx = params[:nsubont_dx] || 0
+          nsubcont_dx = params[:nsubcont_dx] || 0
           nsubcont_dy = params[:nsubcont_dy] ||  u1/2 + u1
           x = offset - gl - vs/2 + (with_via ? u1/2 : 0) + nsubcont_dx
           if n % 2 == 0
@@ -915,7 +915,7 @@ module MinedaPCell
           well_diff_enc2 = params[:wd_enc2] || vs+u1/2+u2
           create_box well_index, [-well_diff_enc, -well_diff_enc2].min, -u1-well_diff_enc,
                           cw + well_diff_enc, [cl + well_diff_enc + vs + u1, cl+u2+vs + u2].max
-          insert_cell indices[:nsubcont], nsub_x, cl+u2+vs+u2-(well_diff_enc2+nsub_x)
+          insert_cell indices[:nsubcont], nsub_x, cl+u2+vs+u2-(well_diff_enc2+nsub_x) if params[:nsub_cont]
         else
           x0 = -well_diff_enc
           x0 = [x0, -u2-vs].min if polcnt_outside
