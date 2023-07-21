@@ -1,9 +1,9 @@
 # coding: utf-8
-# MinedaPCell v0.824 July 18th 2023 copy right S. Moriyama (Anagix Corporation)
+# MinedaPCell v0.825 July 18th 2023 copy right S. Moriyama (Anagix Corporation)
 #
 #include MinedaPCellCommonModule
 module MinedaPCell
-  version = '0.824'
+  version = '0.825'
   include MinedaPCellCommonModule
   # The PCell declaration for the Mineda MOSFET
   class MinedaMOS < MinedaPCellCommon
@@ -54,9 +54,6 @@ module MinedaPCell
       else
         dgl = [dgl,  ((sdg*oo_layout_dbu).to_i - gl)/2].max if defined? sdg # sdg: minimum source-drain gap
       end
-#      if defined?(soi_bridge) && soi_bridge && defined?(sdg)
-#       dgl = ([gl,  (sdg*oo_layout_dbu).to_i].max - gl)/2
-#      end
       xshift = params[:xshift] || vs/2
       yshift = params[:yshift] || vs/2
       u1cut = params[:u1cut] || 0
@@ -282,7 +279,7 @@ module MinedaPCell
           if i % 2 == 0
             # first s/d and via
             y = y1+vs/2 - wm_offset
-            if with_sdcont && n != 1
+            if with_sdcont || n != 1
               insert_cell indices[:via], x, y if with_via 
               create_path indices[:m1], x, y, x, y1+vs+2*u1, pol_width, 0, 0
             end
@@ -578,7 +575,7 @@ module MinedaPCell
           if i % 2 == 0
             # first s/d and via
             y = y2-vs/2 + wm_offset
-            if with_sdcont && n != 1
+            if with_sdcont || n != 1
               insert_cell indices[:via], x, y if with_via
               create_path indices[:m1], x, y2-vs-2*u1, x, y, pol_width, 0, 0
             end
