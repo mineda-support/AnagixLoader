@@ -10,6 +10,7 @@
 #   MinedaInput v0.32 Jan. 5th 2023 S. Moriyama
 #   MinedaPCellCommon v0.22 May 22nd 2023 S. Moriyama
 #   Create Backannotation data v0.171 May 14th 2023 S. Moriyama
+#   MinedaAutoplace v0.3 July 22nd 2023 S. Moriyama
 
 module MinedaPCellCommonModule
   include RBA
@@ -101,7 +102,7 @@ module MinedaPCellCommonModule
     end
 
     def create_box index, x1, y1, x2, y2
-       cell.shapes(index).insert(Box::new(x1, y1, x2, y2)) if  index
+      cell.shapes(index).insert(Box::new(x1, y1, x2, y2)) if  index
     end
 
     def insert_cell via_index, x, y, rotate=false
@@ -110,9 +111,9 @@ module MinedaPCellCommonModule
     end 
     
     def insert_contacts area, vs, contact
-          fill_area(area, vs){|x, y|
-            insert_cell contact, x, y
-          }
+      fill_area(area, vs){|x, y|
+        insert_cell contact, x, y
+      }
     end
     
     def create_path index, x1, y1, x2, y2, w, be, ee
@@ -153,7 +154,7 @@ module MinedaPCellCommonModule
         end
       }
     end
-         
+    
     def boxes_bbox original
       return nil unless original
       xmin = ymin = 10000000
@@ -180,7 +181,7 @@ module MinedaPCellCommonModule
       }
       result
     end
-  
+    
     def fill_area area, square_size, layer_index=nil
       x1, y1, x2, y2, margin = area
       margin_x = margin_y = (margin || 0)
@@ -232,9 +233,9 @@ module MinedaCommon
         find_cells_recursive inst, @cv.context_trans
       }
     end
-#    def go
-#      find_cells_to_exclude  [63, 63], '^a[np]5g', 5.0
-#    end
+    #    def go
+    #      find_cells_to_exclude  [63, 63], '^a[np]5g', 5.0
+    #    end
     def find_cells_recursive inst, trans
       cell = inst.cell
       if cell.child_instances > 0
@@ -323,7 +324,7 @@ module MinedaCommon
       if File.exist? reference
         yield
         create_ba_data lvs_data
-        # make_symlink output
+      # make_symlink output
       else
         create_ba_table l2n_data, is_deep
       end
@@ -341,20 +342,20 @@ module MinedaCommon
     end
     
     def find_prefix device_class_name
-        prefix = nil
-        case device_class_name
-        when 'RBA::DeviceClassResistor', 'RBA::DeviceClassResistorWithBulk'
-          prefix = 'R'
-        when 'RBA::DeviceClassCapacitor', 'RBA::DeviceClassCapacitorWithBulk'
-          prefix = 'C'
-        when 'RBA::DeviceClassDiode'
-          prefix = 'D'
-        when 'RBA::DeviceClassMOS3Transistor', 'RBA::DeviceClassMOS4Transistor'
-          prefix = 'M'
-        when 'RBA::DeviceClassBJT3Transistor', 'RBA::DeviceClassBJT4Transistor'
-          prefix = 'Q' 
-        end
-        prefix
+      prefix = nil
+      case device_class_name
+      when 'RBA::DeviceClassResistor', 'RBA::DeviceClassResistorWithBulk'
+        prefix = 'R'
+      when 'RBA::DeviceClassCapacitor', 'RBA::DeviceClassCapacitorWithBulk'
+        prefix = 'C'
+      when 'RBA::DeviceClassDiode'
+        prefix = 'D'
+      when 'RBA::DeviceClassMOS3Transistor', 'RBA::DeviceClassMOS4Transistor'
+        prefix = 'M'
+      when 'RBA::DeviceClassBJT3Transistor', 'RBA::DeviceClassBJT4Transistor'
+        prefix = 'Q' 
+      end
+      prefix
     end
     
     def create_ba_table l2n_data, is_deep
@@ -404,7 +405,7 @@ module MinedaCommon
             old_dcname = dcname
             old_w = w
           end
-       }
+        }
 
       }
       # puts ba_data.inspect
@@ -417,7 +418,7 @@ module MinedaCommon
       }
       # trans_data
     end
-      
+    
     def create_ba_data lvs_data
       ext_name = File.extname @source.path
       target = File.basename(@source.path).sub(ext_name, '') 
@@ -621,8 +622,8 @@ module MinedaCommon
       if false && cells_to_delete.size > 0
         puts "### CELLS TO DELETE: #{cells_to_delete.map{|c| [c.name, c.library.name]}.uniq.inspect}"
         cells_to_delete.uniq.each{|c|
-         # puts "#{c.name}@#{c.library.name}"
-         c.delete
+          # puts "#{c.name}@#{c.library.name}"
+          c.delete
         }
       end
       child_cells = []
@@ -690,7 +691,7 @@ module MinedaCommon
       }
       f.close
     end
-  
+    
     def self.create_map cv, pcell_module, technology_name = pcell_module.sub(/_v[^_]*$/, '')
       # mpc = pcell_module.send MinedaPCellCommon::new
       mpc = eval "#{pcell_module}::MinedaPCellCommon::new"
@@ -718,7 +719,7 @@ module MinedaCommon
       mw = app.main_window
       lv = mw.current_view
       if lv == nil
-         raise "No view selected"
+        raise "No view selected"
       end
       cv = lv.active_cellview
       if !cv.is_valid?
@@ -807,13 +808,13 @@ module MinedaCommon
       layout.addWidget(buttonOK)
       buttonOK.text = " OK "
       buttonOK.clicked do 
-         dialog.accept()
-         config = editor.document.toPlainText
-         # puts config
-         Application.instance.set_config key, config
-         puts "PCell defaults set for '#{key}'"
-         eval(pcell_map[cv.technology] || "#{cv.technology}::#{cv.technology}").send 'new'
-         # puts pcell_map[cv.technology] || "#{cv.technology}::#{cv.technology}"
+        dialog.accept()
+        config = editor.document.toPlainText
+        # puts config
+        Application.instance.set_config key, config
+        puts "PCell defaults set for '#{key}'"
+        eval(pcell_map[cv.technology] || "#{cv.technology}::#{cv.technology}").send 'new'
+        # puts pcell_map[cv.technology] || "#{cv.technology}::#{cv.technology}"
       end
       # Cancel button
       cancel = QPushButton.new(dialog)
@@ -832,7 +833,7 @@ class MinedaGridCheck
   def initialize grid = nil
     @grid = grid 
   end
-    
+  
   def fix_offgrid(shape, old_x, old_y)
     p = fixed_point old_x, old_y
     shape.transform Trans.new(Trans::R0, p.x-old_x, p.y-old_y) if p
@@ -867,7 +868,7 @@ class MinedaGridCheck
     mw = app.main_window
     lv = mw.current_view
     if lv == nil
-       raise "No view selected"
+      raise "No view selected"
     end
     cv = lv.active_cellview
     if !cv.is_valid?
@@ -886,44 +887,44 @@ class MinedaGridCheck
     lv.each_layer{|layer_props|
       paths = 0
       cell.shapes(layer_props.layer_index).each{|shape|
-         # fix_offgrid(shape, shape.bbox.left, shape.bbox.top)
-         if shape.is_path?
-           path = shape.path
-           if spine = fix_path_points(shape)
-             path.points= spine
-             shape.path = path
-           end
-           paths = paths + 1
-         elsif shape.is_box?
-           box = shape.box
-           flag = false
-           if p = fixed_point(box.left, box.top)
-             box.top = p.y
-             box.left = p.x
-             flag = true
-           end
-           if p = fixed_point(box.right, box.bottom)
-             box.bottom = p.y
-             box.right = p.x
-             flag = true
-           end
-           shape.box = box if flag
-         elsif shape.is_polygon?
-           plgn =shape.polygon
-           hull = []
-           plgn.each_point_hull{|p|
-             hull << (fixed_point(p.x, p.y) || p)
-           }
-           plgn.hull = hull
-           plgn.holes.times{|i|
-             hole = []
-             plgn.each_point_hole(i){|p|
+        # fix_offgrid(shape, shape.bbox.left, shape.bbox.top)
+        if shape.is_path?
+          path = shape.path
+          if spine = fix_path_points(shape)
+            path.points= spine
+            shape.path = path
+          end
+          paths = paths + 1
+        elsif shape.is_box?
+          box = shape.box
+          flag = false
+          if p = fixed_point(box.left, box.top)
+            box.top = p.y
+            box.left = p.x
+            flag = true
+          end
+          if p = fixed_point(box.right, box.bottom)
+            box.bottom = p.y
+            box.right = p.x
+            flag = true
+          end
+          shape.box = box if flag
+        elsif shape.is_polygon?
+          plgn =shape.polygon
+          hull = []
+          plgn.each_point_hull{|p|
+            hull << (fixed_point(p.x, p.y) || p)
+          }
+          plgn.hull = hull
+          plgn.holes.times{|i|
+            hole = []
+            plgn.each_point_hole(i){|p|
               hole << (fixed_point(p.x, p.y) || p)
-              }
-             plgn.hole = hole
-           }
-           shape.polygon = plgn
-         end
+            }
+            plgn.hole = hole
+          }
+          shape.polygon = plgn
+        end
       }
       puts "paths=#{paths} for layer:#{layer_props.name}" if paths>0
     }
@@ -933,7 +934,7 @@ class MinedaGridCheck
       old_y=inst.trans.disp.y
       fix_offgrid(inst, old_x, old_y)
     }
-          
+    
     child_cells = []
     cell.each_child_cell{|id| child_cells << id}
     child_cells.each{|id|
@@ -1244,9 +1245,9 @@ class MinedaLVS
           end
           l = "#{body} #{others}\n"
         elsif l =~ /^ *(([rR]|[cC]|[dD])\S+ +\S+ +\S+) +(\S+)($| +(.*)$)/ || l.downcase =~ /^ *\.(global|subckt|ends)/
-           body = $1
-           value = $3
-           rest = $5
+          body = $1
+          value = $3
+          rest = $5
           puts "value=#{value} @ #{l}&subckt_params=#{subckt_params}"
           if  (settings[:do_not_expand_sub_params] &&
                settings[:do_not_expand_sub_params]  != cv.technology)          
@@ -1364,6 +1365,172 @@ class MinedaLVS
       f.puts 'end'
     }
   end
+end
+
+class MinedaAutoPlace
+  include RBA
+  def initialize opts={}
+    puts "Notice your settings: #{$opts.map{|a, b| '@' + a.to_s + '=' + b.to_s}.join ','}"
+    app = Application.instance
+    @mw = app.main_window
+    unless lv = @mw.current_view
+      raise "Shape Statistics: No view selected"
+    end
+    @asc_file = QFileDialog::getOpenFileName(@mw, 'Schematic file', ENV['HOME'], 'asc file(*.asc)')
+    raise 'Cancelled' if @asc_file.nil? || @asc_file == ''
+    @cell = lv.active_cellview.cell
+    technology = lv.active_cellview.technology
+    @pcell_lib = opts[:pcell_lib] || 'PCells_' + technology
+    @res = opts[:res] || 'HR_poly'
+    @cap = opts[:cap] || 'Pdiff_cap'
+    @grid = (opts[:grid] || 0.5)*1000
+    @xscale = opts[:xscale] || 100*2
+    @yscale = opts[:yscale] || 100*3
+    @wmax = opts[:wmax] || 200
+  end
+  def library_cell name, libname, layout
+    if cell = layout.cell(name)
+      return cell.cell_index
+    else
+      lib = Library::library_by_name libname
+      #cell_index = lib.layout.cell_by_name(name)
+      #proxy_index = layout.add_lib_cell(lib, cell_index)
+      pcell_id = lib.layout.pcell_id(name)
+      proxy_index = layout.add_pcell_variant(lib, pcell_id, {'l'=>1,'w'=>1,'m'=>1})
+    end
+  end
+  def instantiate index, x, y
+    CellInstArray.new(index, Trans.new(x, y))
+  end
+  def ltspice_read file
+    if File.open(file).read(2)[1] == 0.chr
+      lines = File.open(file, 'r:UTF-16LE:UTF-8').read
+    else
+      lines = File.read(file)
+    end
+  end
+  def each_element file
+    sym=x=y=rot=name=l=w=m=nil
+    xmax=ymax=0
+    if File.extname(file).downcase == '.asc' # LTspice
+      ltspice_read(file).each_line{|line|
+        line.chomp!
+        if line =~ /SYMBOL (\S+) (\S+) (\S+) (\S+)/
+          sym1 = $1
+          x2 = $2.to_i
+          y3 = $3.to_i
+          rot4=$4
+          yield sym, name, l, w, m ? m : 1, x, y, rot, xmax, ymax if name
+          sym = sym1
+          x = x2
+          y = y3
+          rot = rot4
+        elsif line =~ /SYMATTR InstName (\S+)/
+          name = $1
+        elsif line =~ /SYMATTR (SpiceLine|Value2) +[lL]=(\S+)[uU] +[wW]=(\S+)[uU] +[mM]=(\S+)/ ||
+              line =~ /SYMATTR (SpiceLine|Value2) +[lL]=(\S+)[uU] +[wW]=(\S+)[uU]/
+          l=$2.to_f
+          w=$3.to_f
+          m= $4? $4.to_i : 1
+        # yield sym, name, l, w, m ? m : 1, x, y, rot, xmax, ymax
+        elsif line =~ /SHEET 1 (\S+) (\S+)/
+          xmax = $1.to_i
+          ymax = $2.to_i
+        end
+      }
+      yield sym, name, l, w, m ? m.to_i : 1, x, y, rot, xmax, ymax
+    else
+      raise 'autoplace now supports LTspice schematic only'
+    end
+  end
+  
+  def autoplace
+    layout = @cell.layout
+
+    nch_index = library_cell('Nch', @pcell_lib, layout)
+    pch_index = library_cell('Pch', @pcell_lib, layout)
+    res_index = library_cell(@res, @pcell_lib, layout)
+    cap_index = library_cell(@cap, @pcell_lib, layout)
+
+    each_element(@asc_file){|sym, name, l, w, m, x, y, rot, xmax, ymax|
+      instance = nil
+      @cell.each_inst{|inst|
+        if inst.property('name') == name
+          instance = inst
+          break
+        end
+      }
+      if instance.nil?
+        puts "#{name}: l=#{l} w=#{w} m=#{m ? m : 1} @ (#{x}, #{y}), #{rot}"
+        if sym =~ /NMOS|nmos/ #  'MinedaLIB\\NMOS_MIN'
+          index = nch_index
+        elsif sym =~ /PMOS|pmos/
+          index = pch_index
+        elsif sym =~ /RES|res/
+          index = res_index
+          l = nil
+        elsif sym =~ /CAP|cap/
+          index = cap_index
+          l = nil
+        end
+        if index
+          mos = instantiate index, 0, 0
+          inst = @cell.insert(mos)
+          inst.set_property 'name', name
+          xpos = x*@xscale/@grid.to_i*@grid
+          ypos = (ymax - y)*@yscale/@grid.to_i*@grid
+          case rot
+          when 'R0'
+            inst.transform Trans.new(Trans::R0, xpos, ypos)
+          when 'R90'
+            inst.transform Trans.new(Trans::R90, xpos, ypos)
+          when 'R180'
+            inst.transform Trans.new(Trans::R180, xpos, ypos)
+          when 'R270'
+            inst.transform Trans.new(Trans::R270, xpos, ypos)
+          when 'M0'
+            inst.transform Trans.new(Trans::M90, xpos, ypos)
+          when 'M90'
+            inst.transform Trans.new(Trans::M135, xpos, ypos)
+          when 'M180'
+            inst.transform Trans.new(Trans::M0, xpos, ypos)
+          when 'M270'
+            inst.transform Trans.new(Trans::M45, xpos, ypos)
+          end
+        else
+          puts "warning: instance #{name} does not have a valid symbol"
+        end
+      else
+        inst = instance
+        old_l = inst.pcell_parameter  'l'
+        old_w = inst.pcell_parameter  'w'
+        old_n = inst.pcell_parameter  'n'
+        next if old_l == l && old_w == w && old_n == m
+        puts "Change #{name} to l=#{l}, w=#{w}, n=#{m}"
+      end
+      if l && inst
+        w, m = adjust w, m, @wmax
+        inst.change_pcell_parameter 'l', l
+        inst.change_pcell_parameter 'w', w
+        inst.change_pcell_parameter 'n', m
+      end
+    }
+    @mw.cm_zoom_fit
+  end
+  def adjust w, n, wmax, wmin = wmax/100
+    return [w, n] if w <= wmax
+    wtotal = w * n
+    n = (wtotal/wmax).to_i
+    puts "wtotal=#{wtotal} n=#{n} w=#{w}"
+    w = wtotal/n
+    while w > wmax || (w*n != wtotal && w > wmin)
+      puts "#{w}*#{n} vs. #{wtotal}"
+      n = n + 1
+      w = (wtotal / n).to_i.to_f
+    end
+    [w, n]
+  end
+      
 end
 
 if nil && $0 == __FILE__
