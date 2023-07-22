@@ -1,9 +1,9 @@
 # coding: utf-8
-# MinedaPCell v0.825 July 18th 2023 copy right S. Moriyama (Anagix Corporation)
+# MinedaPCell v0.83 July 22nd 2023 copy right S. Moriyama (Anagix Corporation)
 #
 #include MinedaPCellCommonModule
 module MinedaPCell
-  version = '0.825'
+  version = '0.83'
   include MinedaPCellCommonModule
   # The PCell declaration for the Mineda MOSFET
   class MinedaMOS < MinedaPCellCommon
@@ -234,11 +234,11 @@ module MinedaPCell
         if with_pcont
           pol_width = params[:pol_width] || u1 + u1/4
           if n == 1 && !with_sdcont
-            insert_cell indices[:pcont], x1+vs+dgl+gl/2, y if soi_bridge
+            insert_cell indices[:pcont], x1+vs+dgl+gl/2, y
             insert_cell indices[:via], x1+vs+dgl+gl/2, y if with_via
             create_path indices[:pol], x1+vs+dgl+gl/2, y, x1+vs+dgl+gl/2, y2-vs + gate_ext - u1, pol_width, 0,0 if soi_bridge
           else
-            insert_cell indices[:pcont], x, y if soi_bridge
+            insert_cell indices[:pcont], x, y
             insert_cell indices[:via], x, y if with_via
             y = y #- u1/2 # necessary to eliminate POL gap error
             x0 = x1+vs+gl/2+dgl
@@ -264,7 +264,7 @@ module MinedaPCell
             if soi_bridge # NOTE: gate_contact_space + u1 = gl + dgl*2
               create_path indices[:pol], prev_pol-vs-gl-dgl*2, y+u1/2, x-vs-u1/2, y+u1/2, pol_width, 0, 0 if prev_pol
             else
-              create_path indices[:pol], prev_pol-vs/2-gl-dgl*2, y, x-vs/2-dgl, y, pol_width, 0, 0 if prev_pol
+              create_path indices[:pol], prev_pol-vs/2-gl-dgl*2, y, x-vs/2-dgl, y, pol_width, 0, 0 if with_pcont && prev_pol
             end
           end
           if defined?(body_tie) && body_tie && i < n
@@ -279,7 +279,7 @@ module MinedaPCell
           if i % 2 == 0
             # first s/d and via
             y = y1+vs/2 - wm_offset
-            if with_sdcont || n != 1
+            if with_sdcont # || n != 1
               insert_cell indices[:via], x, y if with_via 
               create_path indices[:m1], x, y, x, y1+vs+2*u1, pol_width, 0, 0
             end
@@ -327,7 +327,7 @@ module MinedaPCell
               insert_cell indices[:dcont], x, yc
               insert_cell indices[:pcont], x, vs+u1+gw +vs/2 + u1 if i > 0
               create_path indices[:m1], x, yc - vs/2, x, vs+u1+gw +vs/2 + u1, vs, 0, 0
-            elsif with_pcont
+            elsif !with_pcont
               # insert_cell indices[:pcont],  x, (y1+y2)/2
               gcw = [gw, vs*3].min
               insert_contacts [x - vs/2, (y1+y2)/2 - gcw/2, x + vs/2, (y1+y2)/2 + gcw/2], vs, indices[:pcont_min] || indices[:pcont]
@@ -531,11 +531,11 @@ module MinedaPCell
         if with_pcont
           pol_width = params[:pol_width] || u1 + u1/4
           if n == 1 && !with_sdcont
-            insert_cell indices[:pcont], x1+vs+dgl+gl/2, y if soi_bridge
+            insert_cell indices[:pcont], x1+vs+dgl+gl/2, y
             insert_cell indices[:via], x1+vs+dgl+gl/2, y if with_via
             create_path indices[:pol], x1+vs+dgl+gl/2, y, x1+vs+dgl+gl/2, y1+vs - gate_ext + u1, pol_width, 0,0 if soi_bridge
           else
-            insert_cell indices[:pcont], x, y if soi_bridge
+            insert_cell indices[:pcont], x, y
             insert_cell indices[:via], x, y if with_via
             y = y # + u1/2 # necessary to eliminate POL gap error
             x0 = x1+vs+gl/2+dgl
@@ -575,7 +575,7 @@ module MinedaPCell
           if i % 2 == 0
             # first s/d and via
             y = y2-vs/2 + wm_offset
-            if with_sdcont || n != 1
+            if with_sdcont # || n != 1
               insert_cell indices[:via], x, y if with_via
               create_path indices[:m1], x, y2-vs-2*u1, x, y, pol_width, 0, 0
             end
@@ -622,7 +622,7 @@ module MinedaPCell
               insert_cell indices[:dcont],  x, yc
               insert_cell indices[:pcont],  x, y1+vs/2 if i> 0
               create_path indices[:m1], x, y1+vs/2, x, yc + vs/2, vs, 0, 0
-            elsif with_pcont
+            elsif !with_pcont
               # insert_cell indices[:pcont],  x, (y1+y2)/2
               gcw = [gw, vs*3].min
               insert_contacts [x - vs/2, (y1+y2)/2 - gcw/2, x + vs/2, (y1+y2)/2 + gcw/2], vs, indices[:pcont_min] || indices[:pcont]
