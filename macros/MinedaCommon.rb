@@ -10,7 +10,7 @@
 #   MinedaInput v0.32 Jan. 5th 2023 S. Moriyama
 #   MinedaPCellCommon v0.22 May 22nd 2023 S. Moriyama
 #   Create Backannotation data v0.171 May 14th 2023 S. Moriyama
-#   MinedaAutoplace v0.3 July 22nd 2023 S. Moriyama
+#   MinedaAutoplace v0.31 July 26th 2023 S. Moriyama
 
 module MinedaPCellCommonModule
   include RBA
@@ -1370,7 +1370,7 @@ end
 class MinedaAutoPlace
   include RBA
   def initialize opts={}
-    puts "Notice your settings: #{$opts.map{|a, b| '@' + a.to_s + '=' + b.to_s}.join ','}"
+    puts "Notice your settings: #{opts.map{|a, b| '@' + a.to_s + '=' + b.to_s}.join ','}" 
     app = Application.instance
     @mw = app.main_window
     unless lv = @mw.current_view
