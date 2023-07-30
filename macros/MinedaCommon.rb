@@ -11,6 +11,7 @@
 #   MinedaPCellCommon v0.22 May 22nd 2023 S. Moriyama
 #   Create Backannotation data v0.171 May 14th 2023 S. Moriyama
 #   MinedaAutoplace v0.31 July 26th 2023 S. Moriyama
+#   ChangePCellParameters v0.1 July 29th 2023 S. Moriyama
 
 module MinedaPCellCommonModule
   include RBA
@@ -732,6 +733,24 @@ module MinedaCommon
   class PCellDefaults
     include RBA
 
+    def initialize
+      app = RBA::Application.instance
+      @mw = app.main_window
+      lv = @mw.current_view
+      cv = lv.active_cellview
+      @tech = cv.technology
+      tech_map = {'OpenRule1um' => 'PCells', 'OR_TIASCR' => 'PCells_Tiascr130'}
+      @pcell_map = {'OpenRule1um' => 'OpenRule1um_v2::OpenRule1um', 'OR_TIASCR' => 'Tiascr130::Tiascr130',
+                   'Sky130a' => 'Sky130a_v0p2::Sky130a' } # rest are : #{@tech}::#{@tech}
+      lib_name = (tech_map[@tech] || 'PCells_' + @tech ) 
+      @key = lib_name + '-defaults'
+      @config = Application.instance.get_config(@key)
+      if @config.nil? || @config == ''
+        @config = self.class.dump_pcells(lib_name)
+      end
+      # puts "config for '#{key}': \n#{config}"
+    end
+
     def self.dump_pcells lib_name, file = nil
       lib = RBA::Library::library_by_name lib_name
       defaults = {}
@@ -758,26 +777,15 @@ module MinedaCommon
       defaults
     end
     
-    def change_pcell_defaults
-      app = RBA::Application.instance
-      mw = app.main_window
-      cv = mw.current_view.active_cellview
+    def pcell_dialog title
+      lv = @mw.current_view
+      cv = lv.active_cellview
       dialog = QDialog.new(Application.instance.main_window)
-      dialog.windowTitle = "Change PCell defaults for #{cv.technology}"
+      dialog.windowTitle = title
       mainLayout = QVBoxLayout::new(dialog)
       dialog.setLayout(mainLayout)
-      tech_map = {'OpenRule1um' => 'PCells', 'OR_TIASCR' => 'PCells_Tiascr130'}
-      pcell_map = {'OpenRule1um' => 'OpenRule1um_v2::OpenRule1um', 'OR_TIASCR' => 'Tiascr130::Tiascr130',
-                   'Sky130a' => 'Sky130a_v0p2::Sky130a' } # rest are : #{cv.technology}::#{cv.technology}
-      lib_name = (tech_map[cv.technology] || 'PCells_' + cv.technology ) 
-      key = lib_name + '-defaults'
-      config = Application.instance.get_config(key)
-      if config.nil? || config == ''
-        config = self.class.dump_pcells(lib_name)
-      end
-      # puts "config for '#{key}': \n#{config}"
       editor = QPlainTextEdit.new(dialog)
-      editor.insertPlainText config || ''
+      editor.insertPlainText @config || ''
       mainLayout.addWidget(editor)
       
       # button boxes
@@ -789,7 +797,7 @@ module MinedaCommon
       layout.addWidget(buttonSave)
       buttonSave.text = ' Save '
       buttonSave.clicked do
-        settings_file = QFileDialog::getSaveFileName(mw, 'Save File', File.dirname(cv.filename))
+        settings_file = QFileDialog::getSaveFileName(@mw, 'Save File', File.dirname(cv.filename))
         File.open(settings_file, 'w'){|f| f.puts editor.document.toPlainText}
         puts "#{settings_file} saved"
       end
@@ -799,7 +807,7 @@ module MinedaCommon
       layout.addWidget(buttonLoad)
       buttonLoad.text = ' Load '
       buttonLoad.clicked do
-        file = QFileDialog::getOpenFileName(mw, 'Load File', File.dirname(cv.filename))
+        file = QFileDialog::getOpenFileName(@mw, 'Load File', File.dirname(cv.filename))
         editor.setPlainText File.read(file)
       end
 
@@ -809,12 +817,7 @@ module MinedaCommon
       buttonOK.text = " OK "
       buttonOK.clicked do 
         dialog.accept()
-        config = editor.document.toPlainText
-        # puts config
-        Application.instance.set_config key, config
-        puts "PCell defaults set for '#{key}'"
-        eval(pcell_map[cv.technology] || "#{cv.technology}::#{cv.technology}").send 'new'
-        # puts pcell_map[cv.technology] || "#{cv.technology}::#{cv.technology}"
+        yield editor
       end
       # Cancel button
       cancel = QPushButton.new(dialog)
@@ -825,7 +828,57 @@ module MinedaCommon
       end
       dialog.exec
     end
+    def change_pcell_defaults
+      pcell_dialog("Change PCell defaults for #{@tech}"){|editor|
+        config = editor.document.toPlainText        
+        Application.instance.set_config key, config
+        puts "PCell defaults set for '#{key}'"
+        eval(pcell_map[@tech] || "#{@tech}::#{@tech}").send 'new'
+        # puts pcell_map[@tech] || "#{@tech}::#{@tech}"
+      }
+    end
   end
+
+  class ChangePCellParameters < PCellDefaults
+    include RBA
+
+    def initialize
+      app = RBA::Application.instance
+      @mw = app.main_window
+      lv = @mw.current_view
+      @selected_objects = lv.object_selection
+      config = {}
+      if @selected_objects.size > 0
+        @selected_objects.each{|s|
+          next unless s.is_cell_inst?
+          cell_name = s.inst.cell.basic_name
+          next if config[cell_name]
+          config[cell_name] = s.inst.pcell_parameters_by_name
+        }
+        @config = config.to_yaml
+      else
+        raise 'No instances selected!'
+      end
+    end
+
+    def change_pcell_parameters
+      pcell_dialog("Change PCell parameters for #{@tech}") {|editor|
+        config = YAML.load editor.document.toPlainText
+        puts config
+        @selected_objects.each{|s|
+          next unless s.is_cell_inst?
+          cell_name = s.inst.cell.basic_name
+          if params = config[cell_name]
+            puts "update #{s.inst.cell.name} with #{params}"
+            params.each_pair {|p, v|
+              s.inst.change_pcell_parameter p, v
+            }
+          end
+        }
+      }
+    end
+  end
+
 end
 
 class MinedaGridCheck
