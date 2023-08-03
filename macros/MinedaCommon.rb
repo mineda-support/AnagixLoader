@@ -4,7 +4,7 @@
 #   Force on-grid v0.1 July 39th 2022 copy right S. Moriyama (Anagix Corp.)
 #   LVS preprocessor(get_reference) v0.72 May 17th 2023 copyright by S. Moriyama (Anagix Corporation)
 #   * ConvertPCells and PCellDefaults moved from MinedaPCell v0.4 Nov. 22nd 2022
-#   ConvertLibraryCells (ConvertPCells) v0.3 Mar. 21st 2023  copy right S. Moriyama
+#   ConvertLibraryCells (ConvertPCells) v0.4 Aug. 3rd 2023  copy right S. Moriyama
 #   PCellTest v0.2 August 22nd 2022 S. Moriyama
 #   DRC_helper::find_cells_to_exclude v0.1 Sep 23rd 2022 S. Moriyama
 #   MinedaInput v0.32 Jan. 5th 2023 S. Moriyama
@@ -573,6 +573,10 @@ module MinedaCommon
       cells_to_delete = []
       cell.each_inst{|inst|
         t = inst.trans
+        a = inst.a
+        b = inst.b
+        na = inst.na
+        nb = inst.nb
         inst_cell_name = (@device_mapping && @device_mapping[inst.cell.name]) || inst.cell.name          
         puts inst.cell.name
         inst_cell_name.sub! /\$.*$/, ''
@@ -604,13 +608,13 @@ module MinedaCommon
           puts "pcell parameters for #{inst.trans}(#{inst_cell_name}): #{pcell_params.inspect}"
           next unless pd = lib.layout.pcell_declaration(inst_cell_name) 
           pcv = cell.layout.add_pcell_variant(lib, pd.id, pcell_params)
-          pcell_inst = cell.insert(RBA::CellInstArray::new(pcv, t))
+          pcell_inst = cell.insert(RBA::CellInstArray::new(pcv, t, a, b, na, nb))
         elsif inst.cell.library && inst.cell.library.name =~ /_Basic/
           next if inst.cell.library == bas_lib # already converted
           basic_cell = bas_lib.layout.cell(inst_cell_name)
           raise "basic_cell for #{inst_cell_name} not found" if basic_cell.nil?
           proxy_index = cell.layout.add_lib_cell(bas_lib, basic_cell.cell_index)
-          basic_inst = cell.insert(RBA::CellInstArray.new(proxy_index, t))       
+          basic_inst = cell.insert(RBA::CellInstArray.new(proxy_index, t, a, b, na, nb))       
         else
           next
         end
