@@ -1,6 +1,6 @@
 # $autorun-early
 # $priority: 1
-# Mineda Common
+# Mineda Common v1.0 Aug. 11 2023
 #   Force on-grid v0.1 July 39th 2022 copy right S. Moriyama (Anagix Corp.)
 #   LVS preprocessor(get_reference) v0.72 May 17th 2023 copyright by S. Moriyama (Anagix Corporation)
 #   * ConvertPCells and PCellDefaults moved from MinedaPCell v0.4 Nov. 22nd 2022
@@ -21,6 +21,7 @@ module MinedaPCellCommonModule
     @@lyp_file = @@basic_library = @@layer_index = nil
     def initialize
       key = 'PCells_' + self.class.name.to_s.split('::').first + '-defaults'
+      key.sub! 'PCells_OpenRule1um_v2', 'PCells'
       @defaults = YAML.load(Application.instance.get_config key)
       # puts "Got PCell @defaults from #{key}"
       set_layer_index
@@ -752,7 +753,7 @@ module MinedaCommon
       if @config.nil? || @config == ''
         @config = self.class.dump_pcells(lib_name)
       end
-      # puts "config for '#{key}': \n#{config}"
+      # puts "config for '#{@key}': \n#{@config}"
     end
 
     def self.dump_pcells lib_name, file = nil
@@ -835,9 +836,9 @@ module MinedaCommon
     def change_pcell_defaults
       pcell_dialog("Change PCell defaults for #{@tech}"){|editor|
         config = editor.document.toPlainText        
-        Application.instance.set_config key, config
-        puts "PCell defaults set for '#{key}'"
-        eval(pcell_map[@tech] || "#{@tech}::#{@tech}").send 'new'
+        Application.instance.set_config @key, config.gsub(/^ *$\n/, '') # remove blank lines
+        puts "PCell defaults set for '#{@key}'"
+        eval(@pcell_map[@tech] || "#{@tech}::#{@tech}").send 'new'
         # puts pcell_map[@tech] || "#{@tech}::#{@tech}"
       }
     end
