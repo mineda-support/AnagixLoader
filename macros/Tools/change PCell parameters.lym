@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <klayout-macro>
- <description/>
+ <description>Change PCell parameters</description>
  <version/>
  <category/>
  <prolog/>
@@ -15,7 +15,7 @@
  <menu-path/>
  <interpreter>ruby</interpreter>
  <dsl-interpreter-name/>
- <text>module MyMacro
+ <text>module DoChangePCellParameters
   include MinedaCommon
   
   apc = ChangePCellParameters.new

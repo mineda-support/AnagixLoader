@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <klayout-macro>
- <description/>
+ <description>Change PCell defaults</description>
  <version/>
  <category/>
  <prolog/>
@@ -15,7 +15,7 @@
  <menu-path/>
  <interpreter>ruby</interpreter>
  <dsl-interpreter-name/>
- <text>module MyMacro
+ <text>module DoPCellDefaults
   include MinedaCommon
   pd = PCellDefaults.new
   pd.change_pcell_defaults

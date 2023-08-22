@@ -15,7 +15,7 @@
  <menu-path/>
  <interpreter>ruby</interpreter>
  <dsl-interpreter-name/>
- <text>module MyMacro
+ <text>module DoImportNetlist
    # import netlist into LTspice v0.32 April 27th copy right Seijiro Moriyama
   class ImportNetlist
     include RBA

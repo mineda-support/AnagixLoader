@@ -8,7 +8,7 @@
 #   PCellTest v0.2 August 22nd 2022 S. Moriyama
 #   DRC_helper::find_cells_to_exclude v0.1 Sep 23rd 2022 S. Moriyama
 #   MinedaInput v0.32 Jan. 5th 2023 S. Moriyama
-#   MinedaPCellCommon v0.22 May 22nd 2023 S. Moriyama
+#   MinedaPCellCommon v0.23 Aug. 21 2023 S. Moriyama
 #   Create Backannotation data v0.171 May 14th 2023 S. Moriyama
 #   MinedaAutoplace v0.31 July 26th 2023 S. Moriyama
 #   ChangePCellParameters v0.1 July 29th 2023 S. Moriyama
@@ -184,13 +184,21 @@ module MinedaPCellCommonModule
       result
     end
     
-    def fill_area area, square_size, layer_index=nil
+    def fill_area area, square_size, filler=nil
       x1, y1, x2, y2, margin = area
       margin_x = margin_y = (margin || 0)
       if margin.class == Array
         margin_x, margin_y = margin
       end
-      create_box layer_index, x1, y1, x2, y2 if layer_index
+      if filler
+        if filler.class == Array
+          filler.each{|index|
+            create_box index, x1, y1, x2, y2
+        }
+        else
+          create_box filler, x1, y1, x2, y2
+        end
+      end
       n = ((x2 - x1 - 2*margin_x)/square_size).to_i
       xoffset = x2 - x1 - n * square_size
       m = ((y2 - y1 - 2*margin_y)/square_size).to_i
