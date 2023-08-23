@@ -4,11 +4,11 @@
 #   Force on-grid v0.1 July 39th 2022 copy right S. Moriyama (Anagix Corp.)
 #   LVS preprocessor(get_reference) v0.72 May 17th 2023 copyright by S. Moriyama (Anagix Corporation)
 #   * ConvertPCells and PCellDefaults moved from MinedaPCell v0.4 Nov. 22nd 2022
-#   ConvertLibraryCells (ConvertPCells) v0.4 Aug. 3rd 2023  copy right S. Moriyama
+#   ConvertLibraryCells (ConvertPCells) v0.41 Aug. 22nd 2023  copy right S. Moriyama
 #   PCellTest v0.2 August 22nd 2022 S. Moriyama
 #   DRC_helper::find_cells_to_exclude v0.1 Sep 23rd 2022 S. Moriyama
 #   MinedaInput v0.32 Jan. 5th 2023 S. Moriyama
-#   MinedaPCellCommon v0.23 Aug. 21 2023 S. Moriyama
+#   MinedaPCellCommon v0.24 Aug. 22 2023 S. Moriyama
 #   Create Backannotation data v0.171 May 14th 2023 S. Moriyama
 #   MinedaAutoplace v0.31 July 26th 2023 S. Moriyama
 #   ChangePCellParameters v0.1 July 29th 2023 S. Moriyama
@@ -199,6 +199,7 @@ module MinedaPCellCommonModule
           create_box filler, x1, y1, x2, y2
         end
       end
+      return if square_size == nil || square_size == 0
       n = ((x2 - x1 - 2*margin_x)/square_size).to_i
       xoffset = x2 - x1 - n * square_size
       m = ((y2 - y1 - 2*margin_y)/square_size).to_i
@@ -656,6 +657,7 @@ module MinedaCommon
       mw = app.main_window
       @cv = mw.current_view.active_cellview
       file = args[:target] || QFileDialog::getSaveFileName(mw, 'Converted File name', File.dirname(@cv.filename))
+      raise 'Cancelled' if file.nil? || file.strip == ''
       file = file + '.GDS' unless File.extname(file).upcase == '.GDS'
       opt = SaveLayoutOptions.new
       opt.scale_factor = args[:routing_scale_factor] || 1

@@ -1,5 +1,5 @@
 # coding: utf-8
-# MinedaPCell v0.83 July 22nd 2023 copy right S. Moriyama (Anagix Corporation)
+# MinedaPCell v0.84 August 22nd 2023 copy right S. Moriyama (Anagix Corporation)
 #
 #include MinedaPCellCommonModule
 module MinedaPCell
@@ -1045,6 +1045,78 @@ module MinedaPCell
       x1, y0, y1 = draw_fingers indices[:m3], finger_length, finger_width, finger_gap, nf, false
       create_contacts_vertically indices, x1, y0, y1, vs, u1
       create_box indices[:cap], 0, -finger_width/2, finger_length, finger_width*nf + finger_gap*(nf-1) - finger_width/2
+    end
+  end
+
+  class MinedaFillRing < MinedaPCellCommon
+    def initialize
+      super
+      param(:l, TypeDouble, "Ring length", :default => 50.0.um)
+      param(:w, TypeDouble, "Ring width", :default => 50.0.um)
+      param(:s, TypeShape, "", :default => DPoint::new(20.0, 20.0))
+      param(:lu, TypeDouble, "Ring length", :default => 20.0.um, :hidden =>true)
+      param(:wu, TypeDouble, "Ring width", :default => 20.0.um, :hidden =>true)
+    end
+    def coerce_parameters_impl
+      ls = ws = nil
+      if s.is_a?(DPoint)
+        ls = s.y
+        ws = s.x
+      end
+      if ls && (l - lu) .abs < 1e-6 && (w - wu) < 1e-6
+        set_lu ls
+        set_l ls
+        set_wu ws
+        set_w ws
+      else
+        set_lu l
+        set_wu w
+        set_s DPoint::new(ws, ls)
+      end
+    end
+    def display_text_impl
+      "Guard ring\r\n(width=#{w.round(3)}um,length=#{l.round(3)}um)"
+    end
+    def produce_impl index, bw, fillers, length, width
+      [[-bw, -bw, width, 0],
+       [width, -bw, width+bw, length],
+       [0, length, width+bw, length+bw],
+       [-bw, 0, 0, length+bw]].each{|area|
+        fill_area(area, bw, fillers){|x, y|
+            insert_cell index, x, y if index
+          }
+        }
+    end
+  end
+  
+ class MinedaFillBox < MinedaPCellCommon
+    def initialize
+       super
+       param(:l, TypeDouble, "X position", :default => 4.0.um)
+       param(:w, TypeDouble, "Y position", :default => 4.0.um)
+       param(:s, TypeShape, "", :default => DPoint::new(4.0, 4.0))
+       param(:xu, TypeDouble, "Previous X", :default => 4.0.um, :hidden =>true)
+       param(:yu, TypeDouble, "Previous Y", :default => 4.0.um, :hidden =>true)
+    end
+    def display_text_impl
+      "Fill box\r\n(X=#{l.round(3)}um,Y=#{w.round(3)}um)"
+    end
+    def coerce_parameters_impl
+      xs = ys = nil
+      if s.is_a?(DPoint)
+        xs = s.x
+        ys = s.y
+      end
+      if  (l - xu) .abs < 1e-6 && (w - yu) < 1e-6
+        set_xu xs
+        set_l xs
+        set_yu ys
+        set_w ys
+      else
+        set_xu l
+        set_yu yp
+        set_s DPoint::new(xs, ys)
+      end
     end
   end
 end
