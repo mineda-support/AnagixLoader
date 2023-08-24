@@ -4,7 +4,7 @@
 #   Force on-grid v0.1 July 39th 2022 copy right S. Moriyama (Anagix Corp.)
 #   LVS preprocessor(get_reference) v0.72 May 17th 2023 copyright by S. Moriyama (Anagix Corporation)
 #   * ConvertPCells and PCellDefaults moved from MinedaPCell v0.4 Nov. 22nd 2022
-#   ConvertLibraryCells (ConvertPCells) v0.5 Aug. 24th 2023  copy right S. Moriyama
+#   ConvertLibraryCells (ConvertPCells) v0.51 Aug. 25th 2023  copy right S. Moriyama
 #   PCellTest v0.2 August 22nd 2022 S. Moriyama
 #   DRC_helper::find_cells_to_exclude v0.1 Sep 23rd 2022 S. Moriyama
 #   MinedaInput v0.32 Jan. 5th 2023 S. Moriyama
@@ -656,6 +656,7 @@ module MinedaCommon
         via.delete
       }
       cell.each_inst{|inst| # process Basic cells and other cells
+        next if inst.cell.nil? || inst.cell.library.nil? || !(inst.cell.library.name =~ /_Basic/)
         next if inst.is_pcell? || inst.cell.library == bas_lib # already converted
         t = inst.trans
         inst_cell_name = (@device_mapping && @device_mapping[inst.cell.name]) || inst.cell.name          
