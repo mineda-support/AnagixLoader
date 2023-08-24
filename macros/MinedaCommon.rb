@@ -4,7 +4,7 @@
 #   Force on-grid v0.1 July 39th 2022 copy right S. Moriyama (Anagix Corp.)
 #   LVS preprocessor(get_reference) v0.72 May 17th 2023 copyright by S. Moriyama (Anagix Corporation)
 #   * ConvertPCells and PCellDefaults moved from MinedaPCell v0.4 Nov. 22nd 2022
-#   ConvertLibraryCells (ConvertPCells) v0.41 Aug. 22nd 2023  copy right S. Moriyama
+#   ConvertLibraryCells (ConvertPCells) v0.5 Aug. 24th 2023  copy right S. Moriyama
 #   PCellTest v0.2 August 22nd 2022 S. Moriyama
 #   DRC_helper::find_cells_to_exclude v0.1 Sep 23rd 2022 S. Moriyama
 #   MinedaInput v0.32 Jan. 5th 2023 S. Moriyama
@@ -577,61 +577,97 @@ module MinedaCommon
       # puts "@defaults=#{@defaults}"
       convert_library_cells0 cv.cell, pcell_lib, basic_lib, pcell_factor, force_defaults
     end
+    def find_vias cell
+      vias = []
+      cell.each_inst{|inst|
+        next if inst.is_pcell?
+        vias << inst if inst.cell.name =~ /^Via$|^Via\$\d+|/
+      }
+      vias
+    end
     def convert_library_cells0 cell, pcell_lib, basic_lib, pcell_factor, force_defaults
       lib = RBA::Library::library_by_name pcell_lib
       bas_lib = RBA::Library::library_by_name basic_lib
+      vias = find_vias cell
+      puts "Vias: [#{vias.map{|v| v.trans}.join(',')}]"
       cells_to_delete = []
-      cell.each_inst{|inst|
+      cells_to_add_via = []
+      cell.each_inst{|inst| # process PCell instances
         t = inst.trans
-        a = inst.a
-        b = inst.b
-        na = inst.na
-        nb = inst.nb
         inst_cell_name = (@device_mapping && @device_mapping[inst.cell.name]) || inst.cell.name          
-        puts inst.cell.name
         inst_cell_name.sub! /\$.*$/, ''
-        if inst.cell.is_pcell_variant?
-          next if inst.cell.library == lib # already converted
-          pcell_params = inst.pcell_parameters_by_name
-          # puts "***pcell_parameters: #{pcell_params.inspect}"
-          if pcell_factor
-            pcell_params['l'] = pcell_params['l']*pcell_factor
-            pcell_params['w'] = pcell_params['w']*pcell_factor
-            if @defaults[inst_cell_name] 
-              if @defaults[inst_cell_name]['sdg'].nil?
-                pcell_params['sdg'] = pcell_params['sdg']*pcell_factor if pcell_params['sdg'] 
-              else
-                pcell_params['sdg'] = @defaults[inst_cell_name]['sdg']
-              end
+
+        next if  !inst.is_pcell? || inst.cell.library == lib # already converted
+        # puts inst.cell.name        
+        pcell_params = inst.pcell_parameters_by_name
+        if pcell_factor
+          pcell_params['l'] = pcell_params['l']*pcell_factor
+          pcell_params['w'] = pcell_params['w']*pcell_factor
+          if @defaults[inst_cell_name] 
+            if @defaults[inst_cell_name]['sdg'].nil?
+              pcell_params['sdg'] = pcell_params['sdg']*pcell_factor if pcell_params['sdg'] 
+            else
+              pcell_params['sdg'] = @defaults[inst_cell_name]['sdg']
             end
           end
-          @defaults[inst_cell_name] && @defaults[inst_cell_name].each_pair{|p, v|
-            name = p.sub '_hidden', ''
-            if pcell_params[name]
-              if force_defaults && (force_defaults.class != Array || force_defaults.include?(name))
-                pcell_params[name] = v
-              else
-                pcell_params[name] ||=  v
-              end
-            end
-          }
-          puts "pcell parameters for #{inst.trans}(#{inst_cell_name}): #{pcell_params.inspect}"
-          next unless pd = lib.layout.pcell_declaration(inst_cell_name) 
-          pcv = cell.layout.add_pcell_variant(lib, pd.id, pcell_params)
-          pcell_inst = cell.insert(RBA::CellInstArray::new(pcv, t, a, b, na, nb))
-        elsif inst.cell.library && inst.cell.library.name =~ /_Basic/
-          next if inst.cell.library == bas_lib # already converted
-          basic_cell = bas_lib.layout.cell(inst_cell_name)
-          raise "basic_cell for #{inst_cell_name} not found" if basic_cell.nil?
-          proxy_index = cell.layout.add_lib_cell(bas_lib, basic_cell.cell_index)
-          basic_inst = cell.insert(RBA::CellInstArray.new(proxy_index, t, a, b, na, nb))       
-        else
-          next
         end
+        @defaults[inst_cell_name] && @defaults[inst_cell_name].each_pair{|p, v|
+          name = p.sub '_hidden', ''
+          if pcell_params[name]
+            if force_defaults && (force_defaults.class != Array || force_defaults.include?(name))
+              pcell_params[name] = v
+            else
+              pcell_params[name] ||=  v
+            end
+          end
+        }
+        puts "#{inst_cell_name}@#{inst.trans}: #{pcell_params.inspect}"
+        i_cell_name = nil
+        via = nil
+        inst.cell.each_inst.with_index{|i, index|
+          p = t*i.trans
+          #it = Point.new(p.disp.x, p.disp.y)
+          puts "#{i.cell.name}@#{p}" unless i.cell.name == 'dcont'
+          i_cell_name = nil
+          if via = vias.find{|v| v.trans.disp.x == p.disp.x && v.trans.disp.y == p.disp.y}
+            puts "***Found #{i.cell.name} over #{via.cell.name}@#{p}"
+            i_cell_name = i.cell.name
+          end
+        }
+        next unless pd = lib.layout.pcell_declaration(inst_cell_name) 
+        pcv = cell.layout.add_pcell_variant(lib, pd.id, pcell_params)
+        if i_cell_name
+          cells_to_add_via << [pcv, t, inst, i_cell_name, via] 
+        else
+          cell.insert(RBA::CellInstArray::new(pcv, t, inst.a, inst.b, inst.na, inst.nb))
+          inst.delete
+        end
+        # pcell_inst = cell.insert(RBA::CellInstArray::new(pcv, t, inst.a, inst.b, inst.na, inst.nb))
         cells_to_delete << inst.cell
-        #inst.cell.each_child_cell{|id|
-        #  cells_to_delete << cell.layout.cell(id)
-        #}
+      }
+      cells_to_add_via.each{|pcv, t, inst, i_cell_name, via|
+        pcell_inst = cell.insert(RBA::CellInstArray::new(pcv, t, inst.a, inst.b, inst.na, inst.nb))
+        inst_i = pcell_inst.cell.each_inst.find{|i| i.cell.name.sub(/\$.*$/, '') == i_cell_name}
+        via_cell = bas_lib.layout.cell('Via')
+        proxy_index = cell.layout.add_lib_cell(bas_lib, via_cell.cell_index)
+        via_inst = cell.insert(RBA::CellInstArray.new(proxy_index, t*inst_i.trans))
+        puts "===>Insert Via at #{t*inst_i.trans}"
+        inst.delete
+        via.delete
+      }
+      cell.each_inst{|inst| # process Basic cells and other cells
+        next if inst.is_pcell? || inst.cell.library == bas_lib # already converted
+        t = inst.trans
+        inst_cell_name = (@device_mapping && @device_mapping[inst.cell.name]) || inst.cell.name          
+        puts "Basic cell: #{inst.cell.name}"
+        inst_cell_name.sub! /\$.*$/, ''
+
+        basic_cell = bas_lib.layout.cell(inst_cell_name)
+        raise "basic_cell for #{inst_cell_name} not found" if basic_cell.nil?
+        proxy_index = cell.layout.add_lib_cell(bas_lib, basic_cell.cell_index)
+        basic_inst = cell.insert(RBA::CellInstArray.new(proxy_index, t, inst.a, inst.b, inst.na, inst.nb))       
+
+        cells_to_delete << inst.cell
         inst.delete
       }
       if false && cells_to_delete.size > 0
@@ -645,6 +681,7 @@ module MinedaCommon
       cell.each_child_cell{|id| child_cells << id}
       child_cells.each{|id|
         c = cell.layout.cell(id)
+        next if c.is_pcell_variant?
         if c.child_instances > 0
           puts c.name
           convert_library_cells0 c, pcell_lib, basic_lib, pcell_factor, force_defaults
@@ -672,7 +709,7 @@ module MinedaCommon
         opt.layer_map = LayerMap::from_string self.class.create_map(@cv, @pcell_module, @technology_name)
       end
       opt.create_other_layers = false # layers not listed in this layer map are ignored (not created)
-      cv = mw.load_layout file, opt, technology_name, 1 #  mode 1 means new view
+      cv = mw.load_layout file, opt, @technology_name, 1 #  mode 1 means new view
       @pcell_lib = args[:pcell_lib] || @pcell_lib
       @basic_lib = args[:basic_lib] || @basic_lib
       @device_mapping = args[:device_mapping]
