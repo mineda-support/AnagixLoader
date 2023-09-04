@@ -1,9 +1,9 @@
 # coding: utf-8
-# MinedaPCell v0.84 August 22nd 2023 copy right S. Moriyama (Anagix Corporation)
+# MinedaPCell v0.85 Sep. 4th 2023 copy right S. Moriyama (Anagix Corporation)
 #
 #include MinedaPCellCommonModule
 module MinedaPCell
-  version = '0.83'
+  version = '0.85'
   include MinedaPCellCommonModule
   # The PCell declaration for the Mineda MOSFET
   class MinedaMOS < MinedaPCellCommon
@@ -1063,14 +1063,17 @@ module MinedaPCell
         ls = s.y
         ws = s.x
       end
-      if ls && (l - lu) .abs < 1e-6 && (w - wu) < 1e-6
+      if  (l - lu) .abs < 1e-6 && (w - wu).abs < 1e-6
         set_lu ls
         set_l ls
         set_wu ws
         set_w ws
       else
+              puts "l=#{l} w=#{w}"
         set_lu l
         set_wu w
+        ws = w
+        ls = l
         set_s DPoint::new(ws, ls)
       end
     end
@@ -1107,14 +1110,16 @@ module MinedaPCell
         xs = s.x
         ys = s.y
       end
-      if  (l - xu) .abs < 1e-6 && (w - yu) < 1e-6
+      if  (l - xu) .abs < 1e-6 && (w - yu).abs < 1e-6
         set_xu xs
         set_l xs
         set_yu ys
         set_w ys
       else
         set_xu l
-        set_yu yp
+        set_yu w
+        xs = l
+        ys = w
         set_s DPoint::new(xs, ys)
       end
     end
