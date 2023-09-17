@@ -1,9 +1,9 @@
 # coding: utf-8
-# MinedaPCell v0.84 August 22nd 2023 copy right S. Moriyama (Anagix Corporation)
+# MinedaPCell v0.85 Sep. 17th 2023 copy right S. Moriyama (Anagix Corporation)
 #
 #include MinedaPCellCommonModule
 module MinedaPCell
-  version = '0.83'
+  version = '0.85'
   include MinedaPCellCommonModule
   # The PCell declaration for the Mineda MOSFET
   class MinedaMOS < MinedaPCellCommon
@@ -1118,6 +1118,198 @@ module MinedaPCell
         set_s DPoint::new(xs, ys)
       end
     end
+  end
+
+  class MinedaBridge < MinedaPCellCommon
+    include RBA
+    def initialize
+      super
+      param(:mb, TypeBoolean, "Metal bridge?", :default => false)
+      param(:nb,  TypeString, "Number of boost heads", :default => '0')
+      param(:rval, TypeDouble, "Resistor value", :default => 0, :hidden=> true)
+    end
+  
+    # default implementation
+    def can_create_from_shape_impl
+      false
+    end
+    
+    def parameters_from_shape_impl
+    end
+    
+    def transformation_from_shape_impl
+    # I「Create PCell from shape（形状からPCellを作成）」プロトコルを実装します。
+    # 変形を決定するために、図形のバウンディングボックスの中心を使用します。
+      Trans.new(shape.bbox.center)
+    end
+    
+    def display_text_impl gate='TIN'
+      if mb
+        "ML2 bridge\r\n(L=#{l.to_s}um,W=#{w.to_s}um, s=#{s}um"
+      else
+        "#{gate} bridge\r\n(L=#{l.to_s}um,W=#{w.to_s}um, s=#{s}um => R=#{rval.round(3)}"
+      end
+    end
+
+    def coerce_parameters_impl
+      sheet_resistance = 20 # temporary
+      set_rval(sheet_resistance * l / w)
+    end    
+
+    def insert_cell_bridge_special indices, index, x, y, vs, u1, fill_metal=true
+      #      via = instantiate via_index, x, y
+      #      inst = cell.insert(via)
+      case index
+      when :diff
+        create_box indices[:diff], x-vs/2, y-vs/2, x+vs/2, y+vs/2
+        return
+      when :via
+        if fill_metal
+          create_box indices[:m1], x-vs/2, y-vs/2, x+vs/2, y+vs/2
+          vs2 = vs + u1/4
+          create_box indices[:m2], x-vs2/2, y-vs2/2, x+vs2/2, y+vs2/2
+        end
+      when :cnt
+        if fill_metal
+          create_box indices[:m1], x-vs/2, y-vs/2, x+vs/2, y+vs/2
+        end
+      when :pcont
+        create_box indices[:tin], x-vs/2, y-vs/2, x+vs/2, y+vs/2
+        create_box indices[:m1], x-vs/2, y-vs/2, x+vs/2, y+vs/2
+        index = :cnt
+      end
+      # vu2 = vs/2 - u1
+      vu2 =vs/2 - u1/2
+      create_box indices[index], x-vu2, y-vu2, x+vu2, y+vu2
+    end
+
+    def create_contacts_horizontally_bridge_special indices, w, x0, y, vs, u1, body, head, ys, nb=nil
+      nb ||= 0
+      pitch = vs+u1/4  # cnt distance > 5 um
+      n = (w/pitch).to_i
+      if ys < y
+        up = 1
+        down = 0
+      else
+        up = 0
+        down = 1
+      end
+      (nb+1).times{|i|
+        if n <= 1
+          # insert_cell indices, :via, x0, y, vs, u1, fill_metal
+          insert_cell_bridge_special indices, head, x0, y + (up - down)*i*pitch, vs, u1, true # false
+          #insert_cell indices, body, x0, y, vs, u1
+        else
+          offset = w- pitch*n
+          (x0-w/2 + offset/2 + pitch/2).step(x0+w/2-vs/2, pitch){|x|
+            insert_cell_bridge_special indices, head, x, y + (up - down)*i*pitch, vs, u1, false
+            #insert_cell indices, body, x, y, vs, u1
+          }
+         vs2 = vs + u1/4
+        end
+      }
+      x1 = x0-w/2
+      y1 = y-vs/2-u1/8*down - pitch*nb*down
+      x2 = x0+w/2
+      y2 = y+vs/2+u1/8*up + pitch*nb*up
+      create_box indices[:m1],  x1, y1, x2 , y2
+      create_box indices[body],  x1, y1, x2 , y2
+      create_box indices[:narea],  x1-u1/2 ,y1-u1/2 ,x2+u1/2, y2+u1/2 if body == :diff
+    end
+    
+    def create_contacts_vertically_bridge_special indices, w, x, y0, vs, u1, body, head, xs, nb = nil
+      nb ||= 0
+      pitch = vs+u1/4  # cnt distance > 5 um
+      n = (w/pitch).to_i
+      if x < xs
+        left = 1
+        right = 0
+      else
+        left = 0
+        right = 1
+      end
+      (nb+1).times{|i|
+        if n <= 1
+          # insert_cell indices, :via, x0, y, vs, u1, fill_metal
+          insert_cell_bridge_special indices, head, x + (right - left)*i*pitch, y0, vs, u1, true # false
+          #insert_cell indices, body, x, y0, vs, u1
+        else
+          offset = w- pitch*n
+          (y0-w/2 + offset/2 + pitch/2).step(y0+w/2-vs/2, pitch){|y|
+            insert_cell_bridge_special indices, head, x + (right - left)*i*pitch  , y, vs, u1, false
+          }
+          vs2 = vs + u1/4
+        end
+      }
+      x1 = x-vs/2-u1/8*left - pitch*nb*left
+      y1 =  y0-w/2
+      x2 =  x+vs/2+u1/8*right + pitch*nb*right
+      y2 =  y0+w/2
+      create_box indices[:m1], x1 ,y1 ,x2, y2
+      create_box indices[body], x1 ,y1 ,x2, y2
+      create_box indices[:narea], x1-u1/2 ,y1-u1/2 ,x2+u1/2, y2+u1/2 if body == :diff
+    end
+       
+    def produce_impl_core(indices, body, head, via_size = 9.0.um, grid = 4.0.um, metal1width = 10.0.um )
+      rw = (w/layout.dbu).to_i
+      rl = (l/layout.dbu).to_i
+      vs = (via_size/layout.dbu).to_i
+      sl = s.split(/[,\s]+/).map{|s| (s.to_f/layout.dbu).to_i}
+      rrl = rl.abs + sl.map{|a| a.abs}.sum
+      u1 = (grid/layout.dbu).to_i
+      m1w = (metal1width/layout.dbu).to_i
+      nbc = nb.split(/[,\s]+/).map &:to_i
+      x = vs/2
+      y = (rl > 0) ? vs : 0
+      ys = y + rl
+      create_contacts_horizontally_bridge_special indices, rw, x, vs/2, vs, u1, body, head, ys, nbc[0]
+      points = [Point::new(x, y), Point::new(x, ys)]
+      xs = x
+      xh = xs
+      yh = (rl > 0 )? ys + vs/2 : ys - vs/2
+      p = -rl
+      count = 0
+      sl.each{|s| 
+        next if s == 0
+        if count % 2 == 0
+          xs = (p > 0) ? xs - s : xs + s
+          xh = (p*s > 0) ? xs - vs/2 : xs + vs/2
+          yh = ys
+        else 
+          ys = (p > 0) ? ys - s : ys + s
+          yh = (p*s > 0) ? ys - vs/2 : ys + vs/2
+          xh = xs
+        end
+        p = s
+        points << Point::new(xs, ys)
+        count = count + 1
+      }
+      if count % 2 == 0
+        create_contacts_horizontally_bridge_special indices, rw, xh, yh, vs, u1, body, head, ys, nbc[1]||nbc[0]
+      else
+        create_contacts_vertically_bridge_special indices, rw, xh, yh, vs, u1, body, head, xs, nbc[1]||nbc[0]
+      end
+      cell.shapes(indices[body]).insert(Path::new(points, rw, 0, 0))
+      cell.shapes(indices[:res]).insert(Path::new(points, rw, 0, 0))  
+       cell.shapes(indices[:narea]).insert(Path::new(points, rw+u1, u1/2, u1/2)) if body == :diff 
+      [[[vs/2-rw/2, 0].min, vs - rw, vs/2+rw/2, vs+rl+vs+u1/4], u1]
+    end
+  end
+  class MinedaNbridge < MinedaBridge
+    include RBA
+ 
+    def display_text_impl
+      if mb
+        "ML2 bridge\r\n(L=#{l.to_s}um,W=#{w.to_s}um, s=#{s}um"
+      else
+        "Ndiff bridge\r\n(L=#{l.to_s}um,W=#{w.to_s}um, s=#{s}um => R=#{rval.round(3)}"
+      end
+    end
+
+    def coerce_parameters_impl
+      sheet_resistance = 81
+      set_rval(sheet_resistance * l / w)
+    end     
   end
 end
 ##############################################################################################

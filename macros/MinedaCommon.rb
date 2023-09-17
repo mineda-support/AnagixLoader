@@ -12,6 +12,7 @@
 #   Create Backannotation data v0.171 May 14th 2023 S. Moriyama
 #   MinedaAutoplace v0.31 July 26th 2023 S. Moriyama
 #   ChangePCellParameters v0.1 July 29th 2023 S. Moriyama
+#   MinedaBridge v0.1 Sep. 17 2023 S. Moriyama
 
 module MinedaPCellCommonModule
   include RBA
@@ -1637,6 +1638,37 @@ class MinedaAutoPlace
     [w, n]
   end
       
+end
+
+class MinedaBridge
+  include RBA
+  def initialize
+    app = RBA::Application.instance
+    mw = app.main_window
+    lv = mw.current_view
+    if lv == nil
+      raise "No view selected"
+    end
+    @cv = lv.active_cellview
+    if !@cv.is_valid?
+      raise "No cell or no layout found"
+    end
+  end
+  
+  def metalize_bridges value
+    metalize_bridges0 @cv.cell, value
+  end
+  
+  def metalize_bridges0 cell, value
+    cell.each_inst{|inst|
+      if inst.cell.name.include?('Bridge') || inst.cell.name.include?('Nbridge')
+        inst.change_pcell_parameter 'mb', value
+      elsif inst.cell.child_instances > 0
+        metalize_bridges0 inst.cell, value
+      end
+      puts inst.pcell_parameters_by_name
+    }
+  end
 end
 
 if nil && $0 == __FILE__
