@@ -1,9 +1,9 @@
 # coding: utf-8
-# MinedaPCell v0.86 Sep. 17th 2023 copy right S. Moriyama (Anagix Corporation)
+# MinedaPCell v0.871 Sep. 18th 2023 copy right S. Moriyama (Anagix Corporation)
 #
 #include MinedaPCellCommonModule
 module MinedaPCell
-  version = '0.86'
+  version = '0.871'
   include MinedaPCellCommonModule
   # The PCell declaration for the Mineda MOSFET
   class MinedaMOS < MinedaPCellCommon
@@ -1190,7 +1190,7 @@ module MinedaPCell
 
     def create_contacts_horizontally_bridge_special indices, w, x0, y, vs, u1, body, head, ys, nb=nil
       nb ||= 0
-      pitch = vs+u1/4  # cnt distance > 5 um
+      pitch = vs # +u1/4  # cnt distance > 5 um
       n = (w/pitch).to_i
       if ys < y
         up = 1
@@ -1210,13 +1210,13 @@ module MinedaPCell
             insert_cell_bridge_special indices, head, x, y + (up - down)*i*pitch, vs, u1, false
             #insert_cell indices, body, x, y, vs, u1
           }
-         vs2 = vs + u1/4
+         vs2 = vs #  + u1/4
         end
       }
       x1 = x0-w/2
-      y1 = y-vs/2-u1/8*down - pitch*nb*down
+      y1 = y-vs/2 - pitch*nb*down # -u1/8*down
       x2 = x0+w/2
-      y2 = y+vs/2+u1/8*up + pitch*nb*up
+      y2 = y+vs/2 + pitch*nb*up # +u1/8*up
       create_box indices[:m1],  x1, y1, x2 , y2
       create_box indices[body],  x1, y1, x2 , y2
       create_box indices[:narea],  x1-u1/2 ,y1-u1/2 ,x2+u1/2, y2+u1/2 if body == :diff
@@ -1224,7 +1224,7 @@ module MinedaPCell
     
     def create_contacts_vertically_bridge_special indices, w, x, y0, vs, u1, body, head, xs, nb = nil
       nb ||= 0
-      pitch = vs+u1/4  # cnt distance > 5 um
+      pitch = vs # +u1/4  # cnt distance > 5 um
       n = (w/pitch).to_i
       if x < xs
         left = 1
@@ -1243,26 +1243,25 @@ module MinedaPCell
           (y0-w/2 + offset/2 + pitch/2).step(y0+w/2-vs/2, pitch){|y|
             insert_cell_bridge_special indices, head, x + (right - left)*i*pitch  , y, vs, u1, false
           }
-          vs2 = vs + u1/4
+          vs2 = vs # + u1/4
         end
       }
-      x1 = x-vs/2-u1/8*left - pitch*nb*left
+      x1 = x-vs/2 - pitch*nb*left # -u1/8*left
       y1 =  y0-w/2
-      x2 =  x+vs/2+u1/8*right + pitch*nb*right
+      x2 =  x+vs/2 + pitch*nb*right # +u1/8*right
       y2 =  y0+w/2
       create_box indices[:m1], x1 ,y1 ,x2, y2
       create_box indices[body], x1 ,y1 ,x2, y2
       create_box indices[:narea], x1-u1/2 ,y1-u1/2 ,x2+u1/2, y2+u1/2 if body == :diff
     end
        
-    def produce_impl_core(indices, body, head, via_size = 9.0.um, grid = 4.0.um, metal1width = 10.0.um )
+    def produce_impl_core(indices, body, head, via_size = 9.0.um, grid = 4.0.um )
       rw = (w/layout.dbu).to_i
       rl = (l/layout.dbu).to_i
       vs = (via_size/layout.dbu).to_i
       sl = s.split(/[,\s]+/).map{|s| (s.to_f/layout.dbu).to_i}
       rrl = rl.abs + sl.map{|a| a.abs}.sum
       u1 = (grid/layout.dbu).to_i
-      m1w = (metal1width/layout.dbu).to_i
       nbc = nb.split(/[,\s]+/).map &:to_i
       x = vs/2
       y = (rl > 0) ? vs : 0
@@ -1296,7 +1295,7 @@ module MinedaPCell
       end
       cell.shapes(indices[body]).insert(Path::new(points, rw, 0, 0))
       cell.shapes(indices[:res]).insert(Path::new(points, rw, 0, 0))  
-       cell.shapes(indices[:narea]).insert(Path::new(points, rw+u1, u1/2, u1/2)) if body == :diff 
+      cell.shapes(indices[:narea]).insert(Path::new(points, rw+u1, u1/2, u1/2)) if body == :diff 
       [[[vs/2-rw/2, 0].min, vs - rw, vs/2+rw/2, vs+rl+vs+u1/4], u1]
     end
   end
