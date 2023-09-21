@@ -52,7 +52,7 @@
     end
     def update_symattr symattr, current, prefix, file, id
       new_netlist = ''
-      if symattr 
+      if symattr &amp;&amp; symattr != {}
         if prefix == 'M'
           devices = @ba_data[File.basename(file).sub('.asc', '').upcase] || @ba_data['.TOP']
           if current &amp;&amp; new = devices[prefix+id]
