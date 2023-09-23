@@ -1,9 +1,9 @@
 # coding: utf-8
-# MinedaPCell v0.871 Sep. 18th 2023 copy right S. Moriyama (Anagix Corporation)
+# MinedaPCell v0.88 Sep. 23rd 2023 copy right S. Moriyama (Anagix Corporation)
 #
 #include MinedaPCellCommonModule
 module MinedaPCell
-  version = '0.871'
+  version = '0.88'
   include MinedaPCellCommonModule
   # The PCell declaration for the Mineda MOSFET
   class MinedaMOS < MinedaPCellCommon
@@ -823,6 +823,66 @@ module MinedaPCell
       # puts "n=#{n}"
       [[[vs/2-rw/2, 0].min, [(ho||n<=2) ? 0 : vs - rw, ymin].min, xmax, ymax], rw_ho]
     end
+  end
+
+  class MinedaResistorType2 < MinedaPCellCommon
+    def produce_impl indices, vs, u1, cs, ol, delta, pol_enclosure = 0, params={}
+     # cs: contact size, ol: POL overlap over cs
+     # delta is used to adjust res end
+      indices[:m1] = get_layer_index 'ML1'
+      indices[:cnt] = get_layer_index 'CNT'
+      length = (l/layout.dbu).to_i
+      width = (w/layout.dbu).to_i
+      sseg = (ss/layout.dbu).to_i
+      offset = 0
+      #pol_enclosure = u10/2 # pol enclosure might not make sense process wise, pol is a tentative name
+      for i in 0..ns-1
+        create_box indices[:pol], -pol_enclosure, offset, (ol+cs+delta)*2 + length + pol_enclosure, width + offset
+        x = ol + cs +delta + length
+        create_box indices[:res], ol + cs + delta, offset, x, width + offset
+        if diff_index = indices[:diff]
+          # x1, y1, x2, y2 = boxes_bbox(indices[:pol])
+          x1, y1, x2, y2 = [0, offset+pol_enclosure, (ol+cs+delta)*2 + length, width + offset-pol_enclosure]
+          # xr1, yr1, xr2, yr2 = boxes_bbox(indices[:res])
+          xr1, yr1, xr2, yr2 = [ ol + cs + delta, offset+pol_enclosure, x, width + offset-pol_enclosure]
+          create_box diff_index, x1, y1, xr1, y2
+          create_box diff_index, xr2, y1, x2, y2
+          if parea_index = indices[:parea]
+            parea_margin = params[:parea_margin] || (u1/5)*3
+            create_box parea_index, x1-parea_margin, y1-parea_margin, xr1+parea_margin, y2+parea_margin
+            create_box parea_index, xr2-parea_margin, y1-parea_margin, x2+parea_margin, y2+parea_margin
+          end
+        end
+        x = x + delta
+        ml1_cnt = params[:ml1_cnt] || u1/5
+        ml1_margin = params[:ml1_margin] || 0
+        lower_end = offset - (width < cs + ol*2? ml1_cnt : 0) + ml1_margin
+        upper_end = width + offset +  (width < cs + ol*2? ml1_cnt : 0) - ml1_margin
+        [[ol - ml1_cnt, lower_end, ol + cs + ml1_cnt,upper_end,  [0, 0]],
+         [x - ml1_cnt, lower_end, x + cs + ml1_cnt, upper_end, [0, 0]]].each{|area|
+          fill_area(area, vs, indices[:m1]){|x, y|
+            create_box indices[:cnt], x - cs/2, y - cs/2, x + cs/2, y + cs/2
+          }
+        }
+        dy = (width-cs)/2
+        if width < cs + ol*2
+          create_box indices[:pol], 0, offset + dy - ol, cs + ol*2, offset + width - dy +ol
+          create_box indices[:pol], x - ol, offset + dy -ol, x + cs + ol, offset + width - dy + ol
+        end
+        if offset > 0
+          create_box indices[:m1], ol - ml1_cnt, offset - sseg-ml1_margin, cs+ol + ml1_cnt, offset+ml1_margin if parallel || i % 2 == 0
+          create_box indices[:m1], x - ml1_cnt, offset - sseg-ml1_margin, x + cs + ml1_cnt, offset+ml1_margin if parallel || i % 2 != 0
+        end
+        offset = offset + width + sseg
+      end
+    end
+    def display_text_impl name='HR_poly'
+      if ns > 1
+        "#{name}\r\n(L=#{l.round(3)}um,W=#{w.round(3)}um,ns=#{ns.to_s}, #{ss}um => R=#{rval.round(3)})"
+      else
+        "#{name}\r\n(L=#{l.round(3)}um,W=#{w.round(3)}um,ns=#{ns.to_s} => R=#{rval.round(3)})"
+      end
+    end   
   end
 
   class MinedaCapacitor < MinedaPCellCommon
