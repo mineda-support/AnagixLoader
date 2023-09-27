@@ -1,5 +1,5 @@
 # coding: utf-8
-# MinedaPCell v0.88 Sep. 23rd 2023 copy right S. Moriyama (Anagix Corporation)
+# MinedaPCell v0.89 Sep. 27th 2023 copy right S. Moriyama (Anagix Corporation)
 #
 #include MinedaPCellCommonModule
 module MinedaPCell
@@ -1153,13 +1153,13 @@ module MinedaPCell
   end
   
  class MinedaFillBox < MinedaPCellCommon
-    def initialize
-       super
-       param(:l, TypeDouble, "X position", :default => 4.0.um)
-       param(:w, TypeDouble, "Y position", :default => 4.0.um)
-       param(:s, TypeShape, "", :default => DPoint::new(4.0, 4.0))
-       param(:xu, TypeDouble, "Previous X", :default => 4.0.um, :hidden =>true)
-       param(:yu, TypeDouble, "Previous Y", :default => 4.0.um, :hidden =>true)
+    def initialize default_x=4.0.um, default_y=4.0.um
+       super()
+       param(:l, TypeDouble, "X position", :default => default_x)
+       param(:w, TypeDouble, "Y position", :default => default_y)
+       param(:s, TypeShape, "", :default => DPoint::new(default_x, default_y))
+       param(:xu, TypeDouble, "Previous X", :default => default_x, :hidden =>true)
+       param(:yu, TypeDouble, "Previous Y", :default => default_y, :hidden =>true)
     end
     def display_text_impl
       "Fill box\r\n(X=#{l.round(3)}um,Y=#{w.round(3)}um)"
