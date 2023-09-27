@@ -1,5 +1,5 @@
 # coding: utf-8
-# MinedaPCell v0.89 Sep. 27th 2023 copy right S. Moriyama (Anagix Corporation)
+# MinedaPCell v0.891 Sep. 27th 2023 copy right S. Moriyama (Anagix Corporation)
 #
 #include MinedaPCellCommonModule
 module MinedaPCell
@@ -105,14 +105,14 @@ module MinedaPCell
     def produce_impl indices, vs, u1, params = {} # NMOS
       produce_impl_core(indices, vs, u1, params){|x1, y1, x2, y2, gl, gw, dgl|
         # create ncon
-        wm_offset = wide_metal ? u1 : 0
+        wm_offset = defined?(wide_metal) && wide_metal ? u1 : 0
         via_offset = params[:via_offset] || 0
         x = x1 + vs/2
         pcont_dy = params[:pcont_dy] || u1/4
         y = y2 - vs/2 + pcont_dy
         gate_ext = params[:gate_ext] || 0
         mw1 = params[:m1_width] || u1
-        if wide_metal
+        if defined?(wide_metal) &&wide_metal
           x = x - u1
           y = y + u1/2
         end
@@ -158,7 +158,7 @@ module MinedaPCell
           else
             # second s/d and via
             if n == 1
-              insert_cell indices[:via], x, y2-vs/2 + (wide_metal ? u1/2 : 0) + via_offset if with_via && with_sdcont
+              insert_cell indices[:via], x, y2-vs/2 + (defined?(wide_metal) &&wide_metal ? u1/2 : 0) + via_offset if with_via && with_sdcont
               y = y2-vs/2
             else
               insert_cell indices[:via], x, y2+u1-vs/2 + via_offset if with_via && with_sdcont && !no_finger_conn
@@ -185,7 +185,7 @@ module MinedaPCell
             y = y2 - vs/2 + psubcont_dy
           else
             y = y1 + vs/2 - psubcont_dy
-            y = y - u1/2 if wide_metal
+            y = y - u1/2 if defined?(wide_metal) && wide_metal
           end
           insert_cell indices[:psubcont], x, y if indices[:psubcont]
           insert_cell indices[:via], x, y if with_via
@@ -221,13 +221,13 @@ module MinedaPCell
     def produce_impl indices, vs, u1, params = {} # NMOS_SOI
       produce_impl_core(indices, vs, u1, params){|x1, y1, x2, y2, gl, gw, dgl|
         # create ncon
-        wm_offset = wide_metal ? u1 : 0
+        wm_offset = defined?(wide_metal) && wide_metal ? u1 : 0
         
         x = x1 + vs/2
         pcont_dy = params[:pcont_dy] || u1/4
         y = y2 - vs/2 + pcont_dy
         gate_ext = params[:gate_ext] || 0
-        if wide_metal
+        if defined?(wide_metal) && wide_metal
           x = x - u1
           y = y + u1/2
         end
@@ -304,7 +304,7 @@ module MinedaPCell
               end
             end
             if n == 1
-              insert_cell indices[:via], x, y2-vs/2 + (wide_metal ? u1/2 : 0) if with_via && with_sdcont
+              insert_cell indices[:via], x, y2-vs/2 + (defined?(wide_metal) && wide_metal ? u1/2 : 0) if with_via && with_sdcont
             else
               insert_cell indices[:via], x, y if with_via && with_sdcont
             end
@@ -355,7 +355,7 @@ module MinedaPCell
             y = y2 - vs/2 + psubcont_dy
           else
             y = y1 + vs/2 - psubcont_dy
-            y = y - u1/2 if wide_metal
+            y = y - u1/2 if defined?(wide_metal) && wide_metal
           end
           insert_cell indices[:psubcont], x, y if indices[:psubcont]
           insert_cell indices[:via], x, y if with_via
@@ -403,14 +403,14 @@ module MinedaPCell
     def produce_impl indices, vs, u1, params = {} # PMOS
       produce_impl_core(indices, vs, u1, params){|x1, y1, x2, y2, gl, gw, dgl|
         # create pcont
-        wm_offset = wide_metal ? vs/2 : 0
+        wm_offset = defined?(wide_metal) && wide_metal ? vs/2 : 0
         via_offset = params[:via_offset] || 0
         x = x1 + vs/2
         pcont_dy = params[:pcont_dy] || -u1/4
         y = y1 + vs/2 + pcont_dy
         gate_ext = params[:gate_ext] || 0
         mw1 = params[:m1_width] || u1
-        if wide_metal
+        if defined?(wide_metal) && wide_metal
           x = x - u1
           y = y - u1/2
         end
@@ -456,7 +456,7 @@ module MinedaPCell
           else
             # second s/d and via
             if n == 1
-              insert_cell indices[:via], x, y1+vs/2 - (wide_metal ? u1/2 : 0) - via_offset if with_via && with_sdcont
+              insert_cell indices[:via], x, y1+vs/2 - (defined?(wide_metal) && wide_metal ? u1/2 : 0) - via_offset if with_via && with_sdcont
               y = y1 + vs/2
             else
               insert_cell indices[:via], x, y1-u1+vs/2 - via_offset if with_via && with_sdcont && !no_finger_conn
@@ -477,11 +477,11 @@ module MinedaPCell
           nsubcont_dy = params[:nsubcont_dy] ||  u1/2 + u1
           x = offset - gl - vs/2 + (with_via ? u1/2 : 0) + nsubcont_dx
           if n % 2 == 0
-            y = y1 + vs/2 - nsubcont_dy - (wide_metal ? u1 : 0)
+            y = y1 + vs/2 - nsubcont_dy - (defined?(wide_metal) && wide_metal ? u1 : 0)
           else
             y = y2 - vs/2 + nsubcont_dy + wm_offset
           end
-          y = y + u1/2 if wide_metal
+          y = y + u1/2 if defined?(wide_metal) && wide_metal
           x = x + u1/2 if n > 1
           insert_cell indices[:nsubcont], x, y if indices[:nsubcont]
           insert_cell indices[:via], x, y if with_via
@@ -519,12 +519,12 @@ module MinedaPCell
     def produce_impl indices, vs, u1, params = {} # PMOS_SOI
       produce_impl_core(indices, vs, u1, params){|x1, y1, x2, y2, gl, gw, dgl|
         # create pcont
-        wm_offset = wide_metal ? vs/2 : 0
+        wm_offset = defined?(wide_metal) && wide_metal ? vs/2 : 0
         x = x1 + vs/2
         pcont_dy = params[:pcont_dy] || -u1/4
         y = y1 + vs/2 + pcont_dy
         gate_ext = params[:gate_ext] || 0
-        if wide_metal
+        if defined?(wide_metal) && wide_metal
           x = x - u1
           y = y - u1/2
         end
@@ -599,7 +599,7 @@ module MinedaPCell
               end
             end
             if n == 1
-              insert_cell indices[:via], x, y1+vs/2 - (wide_metal ? u1/2 : 0) if with_via && with_sdcont
+              insert_cell indices[:via], x, y1+vs/2 - (defined?(wide_metal) && wide_metal ? u1/2 : 0) if with_via && with_sdcont
             else
               insert_cell indices[:via], x, y if with_via && with_sdcont
             end
@@ -645,11 +645,11 @@ module MinedaPCell
           nsubcont_dy = params[:nsubcont_dy] ||  u1/2 + u1
           x = offset - gl - vs/2 + (with_via ? u1/2 : 0) + nsubcont_dx
           if n % 2 == 0
-            y = y1 + vs/2 - nsubcont_dy - (wide_metal ? u1 : 0)
+            y = y1 + vs/2 - nsubcont_dy - (defined?(wide_metal) && wide_metal ? u1 : 0)
           else
             y = y2 - vs/2 + nsubcont_dy + wm_offset
           end
-          y = y + u1/2 if wide_metal
+          y = y + u1/2 if defined?(wide_metal) && wide_metal
           x = x + u1/2 if n > 1
           insert_cell indices[:nsubcont], x, y if indices[:nsubcont]
           insert_cell indices[:via], x, y if with_via
