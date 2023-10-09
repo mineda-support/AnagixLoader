@@ -1,9 +1,9 @@
 # coding: utf-8
-# MinedaPCell v0.891 Sep. 27th 2023 copy right S. Moriyama (Anagix Corporation)
+# MinedaPCell v0.90 Oct. 9th 2023 copy right S. Moriyama (Anagix Corporation)
 #
 #include MinedaPCellCommonModule
 module MinedaPCell
-  version = '0.88'
+  version = '0.90'
   include MinedaPCellCommonModule
   # The PCell declaration for the Mineda MOSFET
   class MinedaMOS < MinedaPCellCommon
@@ -62,11 +62,11 @@ module MinedaPCell
       offset = 0
       m1cnt_width = params[:m1cnt_width] || vs
       (n+1).times{|i|
-        x = offset + vs/2 - xshift
+        x = offset + m1cnt_width/2 - xshift
         create_path(indices[:m1], x, vs-yshift+u1+u1cut, x, vs-yshift+u1-u1cut+sd_width, m1cnt_width, 0, 0)
         create_path(indices[:li1], x, vs-yshift+u1+u1cut, x, vs-yshift+u1-u1cut+sd_width, u1, 0, 0) if indices[:li1]
         create_dcont(indices[:dcont], x, vs-yshift+u1, x, vs-yshift+u1+sd_width, vs + vs_extra, params[:dcont_offset])
-        x = x + vs/2 + gl/2 + dgl
+        x = x + m1cnt_width/2 + gl/2 + dgl
         if i < n
           create_path(indices[:pol], x, vs-yshift+u1, x, vs-yshift+u1+sd_width, gl, gate_ext, gate_ext)
           if indices[:gate_impl]
@@ -74,14 +74,14 @@ module MinedaPCell
             create_path(indices[:gate_impl], x, vs-yshift+u1, x, vs-yshift+u1+sd_width, gl+gim*2, gate_ext+gim, gate_ext+gim)
           end
         end
-        offset = offset + vs + gl + 2*dgl
+        offset = offset + m1cnt_width + gl + 2*dgl
       }
       if gw > vs + vs_extra
         create_box indices[:diff], -xshift, vs-yshift+u1, offset - gl - 2*dgl - xshift, vs-yshift+u1+gw
       else
         create_box indices[:diff], -xshift, vs-yshift+u1+(vs+vs_extra)/2-gw/2, offset - gl - 2*dgl - xshift, vs-yshift+u1+gw+(vs+vs_extra)/2-gw/2
       end
-      yield -xshift, -yshift, vs*2+gl-xshift, (vs+u1)*2+sd_width-yshift, gl, gw, dgl
+      yield -xshift, -yshift, vs*2+gl-xshift, (vs+u1)*2+sd_width-yshift, gl, gw, dgl, m1cnt_width
     end
 
     def library_cell name, libname, layout
@@ -103,7 +103,7 @@ module MinedaPCell
     end
 
     def produce_impl indices, vs, u1, params = {} # NMOS
-      produce_impl_core(indices, vs, u1, params){|x1, y1, x2, y2, gl, gw, dgl|
+      produce_impl_core(indices, vs, u1, params){|x1, y1, x2, y2, gl, gw, dgl, m1cnt_width|
         # create ncon
         wm_offset = defined?(wide_metal) && wide_metal ? u1 : 0
         via_offset = params[:via_offset] || 0
@@ -173,7 +173,7 @@ module MinedaPCell
             end
             bottom = x
           end
-          offset = offset + vs + gl + 2*dgl
+          offset = offset + m1cnt_width + gl + 2*dgl
         }
         offset = offset - 2*dgl
         # psubcont and via
@@ -219,7 +219,7 @@ module MinedaPCell
     include RBA
 
     def produce_impl indices, vs, u1, params = {} # NMOS_SOI
-      produce_impl_core(indices, vs, u1, params){|x1, y1, x2, y2, gl, gw, dgl|
+      produce_impl_core(indices, vs, u1, params){|x1, y1, x2, y2, gl, gw, dgl, m1cnt_width|
         # create ncon
         wm_offset = defined?(wide_metal) && wide_metal ? u1 : 0
         
@@ -333,7 +333,7 @@ module MinedaPCell
               insert_contacts [x - vs/2, (y1+y2)/2 - gcw/2, x + vs/2, (y1+y2)/2 + gcw/2], vs, indices[:pcont_min] || indices[:pcont]
             end
           end
-          offset = offset + vs + gl + 2*dgl
+          offset = offset + m1cnt_widt + gl + 2*dgl
         }
         if defined?(body_tie) && body_tie
           y = y1 + vs/2
@@ -401,7 +401,7 @@ module MinedaPCell
     end
 
     def produce_impl indices, vs, u1, params = {} # PMOS
-      produce_impl_core(indices, vs, u1, params){|x1, y1, x2, y2, gl, gw, dgl|
+      produce_impl_core(indices, vs, u1, params){|x1, y1, x2, y2, gl, gw, dgl, m1cnt_width|
         # create pcont
         wm_offset = defined?(wide_metal) && wide_metal ? vs/2 : 0
         via_offset = params[:via_offset] || 0
@@ -468,7 +468,7 @@ module MinedaPCell
             end
             bottom = x
           end
-          offset = offset + vs + gl + 2*dgl
+          offset = offset + m1cnt_width + gl + 2*dgl
         }
         offset = offset - 2*dgl
          # nsubcont and via
@@ -517,7 +517,7 @@ module MinedaPCell
     include RBA
 
     def produce_impl indices, vs, u1, params = {} # PMOS_SOI
-      produce_impl_core(indices, vs, u1, params){|x1, y1, x2, y2, gl, gw, dgl|
+      produce_impl_core(indices, vs, u1, params){|x1, y1, x2, y2, gl, gw, dgl, m1cnt_width|
         # create pcont
         wm_offset = defined?(wide_metal) && wide_metal ? vs/2 : 0
         x = x1 + vs/2
@@ -628,7 +628,7 @@ module MinedaPCell
               insert_contacts [x - vs/2, (y1+y2)/2 - gcw/2, x + vs/2, (y1+y2)/2 + gcw/2], vs, indices[:pcont_min] || indices[:pcont]
             end
           end
-          offset = offset + vs + gl + 2*dgl
+          offset = offset + m1cnt_width + gl + 2*dgl
         }
         if defined?(body_tie) && body_tie
           y = y2 + vs/2
