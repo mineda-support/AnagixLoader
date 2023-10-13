@@ -1,9 +1,9 @@
 # coding: utf-8
-# MinedaPCell v0.90 Oct. 9th 2023 copy right S. Moriyama (Anagix Corporation)
+# MinedaPCell v0.91 Oct. 13th 2023 copy right S. Moriyama (Anagix Corporation)
 #
 #include MinedaPCellCommonModule
 module MinedaPCell
-  version = '0.90'
+  version = '0.91'
   include MinedaPCellCommonModule
   # The PCell declaration for the Mineda MOSFET
   class MinedaMOS < MinedaPCellCommon
@@ -164,9 +164,7 @@ module MinedaPCell
               insert_cell indices[:via], x, y2+u1-vs/2 + via_offset if with_via && with_sdcont && !no_finger_conn
               y = y2+u1-vs/2
             end
-            unless no_finger_conn
-              create_path indices[:m1], x, y2-vs-2*u1 - wm_offset - via_offset, x, y, mw1, 0, 0 if with_sdcont # || n != 1
-            end
+            create_path indices[:m1], x, y2-vs-2*u1 - wm_offset - via_offset, x, y, mw1, 0, 0 if !no_finger_conn && (with_sdcont || n != 1)
             if bottom
               y = y2+u1-vs/2
               create_path indices[:m1], bottom, y, x, y, mw1, mw1/2, mw1/2 unless no_finger_conn
@@ -308,7 +306,7 @@ module MinedaPCell
             else
               insert_cell indices[:via], x, y if with_via && with_sdcont
             end
-            create_path indices[:m1], x, y2-vs-2*u1 - wm_offset, x, y, pol_width, 0, 0 if with_sdcont # || n != 1
+            create_path indices[:m1], x, y2-vs-2*u1 - wm_offset, x, y, pol_width, 0, 0 if !no_finger_conn && (with_sdcont || n != 1)
             if bottom && !no_finger_conn
               if soi_bridge
                 create_path indices[:m1], bottom, y, x, y, pol_width+u1/4, 0, 0
