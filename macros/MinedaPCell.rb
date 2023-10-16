@@ -1,5 +1,5 @@
 # coding: utf-8
-# MinedaPCell v0.91 Oct. 13th 2023 copy right S. Moriyama (Anagix Corporation)
+# MinedaPCell v0.92 Oct. 16th 2023 copy right S. Moriyama (Anagix Corporation)
 #
 #include MinedaPCellCommonModule
 module MinedaPCell
@@ -331,7 +331,7 @@ module MinedaPCell
               insert_contacts [x - vs/2, (y1+y2)/2 - gcw/2, x + vs/2, (y1+y2)/2 + gcw/2], vs, indices[:pcont_min] || indices[:pcont]
             end
           end
-          offset = offset + m1cnt_widt + gl + 2*dgl
+          offset = offset + m1cnt_width + gl + 2*dgl
         }
         if defined?(body_tie) && body_tie
           y = y1 + vs/2
