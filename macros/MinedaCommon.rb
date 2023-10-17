@@ -7,7 +7,7 @@
 #   ConvertLibraryCells (ConvertPCells) v0.52 Sep. 19th 2023  copy right S. Moriyama
 #   PCellTest v0.2 August 22nd 2022 S. Moriyama
 #   DRC_helper::find_cells_to_exclude v0.1 Sep 23rd 2022 S. Moriyama
-#   MinedaInput v0.32 Jan. 5th 2023 S. Moriyama
+#   MinedaInput v0.33 Oct. 17th 2023 S. Moriyama
 #   MinedaPCellCommon v0.24 Aug. 22 2023 S. Moriyama
 #   Create Backannotation data v0.171 May 14th 2023 S. Moriyama
 #   MinedaAutoplace v0.31 July 26th 2023 S. Moriyama
@@ -276,6 +276,8 @@ module MinedaCommon
       tech = @source.layout.technology
       lyp_file = File.join(tech.base_path, tech.layer_properties_file)
       @layer_index = MinedaPCell::MinedaPCellCommon::get_layer_index_from_file lyp_file
+      sdir = File.dirname @source.path
+      @lvs_work = File.join(sdir, 'lvs_work')
     end
 
     def index layer_name
@@ -336,7 +338,7 @@ module MinedaCommon
       if File.exist? reference
         yield
         create_ba_data lvs_data
-      # make_symlink output
+      # 4b* output
       else
         create_ba_table l2n_data, is_deep
       end
@@ -349,6 +351,8 @@ module MinedaCommon
       if /mswin32|mingw/ =~ RUBY_PLATFORM
         File.link output, slink if File.exist?(output)
       else
+        puts Dir.pwd
+        puts output
         File.symlink "../#{File.basename output}", slink
       end
     end
