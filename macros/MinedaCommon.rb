@@ -2,7 +2,7 @@
 # $priority: 1
 # Mineda Common v1.0 Aug. 11 2023
 #   Force on-grid v0.1 July 39th 2022 copy right S. Moriyama (Anagix Corp.)
-#   LVS preprocessor(get_reference) v0.74 Oct. 27 2023 copyright by S. Moriyama (Anagix Corporation)
+#   LVS preprocessor(get_reference) v0.75 Oct. 27 2023 copyright by S. Moriyama (Anagix Corporation)
 #   * ConvertPCells and PCellDefaults moved from MinedaPCell v0.4 Nov. 22nd 2022
 #   ConvertLibraryCells (ConvertPCells) v0.52 Sep. 19th 2023  copy right S. Moriyama
 #   PCellTest v0.2 August 22nd 2022 S. Moriyama
@@ -1356,11 +1356,26 @@ class MinedaLVS
           end
           l = "#{body} #{others}\n"
         elsif l =~ /^ *(([rR]|[cC]|[dD])\S+ +\S+ +\S+) +(\S+)($| +(.*)$)/ || l.downcase =~ /^ *\.(global|subckt|ends)/
-          l.sub! /\$\[\S*\] */, '' # special for CDL
           body = $1
           value = $3
           rest = $5
           puts "value=#{value} rest=#{rest}@ #{l}&subckt_params=#{subckt_params}"
+          if l.sub!(/\$\[\S*\] */, '') # special for CDL
+            if rest =~ /[mM] *= *(\S+)/
+              m = $1.to_i
+            if m != 1
+                if value =~ /(\S+)[kK]/
+                  val = $1.to_f
+                  l.sub! /#{value}.*$/, "#{val/m}K"
+                else
+                  val = value.to_f
+                  l.sub! /#{value}.*$/, "#{val/m}"
+                end
+              else
+                l.sub! /#{value}.*$/, "#{value}"
+              end
+            end          
+          end
           if  (settings[:do_not_expand_sub_params] &&
                settings[:do_not_expand_sub_params]  != cv.technology)          
             subckt_params.each{|a, b| puts value.sub!(/#{a}/, "#{b}")}
