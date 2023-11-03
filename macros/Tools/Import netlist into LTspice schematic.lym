@@ -16,7 +16,7 @@
  <interpreter>ruby</interpreter>
  <dsl-interpreter-name/>
  <text>module DoImportNetlist
-   # import netlist into LTspice v0.32 April 27th copy right Seijiro Moriyama
+   # import netlist into LTspice v0.33 Nov. 3rd, 2023 copy right Seijiro Moriyama
   class ImportNetlist
     include RBA
     def initialize 
@@ -65,7 +65,7 @@
               end
             else
               symattr[:Value] = "SYMATTR Value #{new[:model]}\n"
-              symattr[:Prefix] = "SYMATTR Prefix X\n"
+              symattr[:Prefix] = "SYMATTR Prefix M\n"   # X -&gt; M
             end
           end
         end
