@@ -2,7 +2,7 @@
 # $priority: 1
 # Mineda Common v1.0 Aug. 11 2023
 #   Force on-grid v0.1 July 39th 2022 copy right S. Moriyama (Anagix Corp.)
-#   LVS preprocessor(get_reference) v0.73 Oct. 17 2023 copyright by S. Moriyama (Anagix Corporation)
+#   LVS preprocessor(get_reference) v0.75 Oct. 27 2023 copyright by S. Moriyama (Anagix Corporation)
 #   * ConvertPCells and PCellDefaults moved from MinedaPCell v0.4 Nov. 22nd 2022
 #   ConvertLibraryCells (ConvertPCells) v0.52 Sep. 19th 2023  copy right S. Moriyama
 #   PCellTest v0.2 August 22nd 2022 S. Moriyama
@@ -1250,7 +1250,7 @@ class MinedaLVS
     raise "You are running #{target_technology} version of 'get_reference' against #{cv.technology} layout" unless cv.technology == target_technology
     raise 'Please save the layout first' if cv.nil? || cv.filename.nil? || cv.filename == ''
     cell = cv.cell
-    netlist = QFileDialog::getOpenFileName(mw, 'Netlist file', File.dirname(cv.filename), 'netlist(*.net *.cir *.spc *.spice *.spi *.sp)')
+    netlist = QFileDialog::getOpenFileName(mw, 'Netlist file', File.dirname(cv.filename), 'netlist(*.net *.cir *.spc *.spice *.spi *.sp *.cdl)')
     if netlist && netlist.strip != ''
       netlist = netlist.force_encoding('UTF-8')
       # netlist = '/home/seijirom/Dropbox/work/LRmasterSlice/comparator/COMP_NLF.net'
@@ -1359,13 +1359,30 @@ class MinedaLVS
           body = $1
           value = $3
           rest = $5
-          puts "value=#{value} @ #{l}&subckt_params=#{subckt_params}"
+          puts "value=#{value} rest=#{rest}@ #{l}&subckt_params=#{subckt_params}"
+          if l.sub!(/\$\[\S*\] */, '') # special for CDL
+            if rest =~ /[mM] *= *(\S+)/
+              m = $1.to_i
+            if m != 1
+                if value =~ /(\S+)[kK]/
+                  val = $1.to_f
+                  l.sub! /#{value}.*$/, "#{val/m}K"
+                else
+                  val = value.to_f
+                  l.sub! /#{value}.*$/, "#{val/m}"
+                end
+              else
+                l.sub! /#{value}.*$/, "#{value}"
+              end
+            end          
+          end
           if  (settings[:do_not_expand_sub_params] &&
                settings[:do_not_expand_sub_params]  != cv.technology)          
             subckt_params.each{|a, b| puts value.sub!(/#{a}/, "#{b}")}
             l = "#{body} #{value} #{rest}\n"
           end
         elsif l =~ /^ *[xX]/
+           l.sub! /\/ */, '' # special for CDL
           if  (settings[:do_not_expand_sub_params] &&
                settings[:do_not_expand_sub_params]  != cv.technology)
             l.sub! /\S+=.*$/, ''
