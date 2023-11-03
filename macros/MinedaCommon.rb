@@ -2,7 +2,7 @@
 # $priority: 1
 # Mineda Common v1.0 Aug. 11 2023
 #   Force on-grid v0.1 July 39th 2022 copy right S. Moriyama (Anagix Corp.)
-#   LVS preprocessor(get_reference) v0.75 Oct. 27 2023 copyright by S. Moriyama (Anagix Corporation)
+#   LVS preprocessor(get_reference) v0.76 Nov. 3, 2023 copyright by S. Moriyama (Anagix Corporation)
 #   * ConvertPCells and PCellDefaults moved from MinedaPCell v0.4 Nov. 22nd 2022
 #   ConvertLibraryCells (ConvertPCells) v0.52 Sep. 19th 2023  copy right S. Moriyama
 #   PCellTest v0.2 August 22nd 2022 S. Moriyama
@@ -1351,6 +1351,7 @@ class MinedaLVS
               end
             end
             # others = p.map{|a| "#{a[0]}=#{a[1]}"}.join ' '
+            raise "Error: L or W is not given for '#{body}'" if p['L'] == nil || p['W'] == nil
             others = "l=#{p['L']} w=#{p['W']}" # supress other parameters like as, ps, ad and pd
             others << " m=#{p['M']}" if p['M']
           end
