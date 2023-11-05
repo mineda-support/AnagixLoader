@@ -16,7 +16,7 @@
  <interpreter>ruby</interpreter>
  <dsl-interpreter-name/>
  <text>module DoImportNetlist
-   # import netlist into LTspice v0.33 Nov. 3rd, 2023 copy right Seijiro Moriyama
+   # import netlist into LTspice v0.33 Nov. 4th, 2023 copy right Seijiro Moriyama
   class ImportNetlist
     include RBA
     def initialize 
@@ -39,7 +39,7 @@
           cname = $1
         elsif l =~ /^([Mm]\S+) +\S+ +\S+ +\S+ +\S+ +(\S+) +(.*)$/
           en = $1
-          current = {model: $2, params: $3}
+          current = {model: $2, params: $3.sub(/L *=/, 'l=').sub(/W *=/, 'w=')} # must be lowercase for xschem
           ba_data[cname] ||= {}
           ba_data[cname][en] = current      
         end

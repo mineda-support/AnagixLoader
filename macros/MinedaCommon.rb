@@ -4,7 +4,7 @@
 #   Force on-grid v0.1 July 39th 2022 copy right S. Moriyama (Anagix Corp.)
 #   LVS preprocessor(get_reference) v0.76 Nov. 3, 2023 copyright by S. Moriyama (Anagix Corporation)
 #   * ConvertPCells and PCellDefaults moved from MinedaPCell v0.4 Nov. 22nd 2022
-#   ConvertLibraryCells (ConvertPCells) v0.52 Sep. 19th 2023  copy right S. Moriyama
+#   ConvertLibraryCells (ConvertPCells) v0.53 Nov. 5th, 2023  copy right S. Moriyama
 #   PCellTest v0.2 August 22nd 2022 S. Moriyama
 #   DRC_helper::find_cells_to_exclude v0.1 Sep 23rd 2022 S. Moriyama
 #   MinedaInput v0.33 Oct. 17th 2023 S. Moriyama
@@ -619,10 +619,8 @@ module MinedaCommon
         @defaults[inst_cell_name] && @defaults[inst_cell_name].each_pair{|p, v|
           name = p.sub '_hidden', ''
           if pcell_params[name]
-            if force_defaults && (force_defaults.class != Array || force_defaults.include?(name))
+            if force_defaults && force_defaults.class == Array
               pcell_params[name] = v
-            else
-              pcell_params[name] ||=  v
             end
           end
         }
