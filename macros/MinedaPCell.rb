@@ -1,9 +1,9 @@
 # coding: utf-8
-# MinedaPCell v0.92 Oct. 16th 2023 copy right S. Moriyama (Anagix Corporation)
+# MinedaPCell v0.93 Nov. 8th, 2023 copy right S. Moriyama (Anagix Corporation)
 #
 #include MinedaPCellCommonModule
 module MinedaPCell
-  version = '0.91'
+  version = '0.93'
   include MinedaPCellCommonModule
   # The PCell declaration for the Mineda MOSFET
   class MinedaMOS < MinedaPCellCommon
@@ -1241,8 +1241,8 @@ module MinedaPCell
         create_box indices[:m1], x-vs/2, y-vs/2, x+vs/2, y+vs/2
         index = :cnt
       end
-      # vu2 = vs/2 - u1
-      vu2 =vs/2 - u1/2
+      vu2 = vs/2 - u1 # quick fix for ICPS2023_5
+      # vu2 =vs/2 - u1/2
       create_box indices[index], x-vu2, y-vu2, x+vu2, y+vu2
     end
 
