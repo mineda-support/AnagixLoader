@@ -4,7 +4,7 @@
 #   Force on-grid v0.1 July 39th 2022 copy right S. Moriyama (Anagix Corp.)
 #   LVS preprocessor(get_reference) v0.75 Oct. 27 2023 copyright by S. Moriyama (Anagix Corporation)
 #   * ConvertPCells and PCellDefaults moved from MinedaPCell v0.4 Nov. 22nd 2022
-#   ConvertLibraryCells (ConvertPCells) v0.52 Sep. 19th 2023  copy right S. Moriyama
+#   ConvertLibraryCells (ConvertPCells) v0.6 Nov. 12th 2023  copy right S. Moriyama
 #   PCellTest v0.2 August 22nd 2022 S. Moriyama
 #   DRC_helper::find_cells_to_exclude v0.1 Sep 23rd 2022 S. Moriyama
 #   MinedaInput v0.33 Oct. 17th 2023 S. Moriyama
@@ -694,6 +694,79 @@ module MinedaCommon
         end
       }
     end
+
+    def adjust_paths cell, args
+      return if cell.is_library_cell
+      puts "*** Adjust Paths for '#{cell.name}"
+      layout = cell.layout
+      layout.layer_indexes.each{|layer|
+        source_layer = layout.get_info(layer).layer
+        layer_name, = @layer_index.find{|k, v| v[0]  == source_layer}
+        next if args[layer_name].nil?
+        paths = 0
+        cell.shapes(layer).each{|shape|
+          if shape.is_path?
+            path = shape.path
+            # path.width = [(path.width*args[:path_scale]).to_i, args[:path_min]].max
+            next if args[layer_name][:pws].nil?
+            path.width = (path.width*args[layer_name][:pws]).to_i
+            path.width = args[layer_name][:pwm] if args[layer_name][:pwm]  && path.width < args[layer_name][:pwm]
+            shape.path = path if args[layer_name][:pwx] && path.width < args[layer_name][:pwx]
+            paths = paths + 1
+          elsif shape.is_box?
+            box = shape.box
+            if path = box2path(box, args[layer_name])
+              shape.path = path
+            end
+          end
+        }
+        puts "paths=#{paths} for layer:#{layer_name}" if paths>0
+      }
+
+      child_cells = []
+      cell.each_child_cell{|id| child_cells << id}
+      child_cells.each{|id|
+        c = cell.layout.cell(id)
+        #puts c.name
+        adjust_paths c, args
+      }
+    end
+    def box2path box, args
+      x1, y1 = [box.p1.x, box.p1.y]
+      x2, y2 = [box.p2.x, box.p2.y]
+      if x2 - x1 > y2 - y1
+        return nil if args[:pwx] && y2 - y1 > args[:pwx]
+        spine = [Point.new(x1, (y1+y2)/2), Point.new(x2, (y1+y2)/2)]
+        width = y2 - y1
+      else
+        return nil if  args[:pwx] && x2 - x1 > args[:pwx]
+        spine = [Point.new(y1, (x1+x2)/2), Point.new(y2, (x1+x2)/2)]
+        width = x2 - x1
+      end
+      # Path.new spine, [(width*args[:path_scale]).to_i, args[:path_min]].max
+      width = (width*args[:pws]).to_i if args[:pws]
+      width = args[:pwm] if args[:pwm]  && width < args[:pwm]
+      Path.new spine, width
+    end
+    
+    def do_adjust_paths_and_boxes cv, args
+      layout = cv.layout
+      tech = layout.technology
+      lyp_file = File.join(tech.base_path, tech.layer_properties_file)
+      @layer_index = MinedaPCell::MinedaPCellCommon::get_layer_index_from_file lyp_file
+      oo_layout_dbu = 1 / layout.dbu.round(5)
+      path_args  = {path: {}}  # , rsf: rsf=args[:routing_scale_factor], psf: psf=args[:pcell_scale_factor]}
+      rsf = args[:routing_scale_factor]
+      args[:path].each_pair{|layer_name, params|
+        path_args[layer_name] ||= {}
+        path_args[layer_name][:pws] = params[:path_width_scale]
+        path_args[layer_name][:pwm] = (params[:path_width_min] && (params[:path_width_min]*rsf*oo_layout_dbu).to_i)
+        path_args[layer_name][:pwx] = (params[:path_width_max] && (params[:path_width_max]*rsf*oo_layout_dbu).to_i)
+      }
+      puts args.inspect
+      puts path_args.inspect
+      adjust_paths cv.cell, path_args
+    end
     include RBA
     def do_convert_library_cells args
       app = Application.instance
@@ -722,6 +795,8 @@ module MinedaCommon
       convert_library_cells cv, @pcell_lib, @basic_lib, args[:pcell_scale_factor], args[:force_defaults]
       cv.technology = @technology_name
       # cv.cell.write file
+      do_adjust_paths_and_boxes cv, args
+
       Dir.chdir(File.dirname(@cv.filename)){
         org_cir = File.join 'lvs_work', File.basename(@cv.filename).sub(/\.(gds|GDS)/, '_reference.cir.txt')
         puts "org_cir: #{org_cir}"
