@@ -4,7 +4,7 @@
 #   Force on-grid v0.1 July 39th 2022 copy right S. Moriyama (Anagix Corp.)
 #   LVS preprocessor(get_reference) v0.75 Oct. 27 2023 copyright by S. Moriyama (Anagix Corporation)
 #   * ConvertPCells and PCellDefaults moved from MinedaPCell v0.4 Nov. 22nd 2022
-#   ConvertLibraryCells (ConvertPCells) v0.6 Nov. 12th 2023  copy right S. Moriyama
+#   ConvertLibraryCells (ConvertPCells) v0.61 Nov. 13th 2023  copy right S. Moriyama
 #   PCellTest v0.2 August 22nd 2022 S. Moriyama
 #   DRC_helper::find_cells_to_exclude v0.1 Sep 23rd 2022 S. Moriyama
 #   MinedaInput v0.33 Oct. 17th 2023 S. Moriyama
@@ -711,7 +711,7 @@ module MinedaCommon
             next if args[layer_name][:pws].nil?
             path.width = (path.width*args[layer_name][:pws]).to_i
             path.width = args[layer_name][:pwm] if args[layer_name][:pwm]  && path.width < args[layer_name][:pwm]
-            shape.path = path if args[layer_name][:pwx] && path.width < args[layer_name][:pwx]
+            shape.path = path if args[layer_name][:pwx].nil? || path.width < args[layer_name][:pwx]
             paths = paths + 1
           elsif shape.is_box?
             box = shape.box
@@ -759,9 +759,9 @@ module MinedaCommon
       rsf = args[:routing_scale_factor]
       args[:path].each_pair{|layer_name, params|
         path_args[layer_name] ||= {}
-        path_args[layer_name][:pws] = params[:path_width_scale]
-        path_args[layer_name][:pwm] = (params[:path_width_min] && (params[:path_width_min]*rsf*oo_layout_dbu).to_i)
-        path_args[layer_name][:pwx] = (params[:path_width_max] && (params[:path_width_max]*rsf*oo_layout_dbu).to_i)
+        path_args[layer_name][:pws] = params[:path_width_scale] && params[:path_width_scale]/rsf
+        path_args[layer_name][:pwm] = (params[:path_width_min] && (params[:path_width_min]/rsf*oo_layout_dbu).to_i)
+        path_args[layer_name][:pwx] = (params[:path_width_max] && (params[:path_width_max]/rsf*oo_layout_dbu).to_i)
       }
       puts args.inspect
       puts path_args.inspect
