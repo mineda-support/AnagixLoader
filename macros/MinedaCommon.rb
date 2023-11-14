@@ -4,7 +4,7 @@
 #   Force on-grid v0.1 July 39th 2022 copy right S. Moriyama (Anagix Corp.)
 #   LVS preprocessor(get_reference) v0.76 Nov. 3, 2023 copyright by S. Moriyama (Anagix Corporation)
 #   * ConvertPCells and PCellDefaults moved from MinedaPCell v0.4 Nov. 22nd 2022
-#   ConvertLibraryCells (ConvertPCells) v0.61 Nov. 13th 2023  copy right S. Moriyama
+#   ConvertLibraryCells (ConvertPCells) v0.62 Nov. 14th 2023  copy right S. Moriyama
 #   PCellTest v0.2 August 22nd 2022 S. Moriyama
 #   DRC_helper::find_cells_to_exclude v0.1 Sep 23rd 2022 S. Moriyama
 #   MinedaInput v0.33 Oct. 17th 2023 S. Moriyama
@@ -793,7 +793,7 @@ module MinedaCommon
       convert_library_cells cv, @pcell_lib, @basic_lib, args[:pcell_scale_factor], args[:force_defaults]
       cv.technology = @technology_name
       # cv.cell.write file
-      do_adjust_paths_and_boxes cv, args
+      args[:path] && do_adjust_paths_and_boxes(cv, args)
 
       Dir.chdir(File.dirname(@cv.filename)){
         org_cir = File.join 'lvs_work', File.basename(@cv.filename).sub(/\.(gds|GDS)/, '_reference.cir.txt')

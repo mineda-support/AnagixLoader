@@ -1,9 +1,9 @@
 # coding: utf-8
-# MinedaPCell v0.93 Nov. 8th, 2023 copy right S. Moriyama (Anagix Corporation)
+# MinedaPCell v0.931 Nov. 14th, 2023 copy right S. Moriyama (Anagix Corporation)
 #
 #include MinedaPCellCommonModule
 module MinedaPCell
-  version = '0.93'
+  version = '0.931'
   include MinedaPCellCommonModule
   # The PCell declaration for the Mineda MOSFET
   class MinedaMOS < MinedaPCellCommon
@@ -983,7 +983,7 @@ module MinedaPCell
         create_contacts_vertically indices, -u1-vs/2, 0, cl, vs, u1, params[:vpitch], true # false
       else
         create_box indices[:pol], -u1, 0, cw + cap_ext, cl
-        create_contacts_vertically indices, u1+vs/2, 0, cl, vs, u1, params[:vpitch], true # false
+        create_contacts_vertically indices, u1+vs/2, u1/2, cl-u1/2, vs, u1, params[:vpitch], true # false
       end
       indices[:pol] = nil # this tells create_contacts_horizontally to use dcont
       create_contacts_horizontally indices, 0, cw, u1/2+cl+u1, vs, u1, params[:hpitch], true # false
