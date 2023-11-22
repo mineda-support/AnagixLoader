@@ -608,8 +608,8 @@ module MinedaCommon
         if pcell_factor
           pcell_params['l'] = pcell_params['l']*pcell_factor if pcell_params['l']
           pcell_params['w'] = pcell_params['w']*pcell_factor if pcell_params['w']
-          pcell_params['x'] = pcell_params['x']*pcell_factor if pcell_params['x']
-          pcell_params['y'] = pcell_params['y']*pcell_factor if pcell_params['y']
+          pcell_params['ux'] = pcell_params['ux']*pcell_factor if pcell_params['ux']
+          pcell_params['uy'] = pcell_params['uy']*pcell_factor if pcell_params['uy']
           if @defaults[inst_cell_name] 
             if @defaults[inst_cell_name]['sdg'].nil?
               pcell_params['sdg'] = pcell_params['sdg']*pcell_factor if pcell_params['sdg'] 
