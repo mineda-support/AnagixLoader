@@ -1,9 +1,9 @@
 # coding: utf-8
-# MinedaPCell v0.931 Nov. 14th, 2023 copy right S. Moriyama (Anagix Corporation)
+# MinedaPCell v0.932 Nov. 22nd, 2023 copy right S. Moriyama (Anagix Corporation)
 #
 #include MinedaPCellCommonModule
 module MinedaPCell
-  version = '0.931'
+  version = '0.932'
   include MinedaPCellCommonModule
   # The PCell declaration for the Mineda MOSFET
   class MinedaMOS < MinedaPCellCommon
@@ -1153,8 +1153,8 @@ module MinedaPCell
  class MinedaFillBox < MinedaPCellCommon
     def initialize default_x=4.0.um, default_y=4.0.um
        super()
-       param(:l, TypeDouble, "X position", :default => default_x)
-       param(:w, TypeDouble, "Y position", :default => default_y)
+       param(:l, TypeDouble, "X size", :default => default_x)
+       param(:w, TypeDouble, "Y size", :default => default_y)
        param(:s, TypeShape, "", :default => DPoint::new(default_x, default_y))
        param(:xu, TypeDouble, "Previous X", :default => default_x, :hidden =>true)
        param(:yu, TypeDouble, "Previous Y", :default => default_y, :hidden =>true)
