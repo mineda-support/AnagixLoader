@@ -4,7 +4,7 @@
 #   Force on-grid v0.1 July 39th 2022 copy right S. Moriyama (Anagix Corp.)
 #   LVS preprocessor(get_reference) v0.76 Nov. 3, 2023 copyright by S. Moriyama (Anagix Corporation)
 #   * ConvertPCells and PCellDefaults moved from MinedaPCell v0.4 Nov. 22nd 2022
-#   ConvertLibraryCells (ConvertPCells) v0.63 Nov. 22nd 2023  copy right S. Moriyama
+#   ConvertLibraryCells (ConvertPCells) v0.64 Nov. 22nd 2023  copy right S. Moriyama
 #   PCellTest v0.2 August 22nd 2022 S. Moriyama
 #   DRC_helper::find_cells_to_exclude v0.1 Sep 23rd 2022 S. Moriyama
 #   MinedaInput v0.33 Oct. 17th 2023 S. Moriyama
@@ -606,8 +606,10 @@ module MinedaCommon
         # puts inst.cell.name        
         pcell_params = inst.pcell_parameters_by_name
         if pcell_factor
-          pcell_params['l'] = pcell_params['l']*pcell_factor
-          pcell_params['w'] = pcell_params['w']*pcell_factor
+          pcell_params['l'] = pcell_params['l']*pcell_factor if pcell_params['l']
+          pcell_params['w'] = pcell_params['w']*pcell_factor if pcell_params['w']
+          pcell_params['x'] = pcell_params['x']*pcell_factor if pcell_params['x']
+          pcell_params['y'] = pcell_params['y']*pcell_factor if pcell_params['y']
           if @defaults[inst_cell_name] 
             if @defaults[inst_cell_name]['sdg'].nil?
               pcell_params['sdg'] = pcell_params['sdg']*pcell_factor if pcell_params['sdg'] 
