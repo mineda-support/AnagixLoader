@@ -1,9 +1,9 @@
 # coding: utf-8
-# MinedaPCell v0.932 Nov. 22nd, 2023 copy right S. Moriyama (Anagix Corporation)
+# MinedaPCell v0.933 Nov. 23rdd, 2023 copy right S. Moriyama (Anagix Corporation)
 #
 #include MinedaPCellCommonModule
 module MinedaPCell
-  version = '0.932'
+  version = '0.933'
   include MinedaPCellCommonModule
   # The PCell declaration for the Mineda MOSFET
   class MinedaMOS < MinedaPCellCommon
@@ -962,7 +962,8 @@ module MinedaPCell
       create_box indices[:cap], 0, 0, cw, cl
       # create_box indices[:cap], 0, 0, cw, cl+u1+vs
       diff_enclosure = params[:diff_enclosure] || 0
-      create_box area_index, -u1/2, -u1-u1/2, cw + u1/2, cl + u1/2 + vs + u1 + diff_enclosure
+      area_enc= params[:area_enc] || u1/2
+      create_box area_index, -area_enc, -u1-area_enc, cw + area_enc, cl + area_enc + vs + u1 + diff_enclosure
       well_diff_enc = params[:wd_enc] || u1*5
       if well_index
         if nsub_cont = indices[:nsubcont]
