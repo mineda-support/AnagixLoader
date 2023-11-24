@@ -31,6 +31,7 @@
       end
     end
     def import_netlist file
+      # netlist = File.open(file, 'rb:utf-16LE:utf-8').read
       netlist = File.read file
       ba_data = {}
       cname = '.TOP'
@@ -54,7 +55,7 @@
       new_netlist = ''
       if symattr &amp;&amp; symattr != {}
         if prefix == 'M'
-          devices = @ba_data[File.basename(file).sub('.asc', '').upcase] || @ba_data['.TOP']
+          devices = @ba_data[File.basename(file).sub('.asc', '').tr("@%-", "$$_").upcase] || @ba_data['.TOP']
           if current &amp;&amp; new = devices[prefix+id]
             symattr[:Value2].sub!(current[:params],  new[:params])
             if current[:model]
@@ -82,8 +83,8 @@
         new_netlist = ''
         symbol = prefix = id = symattr = current = model = nil
         netlist.each_line{|l|
-          puts l
-          if l =~ /^SYMBOL (\w+)/
+          # puts l
+          if l =~ /^SYMBOL (\S+)/
             symbol = $1
             new_netlist &lt;&lt; update_symattr(symattr, {model: model, params: current}, prefix, file, id)
             symattr = {}
