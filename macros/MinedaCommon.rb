@@ -2,7 +2,7 @@
 # $priority: 1
 # Mineda Common v1.0 Aug. 11 2023
 #   Force on-grid v0.1 July 39th 2022 copy right S. Moriyama (Anagix Corp.)
-#   LVS preprocessor(get_reference) v0.76 Nov. 3, 2023 copyright by S. Moriyama (Anagix Corporation)
+#   LVS preprocessor(get_reference) v0.77 Nov. 24, 2023 copyright by S. Moriyama (Anagix Corporation)
 #   * ConvertPCells and PCellDefaults moved from MinedaPCell v0.4 Nov. 22nd 2022
 #   ConvertLibraryCells (ConvertPCells) v0.64 Nov. 22nd 2023  copy right S. Moriyama
 #   PCellTest v0.2 August 22nd 2022 S. Moriyama
@@ -1458,7 +1458,7 @@ class MinedaLVS
             l = "#{body} #{value} #{rest}\n"
           end
         elsif l =~ /^ *[xX]/
-           l.sub! /\/ */, '' # special for CDL
+           l.sub!(/ \/ /, ' ') # special for CDL => bug fixed 2023/11/24
           if  (settings[:do_not_expand_sub_params] &&
                settings[:do_not_expand_sub_params]  != cv.technology)
             l.sub! /\S+=.*$/, ''
