@@ -228,7 +228,21 @@ module MinedaPCellCommonModule
       new_area[2] = new_area[2] + delta_x
       new_area[3] = new_area[3] + delta_y
       new_area
-    end      
+    end 
+    ### class variables for PCell classes
+    @vs = @u1 = nil
+    def self.vs
+      @vs
+    end
+    def self.set_vs vs
+      @vs = vs
+    end
+    def self.u1
+     @u1
+    end 
+    def self.set_u1 u1
+      @u1 = u1
+    end        
   end
 end
 
@@ -591,6 +605,7 @@ module MinedaCommon
       vias
     end
     def convert_library_cells0 cell, pcell_lib, basic_lib, pcell_factor, force_defaults
+      oo_layout_dbu = 1 / cell.layout.dbu.round(5)
       lib = RBA::Library::library_by_name pcell_lib
       bas_lib = RBA::Library::library_by_name basic_lib
       vias = find_vias cell
@@ -605,6 +620,8 @@ module MinedaCommon
         next if  !inst.is_pcell? || inst.cell.library == lib # already converted
         # puts inst.cell.name        
         pcell_params = inst.pcell_parameters_by_name
+        dgo = ([((pcell_params['sdg']||0) - (pcell_params['l']||0))/2, pcell_params['dg']||0].max*oo_layout_dbu).to_i * pcell_factor
+
         if pcell_factor
           pcell_params['l'] = pcell_params['l']*pcell_factor if pcell_params['l']
           pcell_params['w'] = pcell_params['w']*pcell_factor if pcell_params['w']
@@ -622,7 +639,7 @@ module MinedaCommon
           name = p.sub '_hidden', ''
           if pcell_params[name]
             if force_defaults && force_defaults.class == Array
-              pcell_params[name] = v if force_defaults.include? name
+              pcell_params[name] = v if force_defaults.include? name.to_sym
             end
           end
         }
@@ -644,7 +661,12 @@ module MinedaCommon
         if i_cell_name
           cells_to_add_via << [pcv, t, inst, i_cell_name, via] 
         else
-          cell.insert(RBA::CellInstArray::new(pcv, t, inst.a, inst.b, inst.na, inst.nb))
+          vso = inst.pcell_declaration.class.vs * pcell_factor
+          u1o = inst.pcell_declaration.class.u1 * pcell_factor
+          dg = ([((pcell_params['sdg']||0) - (pcell_params['l']||0))/2, pcell_params['dg']||0].max*oo_layout_dbu).to_i
+          puts "#{inst.pcell_declaration.class.name} class.vs, u1, dg = [#{vso}, #{u1o} #{dgo}] -> vs = #{pd.class.vs}, u1 = #{pd.class.u1}, dg=#{dg}"
+          trans = Trans::new(-(pd.class.vs - vso + dg - dgo), -(pd.class.vs + pd.class.u1 - vso - u1o))
+          cell.insert(RBA::CellInstArray::new(pcv, t*trans, inst.a, inst.b, inst.na, inst.nb))
           inst.delete
         end
         # pcell_inst = cell.insert(RBA::CellInstArray::new(pcv, t, inst.a, inst.b, inst.na, inst.nb))

@@ -33,6 +33,9 @@
     def import_netlist file
       # netlist = File.open(file, 'rb:utf-16LE:utf-8').read
       netlist = File.read file
+      if netlist.include? 00.chr
+        netlist = File.open(file, 'rb:utf-16LE:utf-8').read
+      end
       ba_data = {}
       cname = '.TOP'
       netlist.each_line{|l|
@@ -57,7 +60,7 @@
         if prefix == 'M'
           devices = @ba_data[File.basename(file).sub('.asc', '').tr("@%-", "$$_").upcase] || @ba_data['.TOP']
           if current &amp;&amp; new = devices[prefix+id]
-            symattr[:Value2].sub!(current[:params],  new[:params])
+            symattr[:Value2] &amp;&amp; symattr[:Value2].sub!(current[:params],  new[:params])
             if current[:model]
               if symattr[:Value]
                 symattr[:Value].sub!(current[:model], new[:model])
@@ -78,12 +81,19 @@
       new_netlist
     end
     def update_schematic file
-      netlist = File.open(file, 'r:Windows-1252').read.encode('UTF-8', invalid: :replace)
+      # netlist = File.open(file, 'r:Windows-1252').read.encode('UTF-8', invalid: :replace)
+      netlist = File.read(file)
+      utf16 = false
+      if netlist.include? 00.chr
+        netlist = File.open(file, 'rb:utf-16LE:utf-8').read.gsub(181.chr(Encoding::UTF_8), 'u').scrub
+        utf16 = true
+      end
       Dir.chdir(File.dirname file){
         new_netlist = ''
         symbol = prefix = id = symattr = current = model = nil
         netlist.each_line{|l|
           # puts l
+          l.scrub!('?')
           if l =~ /^SYMBOL (\S+)/
             symbol = $1
             new_netlist &lt;&lt; update_symattr(symattr, {model: model, params: current}, prefix, file, id)
@@ -109,7 +119,12 @@
           new_netlist &lt;&lt; l
         }
         new_netlist &lt;&lt; update_symattr(symattr, {model: model, params: current}, prefix, file, id)
-        File.open(file, 'w:Windows-1252'){|f| f.puts new_netlist}
+        #File.open(file, 'w:Windows-1252'){|f| f.puts new_netlist}
+        if netlist.include? 00.chr
+          File.open(file, 'wb:utf-16LE'){|f| f.puts new_netlist}
+        else
+          File.open(file, 'w'){|f| f.puts new_netlist}
+        end
         puts "#{file} updated"
       }
       @converted &lt;&lt; file
