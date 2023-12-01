@@ -4,11 +4,11 @@
 #   Force on-grid v0.1 July 39th 2022 copy right S. Moriyama (Anagix Corp.)
 #   LVS preprocessor(get_reference) v0.77 Nov. 24, 2023 copyright by S. Moriyama (Anagix Corporation)
 #   * ConvertPCells and PCellDefaults moved from MinedaPCell v0.4 Nov. 22nd 2022
-#   ConvertLibraryCells (ConvertPCells) v0.64 Nov. 22nd 2023  copy right S. Moriyama
+#   ConvertLibraryCells (ConvertPCells) v0.65 Nov. 26th 2023  copy right S. Moriyama
 #   PCellTest v0.2 August 22nd 2022 S. Moriyama
 #   DRC_helper::find_cells_to_exclude v0.1 Sep 23rd 2022 S. Moriyama
 #   MinedaInput v0.33 Oct. 17th 2023 S. Moriyama
-#   MinedaPCellCommon v0.24 Aug. 22 2023 S. Moriyama
+#   MinedaPCellCommon v0.25 Nov. 26 2023 S. Moriyama
 #   Create Backannotation data v0.171 May 14th 2023 S. Moriyama
 #   MinedaAutoplace v0.31 July 26th 2023 S. Moriyama
 #   ChangePCellParameters v0.1 July 29th 2023 S. Moriyama
@@ -661,12 +661,17 @@ module MinedaCommon
         if i_cell_name
           cells_to_add_via << [pcv, t, inst, i_cell_name, via] 
         else
-          vso = inst.pcell_declaration.class.vs * pcell_factor
-          u1o = inst.pcell_declaration.class.u1 * pcell_factor
-          dg = ([((pcell_params['sdg']||0) - (pcell_params['l']||0))/2, pcell_params['dg']||0].max*oo_layout_dbu).to_i
-          puts "#{inst.pcell_declaration.class.name} class.vs, u1, dg = [#{vso}, #{u1o} #{dgo}] -> vs = #{pd.class.vs}, u1 = #{pd.class.u1}, dg=#{dg}"
-          trans = Trans::new(-(pd.class.vs - vso + dg - dgo), -(pd.class.vs + pd.class.u1 - vso - u1o))
-          cell.insert(RBA::CellInstArray::new(pcv, t*trans, inst.a, inst.b, inst.na, inst.nb))
+          if inst.pcell_declaration.class.vs
+            vso = inst.pcell_declaration.class.vs * pcell_factor
+            u1o = inst.pcell_declaration.class.u1 * pcell_factor
+            dg = ([((pcell_params['sdg']||0) - (pcell_params['l']||0))/2, pcell_params['dg']||0].max*oo_layout_dbu).to_i
+            puts "#{inst.pcell_declaration.class.name} class.vs, u1, dg = [#{vso}, #{u1o} #{dgo}] -> vs = #{pd.class.vs}, u1 = #{pd.class.u1}, dg=#{dg}"
+            puts "Trans::new(-#{(pd.class.vs - vso + dg - dgo)}.inspect, -#{(pd.class.vs + pd.class.u1 - vso - u1o)}.inspect)"
+            trans = Trans::new(-(pd.class.vs - vso + dg - dgo).to_i, -(pd.class.vs + pd.class.u1 - vso - u1o).to_i)
+            cell.insert(RBA::CellInstArray::new(pcv, t*trans, inst.a, inst.b, inst.na, inst.nb))
+          else
+            cell.insert(RBA::CellInstArray::new(pcv, t, inst.a, inst.b, inst.na, inst.nb))
+          end
           inst.delete
         end
         # pcell_inst = cell.insert(RBA::CellInstArray::new(pcv, t, inst.a, inst.b, inst.na, inst.nb))
@@ -730,8 +735,8 @@ module MinedaCommon
           if shape.is_path?
             path = shape.path
             # path.width = [(path.width*args[:path_scale]).to_i, args[:path_min]].max
-            next if args[layer_name][:pws].nil?
-            path.width = (path.width*args[layer_name][:pws]).to_i
+             next if args[layer_name][:pws].nil?
+            path.width = (path.width*(args[layer_name][:pws]) || 1).to_i
             path.width = args[layer_name][:pwm] if args[layer_name][:pwm]  && path.width < args[layer_name][:pwm]
             shape.path = path if args[layer_name][:pwx].nil? || path.width < args[layer_name][:pwx]
             paths = paths + 1
