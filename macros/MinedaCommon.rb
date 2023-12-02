@@ -4,7 +4,7 @@
 #   Force on-grid v0.1 July 39th 2022 copy right S. Moriyama (Anagix Corp.)
 #   LVS preprocessor(get_reference) v0.77 Nov. 24, 2023 copyright by S. Moriyama (Anagix Corporation)
 #   * ConvertPCells and PCellDefaults moved from MinedaPCell v0.4 Nov. 22nd 2022
-#   ConvertLibraryCells (ConvertPCells) v0.65 Nov. 26th 2023  copy right S. Moriyama
+#   ConvertLibraryCells (ConvertPCells) v0.66 Dec. 2nd 2023  copy right S. Moriyama
 #   PCellTest v0.2 August 22nd 2022 S. Moriyama
 #   DRC_helper::find_cells_to_exclude v0.1 Sep 23rd 2022 S. Moriyama
 #   MinedaInput v0.33 Oct. 17th 2023 S. Moriyama
@@ -679,13 +679,14 @@ module MinedaCommon
       }
       cells_to_add_via.each{|pcv, t, inst, i_cell_name, via|
         pcell_inst = cell.insert(RBA::CellInstArray::new(pcv, t, inst.a, inst.b, inst.na, inst.nb))
-        inst_i = pcell_inst.cell.each_inst.find{|i| i.cell.name.sub(/\$.*$/, '') == i_cell_name}
-        via_cell = bas_lib.layout.cell('Via')
-        proxy_index = cell.layout.add_lib_cell(bas_lib, via_cell.cell_index)
-        via_inst = cell.insert(RBA::CellInstArray.new(proxy_index, t*inst_i.trans))
-        puts "===>Insert Via at #{t*inst_i.trans}"
-        inst.delete
-        via.delete
+        if inst_i = pcell_inst.cell.each_inst.find{|i| i.cell.name.sub(/\$.*$/, '') == i_cell_name}
+          via_cell = bas_lib.layout.cell('Via')
+          proxy_index = cell.layout.add_lib_cell(bas_lib, via_cell.cell_index)
+          via_inst = cell.insert(RBA::CellInstArray.new(proxy_index, t*inst_i.trans))
+          puts "===>Insert Via at #{t*inst_i.trans}"
+          inst.delete
+          via.delete
+        end
       }
       cell.each_inst{|inst| # process Basic cells and other cells
         next if inst.cell.nil? || inst.cell.library.nil? || !(inst.cell.library.name =~ /_Basic/)
@@ -767,7 +768,7 @@ module MinedaCommon
         width = y2 - y1
       else
         return nil if  args[:pwx] && x2 - x1 > args[:pwx]
-        spine = [Point.new(y1, (x1+x2)/2), Point.new(y2, (x1+x2)/2)]
+        spine = [Point.new((x1+x2)/2, y1), Point.new((x1+x2)/2, y2)]
         width = x2 - x1
       end
       # Path.new spine, [(width*args[:path_scale]).to_i, args[:path_min]].max
