@@ -1,9 +1,9 @@
-# coding: utf-8
-# MinedaPCell v0.933 Nov. 23rdd, 2023 copy right S. Moriyama (Anagix Corporation)
+# coding: cp932
+# MinedaPCell v0.94 Dec. 3rd, 2023 copy right S. Moriyama (Anagix Corporation)
 #
 #include MinedaPCellCommonModule
 module MinedaPCell
-  version = '0.933'
+  version = '0.94'
   include MinedaPCellCommonModule
   # The PCell declaration for the Mineda MOSFET
   class MinedaMOS < MinedaPCellCommon
@@ -282,7 +282,7 @@ module MinedaPCell
               create_path indices[:m1], x, y, x, y1+vs+2*u1, pol_width, 0, 0
             end
             if top
-              create_path indices[:m1], top, y, x, y, pol_width, u1/2, u1/2 unless no_finger_conn
+              create_path indices[:m1], top, y, x, y, pol_width, pol_width/2, pol_width/2 unless no_finger_conn
             end
             top = x
           else
@@ -309,7 +309,7 @@ module MinedaPCell
             create_path indices[:m1], x, y2-vs-2*u1 - wm_offset, x, y, pol_width, 0, 0 if !no_finger_conn && (with_sdcont || n != 1)
             if bottom && !no_finger_conn
               if soi_bridge
-                create_path indices[:m1], bottom, y, x, y, pol_width+u1/4, 0, 0
+                create_path indices[:m1], bottom, y, x, y, pol_width+u1/4, pol_width/2, pol_width/2
               else
                 create_path indices[:m1], bottom, y, x, y, pol_width, pol_width/2, pol_width/2
               end
@@ -578,7 +578,7 @@ module MinedaPCell
               create_path indices[:m1], x, y2-vs-2*u1, x, y, pol_width, 0, 0
             end
             if top && !no_finger_conn
-              create_path indices[:m1], top, y, x, y, pol_width, u1/2, u1/2
+              create_path indices[:m1], top, y, x, y, pol_width, pol_width/2, pol_width/2
             end
             top = x
           else
@@ -604,9 +604,9 @@ module MinedaPCell
             create_path indices[:m1], x, y, x, y1+vs+2*u1, pol_width, 0, 0 if with_sdcont # || n != 1
             if bottom && !no_finger_conn
               if soi_bridge
-                create_path indices[:m1], bottom, y1-pol_width, x, y1-pol_width, pol_width+u1/4, 0, 0
+                create_path indices[:m1], bottom, y1-pol_width, x, y1-pol_width, pol_width+u1/4, pol_width/2, pol_width/2
               else
-                create_path indices[:m1], bottom, y1-u1+vs/2, x, y1 -u1+vs/2, pol_width, u1/2, u1/2
+                create_path indices[:m1], bottom, y1-u1+vs/2, x, y1 -u1+vs/2, pol_width, pol_width/2, pol_width/2
               end
             end
             bottom = x
