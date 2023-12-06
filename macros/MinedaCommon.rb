@@ -4,7 +4,7 @@
 #   Force on-grid v0.1 July 39th 2022 copy right S. Moriyama (Anagix Corp.)
 #   LVS preprocessor(get_reference) v0.77 Nov. 24, 2023 copyright by S. Moriyama (Anagix Corporation)
 #   * ConvertPCells and PCellDefaults moved from MinedaPCell v0.4 Nov. 22nd 2022
-#   ConvertLibraryCells (ConvertPCells) v0.66 Dec. 2nd 2023  copy right S. Moriyama
+#   ConvertLibraryCells (ConvertPCells) v0.67 Dec. 6th 2023  copy right S. Moriyama
 #   PCellTest v0.2 August 22nd 2022 S. Moriyama
 #   DRC_helper::find_cells_to_exclude v0.1 Sep 23rd 2022 S. Moriyama
 #   MinedaInput v0.33 Oct. 17th 2023 S. Moriyama
@@ -736,8 +736,8 @@ module MinedaCommon
           if shape.is_path?
             path = shape.path
             # path.width = [(path.width*args[:path_scale]).to_i, args[:path_min]].max
-             next if args[layer_name][:pws].nil?
-            path.width = (path.width*(args[layer_name][:pws]) || 1).to_i
+            # next if args[layer_name][:pws].nil?
+            path.width = path.width*(args[layer_name][:pws] || 1).to_i
             path.width = args[layer_name][:pwm] if args[layer_name][:pwm]  && path.width < args[layer_name][:pwm]
             shape.path = path if args[layer_name][:pwx].nil? || path.width < args[layer_name][:pwx]
             paths = paths + 1
@@ -867,7 +867,7 @@ module MinedaCommon
       cv.view.each_layer{|l|
         next unless l.valid?
         layer_name = l.name.sub(/\(.*$/, '')
-        if pair = mpc.layer_index[l.name]
+        if pair = mpc.layer_index[layer_name]
           target_layer, target_datatype = pair
           map << "#{l.source_layer}/#{l.source_datatype}:#{target_layer}/#{target_datatype}\n"
         end
