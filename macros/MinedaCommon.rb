@@ -94,11 +94,13 @@ module MinedaPCellCommonModule
     end
 
     def library_cell name, libname, layout
-      if cell = layout.cell(name)
+      cell = layout.cell(name)
+      if cell && @current_library == libname
         return cell.cell_index
       else
         lib = Library::library_by_name libname
         if lib && cell = lib.layout.cell(name)
+          @current_library = libname
           proxy_index = layout.add_lib_cell(lib, cell.cell_index)
         end
       end
