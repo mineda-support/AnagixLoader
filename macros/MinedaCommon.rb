@@ -8,7 +8,7 @@
 #   PCellTest v0.2 August 22nd 2022 S. Moriyama
 #   DRC_helper::find_cells_to_exclude v0.1 Sep 23rd 2022 S. Moriyama
 #   MinedaInput v0.33 Oct. 17th 2023 S. Moriyama
-#   MinedaPCellCommon v0.25 Nov. 26 2023 S. Moriyama
+#   MinedaPCellCommon v0.26 Dec. 20 2023 S. Moriyama
 #   Create Backannotation data v0.171 May 14th 2023 S. Moriyama
 #   MinedaAutoplace v0.31 July 26th 2023 S. Moriyama
 #   ChangePCellParameters v0.1 July 29th 2023 S. Moriyama
@@ -106,8 +106,9 @@ module MinedaPCellCommonModule
       end
     end
 
-    def create_box index, x1, y1, x2, y2
+    def create_box index, x1, y1, x2, y2, text=nil
       cell.shapes(index).insert(Box::new(x1, y1, x2, y2)) if  index
+      cell.shapes(index).insert_text(Text::new text, (x1+x2)/2, (y1+y2)/2) if text
     end
 
     def insert_cell via_index, x, y, rotate=false

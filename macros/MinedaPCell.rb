@@ -1,9 +1,9 @@
 # coding: cp932
-# MinedaPCell v0.94 Dec. 3rd, 2023 copy right S. Moriyama (Anagix Corporation)
+# MinedaPCell v0.96 Dec. 23rd, 2023 copy right S. Moriyama (Anagix Corporation)
 #
 #include MinedaPCellCommonModule
 module MinedaPCell
-  version = '0.94'
+  version = '0.96'
   include MinedaPCellCommonModule
   # The PCell declaration for the Mineda MOSFET
   class MinedaMOS < MinedaPCellCommon
@@ -824,7 +824,7 @@ module MinedaPCell
   end
 
   class MinedaResistorType2 < MinedaPCellCommon
-    def produce_impl indices, vs, u1, cs, ol, delta, pol_enclosure = 0, params={}
+    def produce_impl indices, vs, u1, cs, ol, delta, pol_enclosure = 0, params={}, text=nil
      # cs: contact size, ol: POL overlap over cs
      # delta is used to adjust res end
       indices[:m1] = get_layer_index 'ML1'
@@ -837,7 +837,7 @@ module MinedaPCell
       for i in 0..ns-1
         create_box indices[:pol], -pol_enclosure, offset, (ol+cs+delta)*2 + length + pol_enclosure, width + offset
         x = ol + cs +delta + length
-        create_box indices[:res], ol + cs + delta, offset, x, width + offset
+        create_box indices[:res], ol + cs + delta, offset, x, width + offset, text
         if diff_index = indices[:diff]
           # x1, y1, x2, y2 = boxes_bbox(indices[:pol])
           x1, y1, x2, y2 = [0, offset+pol_enclosure, (ol+cs+delta)*2 + length, width + offset-pol_enclosure]
