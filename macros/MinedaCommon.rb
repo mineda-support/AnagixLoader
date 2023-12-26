@@ -8,7 +8,7 @@
 #   PCellTest v0.2 August 22nd 2022 S. Moriyama
 #   DRC_helper::find_cells_to_exclude v0.1 Sep 23rd 2022 S. Moriyama
 #   MinedaInput v0.33 Oct. 17th 2023 S. Moriyama
-#   MinedaPCellCommon v0.26 Dec. 20 2023 S. Moriyama
+#   MinedaPCellCommon v0.27 Dec. 26 2023 S. Moriyama
 #   Create Backannotation data v0.171 May 14th 2023 S. Moriyama
 #   MinedaAutoplace v0.31 July 26th 2023 S. Moriyama
 #   ChangePCellParameters v0.1 July 29th 2023 S. Moriyama
@@ -94,13 +94,14 @@ module MinedaPCellCommonModule
     end
 
     def library_cell name, libname, layout
+      @current_library ||= {}
       cell = layout.cell(name)
-      if cell && @current_library == libname
+      if cell && @current_library[name] == libname
         return cell.cell_index
       else
         lib = Library::library_by_name libname
         if lib && cell = lib.layout.cell(name)
-          @current_library = libname
+          @current_library[name] = libname
           proxy_index = layout.add_lib_cell(lib, cell.cell_index)
         end
       end

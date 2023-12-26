@@ -1,9 +1,9 @@
 # coding: cp932
-# MinedaPCell v0.96 Dec. 23rd, 2023 copy right S. Moriyama (Anagix Corporation)
+# MinedaPCell v0.97 Dec. 26th, 2023 copy right S. Moriyama (Anagix Corporation)
 #
 #include MinedaPCellCommonModule
 module MinedaPCell
-  version = '0.96'
+  version = '0.97'
   include MinedaPCellCommonModule
   # The PCell declaration for the Mineda MOSFET
   class MinedaMOS < MinedaPCellCommon
@@ -1152,16 +1152,17 @@ module MinedaPCell
   end
   
  class MinedaFillBox < MinedaPCellCommon
-    def initialize default_x=4.0.um, default_y=4.0.um
+    def initialize default_x=4.0.um, default_y=4.0.um, name = nil
        super()
        param(:l, TypeDouble, "X size", :default => default_x)
        param(:w, TypeDouble, "Y size", :default => default_y)
        param(:s, TypeShape, "", :default => DPoint::new(default_x, default_y))
        param(:xu, TypeDouble, "Previous X", :default => default_x, :hidden =>true)
        param(:yu, TypeDouble, "Previous Y", :default => default_y, :hidden =>true)
+       @box_name = name || 'Fill box'
     end
     def display_text_impl
-      "Fill box\r\n(X=#{l.round(3)}um,Y=#{w.round(3)}um)"
+      "#{@box_name}\r\n(X=#{l.round(3)}um,Y=#{w.round(3)}um)"
     end
     def coerce_parameters_impl
       xs = ys = nil
