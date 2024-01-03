@@ -8,7 +8,7 @@
 #   PCellTest v0.2 August 22nd 2022 S. Moriyama
 #   DRC_helper::find_cells_to_exclude v0.1 Sep 23rd 2022 S. Moriyama
 #   MinedaInput v0.33 Oct. 17th 2023 S. Moriyama
-#   MinedaPCellCommon v0.27 Dec. 26 2023 S. Moriyama
+#   MinedaPCellCommon v0.28 Jan. 1st 2024 S. Moriyama
 #   Create Backannotation data v0.171 May 14th 2023 S. Moriyama
 #   MinedaAutoplace v0.31 July 26th 2023 S. Moriyama
 #   ChangePCellParameters v0.1 July 29th 2023 S. Moriyama
@@ -792,8 +792,8 @@ module MinedaCommon
       args[:path].each_pair{|layer_name, params|
         path_args[layer_name] ||= {}
         path_args[layer_name][:pws] = params[:path_width_scale] && params[:path_width_scale]/rsf
-        path_args[layer_name][:pwm] = (params[:path_width_min] && (params[:path_width_min]/rsf*oo_layout_dbu).to_i)
-        path_args[layer_name][:pwx] = (params[:path_width_max] && (params[:path_width_max]/rsf*oo_layout_dbu).to_i)
+        path_args[layer_name][:pwm] = (params[:path_width_min] && (params[:path_width_min]*oo_layout_dbu).to_i)
+        path_args[layer_name][:pwx] = (params[:path_width_max] && (params[:path_width_max]*oo_layout_dbu).to_i)
       }
       puts args.inspect
       puts path_args.inspect
@@ -917,6 +917,7 @@ module MinedaCommon
     end
 
     def self.dump_pcells lib_name, file = nil
+      include RBA
       lib = RBA::Library::library_by_name lib_name
       defaults = {}
       if lib.nil?
@@ -934,7 +935,10 @@ module MinedaCommon
     end
     
     def self.get_defaults pcell_lib
-      params = YAML.load(PCellDefaults::dump_pcells pcell_lib)
+      # params = YAML.load(PCellDefaults::dump_pcells pcell_lib)
+      source = PCellDefaults::dump_pcells pcell_lib
+      params = YAML.respond_to?(:unsafe_load) ? YAML.unsafe_load(source) : YAML.load(source)
+
       defaults = {}
       params.keys.each{|key|
         defaults[key.to_s] = params[key]
