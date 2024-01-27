@@ -1,9 +1,10 @@
 # $autorun-early
 # $priority: 1
-# Mineda Common v1.0 Aug. 11 2023
+# Mineda Common v1.1 Jan. 27th 2024
 #   Force on-grid v0.1 July 39th 2022 copy right S. Moriyama (Anagix Corp.)
 #   LVS preprocessor(get_reference) v0.77 Nov. 24, 2023 copyright by S. Moriyama (Anagix Corporation)
 #   * ConvertPCells and PCellDefaults moved from MinedaPCell v0.4 Nov. 22nd 2022
+#   Change PCell Defaults v0.2 Jan. 27 2024 copyright S. Moriyama
 #   ConvertLibraryCells (ConvertPCells) v0.67 Dec. 6th 2023  copy right S. Moriyama
 #   PCellTest v0.2 August 22nd 2022 S. Moriyama
 #   DRC_helper::find_cells_to_exclude v0.1 Sep 23rd 2022 S. Moriyama
@@ -20,13 +21,20 @@ module MinedaPCellCommonModule
     include RBA
     attr_accessor :defaults, :layer_index
     @@lyp_file = @@basic_library = @@layer_index = nil
-    def initialize
+    
+    def initialize 
       key = 'PCells_' + self.class.name.to_s.split('::').first + '-defaults'
       key.sub! 'PCells_OpenRule1um_v2', 'PCells'
-      @defaults = YAML.load(Application.instance.get_config key)
+      #@defaults = YAML.load(Application.instance.get_config key)
+      @defaults = YAML.respond_to?(:unsafe_load) ? YAML.unsafe_load(Application.instance.get_config key) : YAML.load(Application.instance.get_config key)
+
       # puts "Got PCell @defaults from #{key}"
       set_layer_index
       super
+    end
+    
+    def set_alias args={}
+      @@alias = args
     end
 
     def set_technology tech_name
@@ -74,10 +82,11 @@ module MinedaPCellCommonModule
 
     def param name, type, desc, last_resort
       cellname = self.class.name.to_s.split('::').last.to_s
+      cellname = @@alias[cellname.to_sym] || cellname
       if @defaults && @defaults[cellname]
         if (value = @defaults[cellname][name.to_s]) || (value == nil) || (value == false)
           # puts "#{self.class.name} '#{name}' => #{value}"
-          if last_resort[:default] == true
+          if last_resort[:default] != RBA::DPoint && last_resort[:default] == true
             super name, type, desc, {default: value}
           else
             super name, type, desc, value ? {default: value} : last_resort
@@ -312,7 +321,9 @@ module MinedaCommon
       Dir.mkdir @lvs_work unless File.directory? @lvs_work
       if File.exist? File.join(sdir, @target+'.yaml')
         require 'yaml'
-        ref = YAML.load File.read(File.join sdir, @target+'.yaml')
+        # ref = YAML.load File.read(File.join sdir, @target+'.yaml')
+        ref = YAML.respond_to?(:unsafe_load) ? YAML.unsafe_load(File.read(File.join sdir, @target+'.yaml')) : YAML.load(File.read(File.join sdir, @target+'.yaml'))
+        
         if File.exist? ref['netlist']
           if File.exist?(ref['schematic']) && (File.mtime(ref['netlist']) < File.mtime(ref['schematic']))
             raise "netlist file '#{ref['netlist']}' is outdated!\nPlease update netlist and run get_reference again!"
@@ -531,7 +542,8 @@ module MinedaCommon
       puts "=> #{inst.pcell_parameters_by_name}"
     end
     def get_defaults pcell_lib = @lib.name
-      params = YAML.load(PCellDefaults::dump_pcells pcell_lib)
+      # params = YAML.load(PCellDefaults::dump_pcells pcell_lib)
+      params = YAML.respond_to?(:unsafe_load) ? YAML.unsafe_load(PCellDefaults::dump_pcells pcell_lib) : YAML.load(PCellDefaults::dump_pcells pcell_lib)
       defaults = {}
       params.keys.each{|key|
         defaults[key.to_s] = params[key]
@@ -579,9 +591,10 @@ module MinedaCommon
         # puts "###{params.inspect}"
       end
     end
+
     def create_samples device, width, height, ncolumns, sweep_spec
       pcvs = []
-      do_sweep(YAML.load(sweep_spec)['sweep']){|params|
+      do_sweep((YAML.respond_to?(:unsafe_load) ? YAML.unsafe_load(sweep_spec) : YAML.load(sweep_spec))['sweep']){|params|
         pcvs << create_pcell(device, params)
       }
       render_pcells(pcvs, width, height, ncolumns)
@@ -966,9 +979,10 @@ module MinedaCommon
       layout.addWidget(buttonSave)
       buttonSave.text = ' Save '
       buttonSave.clicked do
-        settings_file = QFileDialog::getSaveFileName(@mw, 'Save File', File.dirname(cv.filename))
-        File.open(settings_file, 'w'){|f| f.puts editor.document.toPlainText}
-        puts "#{settings_file} saved"
+        if settings_file = QFileDialog::getSaveFileName(@mw, 'Save File', File.dirname(cv.filename))
+          File.open(settings_file, 'w'){|f| f.puts editor.document.toPlainText}
+          puts "#{settings_file} saved"
+        end
       end
       
       # Load button
@@ -976,8 +990,9 @@ module MinedaCommon
       layout.addWidget(buttonLoad)
       buttonLoad.text = ' Load '
       buttonLoad.clicked do
-        file = QFileDialog::getOpenFileName(@mw, 'Load File', File.dirname(cv.filename))
-        editor.setPlainText File.read(file)
+        if file = QFileDialog::getOpenFileName(@mw, 'Load File', File.dirname(cv.filename))
+          editor.setPlainText File.read(file) if File.exist?(file)
+        end
       end
 
       # OK button
@@ -1032,7 +1047,7 @@ module MinedaCommon
 
     def change_pcell_parameters
       pcell_dialog("Change PCell parameters for #{@tech}") {|editor|
-        config = YAML.load editor.document.toPlainText
+        config = YAML.respond_to?(:unsafe_load) ? YAML.unsafe_load(editor.document.toPlainText) : YAML.load(editor.document.toPlainText)
         puts config
         @selected_objects.each{|s|
           next unless s.is_cell_inst?
