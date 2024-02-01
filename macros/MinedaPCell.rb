@@ -1,9 +1,9 @@
 # coding: cp932
-# MinedaPCell v0.97 Dec. 26th, 2023 copy right S. Moriyama (Anagix Corporation)
+# MinedaPCell v0.972 Feb. 1st, 2024 copy right S. Moriyama (Anagix Corporation)
 #
 #include MinedaPCellCommonModule
 module MinedaPCell
-  version = '0.97'
+  version = '0.972'
   include MinedaPCellCommonModule
   # The PCell declaration for the Mineda MOSFET
   class MinedaMOS < MinedaPCellCommon
@@ -122,8 +122,8 @@ module MinedaPCell
           if n == 1 && !with_sdcont
             insert_cell indices[:pcont], x1+vs+dgl+gl/2, y
             insert_cell indices[:via], x1+vs+dgl+gl/2, y if with_via
-            x3 = x1+vs+pol_width/2+dgl
-            create_path indices[:pol], x3, y, x3, y2-vs + gate_ext - u1, pol_width, 0,0
+            x3 = x1+vs+dgl+gl/2
+            create_path indices[:pol], x3, y, x3, y2-vs + gate_ext - u1, vs, 0,0
           else
             pcont_inst = insert_cell indices[:pcont], x, y
             pcont_size = pcont_inst.bbox.width
@@ -234,7 +234,7 @@ module MinedaPCell
           if n == 1 && !with_sdcont
             insert_cell indices[:pcont], x1+vs+dgl+gl/2, y
             insert_cell indices[:via], x1+vs+dgl+gl/2, y if with_via
-            create_path indices[:pol], x1+vs+dgl+gl/2, y, x1+vs+dgl+gl/2, y2-vs + gate_ext - u1, pol_width, 0,0 if soi_bridge
+            create_path indices[:pol], x1+vs+dgl+gl/2, y, x1+vs+dgl+gl/2, y2-vs + gate_ext - u1, vs, 0,0 if soi_bridge
           else
             insert_cell indices[:pcont], x, y
             insert_cell indices[:via], x, y if with_via
@@ -418,8 +418,8 @@ module MinedaPCell
           if n == 1 && !with_sdcont
             insert_cell indices[:pcont], x1+vs+dgl+gl/2, y
             insert_cell indices[:via], x1+vs+dgl+gl/2, y if with_via
-            x3 = x1+vs+pol_width/2+dgl
-            create_path indices[:pol], x3, y, x3, y1+vs - gate_ext + u1, pol_width, 0,0
+            x3 = x1+vs+dgl+gl/2
+            create_path indices[:pol], x3, y, x3, y1+vs - gate_ext + u1, vs, 0,0
           else
             pcont_inst = insert_cell indices[:pcont], x, y
             pcont_size = pcont_inst.bbox.width
@@ -531,7 +531,7 @@ module MinedaPCell
           if n == 1 && !with_sdcont
             insert_cell indices[:pcont], x1+vs+dgl+gl/2, y
             insert_cell indices[:via], x1+vs+dgl+gl/2, y if with_via
-            create_path indices[:pol], x1+vs+dgl+gl/2, y, x1+vs+dgl+gl/2, y1+vs - gate_ext + u1, pol_width, 0,0 if soi_bridge
+            create_path indices[:pol], x1+vs+dgl+gl/2, y, x1+vs+dgl+gl/2, y1+vs - gate_ext + u1, vs, 0,0 if soi_bridge
           else
             insert_cell indices[:pcont], x, y
             insert_cell indices[:via], x, y if with_via
@@ -832,6 +832,9 @@ module MinedaPCell
       length = (l/layout.dbu).to_i
       width = (w/layout.dbu).to_i
       sseg = (ss/layout.dbu).to_i
+      ml1_cnt = params[:ml1_cnt] || u1/5
+      ml1_margin = params[:ml1_margin] || 0
+      cnt_margin = params[:cnt_margin] || [0, 0] 
       offset = 0
       #pol_enclosure = u10/2 # pol enclosure might not make sense process wise, pol is a tentative name
       for i in 0..ns-1
@@ -852,12 +855,11 @@ module MinedaPCell
           end
         end
         x = x + delta
-        ml1_cnt = params[:ml1_cnt] || u1/5
-        ml1_margin = params[:ml1_margin] || 0
+
         lower_end = offset - (width < cs + ol*2? ml1_cnt : 0) + ml1_margin
         upper_end = width + offset +  (width < cs + ol*2? ml1_cnt : 0) - ml1_margin
-        [[ol - ml1_cnt, lower_end, ol + cs + ml1_cnt,upper_end,  [0, 0]],
-         [x - ml1_cnt, lower_end, x + cs + ml1_cnt, upper_end, [0, 0]]].each{|area|
+        [[ol - ml1_cnt, lower_end, ol + cs + ml1_cnt,upper_end, cnt_margin],
+         [x - ml1_cnt, lower_end, x + cs + ml1_cnt, upper_end, cnt_margin]].each{|area|
           fill_area(area, vs, indices[:m1]){|x, y|
             create_box indices[:cnt], x - cs/2, y - cs/2, x + cs/2, y + cs/2
           }
