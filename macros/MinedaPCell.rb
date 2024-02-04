@@ -1,9 +1,9 @@
 # coding: cp932
-# MinedaPCell v0.972 Feb. 1st, 2024 copy right S. Moriyama (Anagix Corporation)
+# MinedaPCell v0.973 Feb. 4th, 2024 copy right S. Moriyama (Anagix Corporation)
 #
 #include MinedaPCellCommonModule
 module MinedaPCell
-  version = '0.972'
+  version = '0.973'
   include MinedaPCellCommonModule
   # The PCell declaration for the Mineda MOSFET
   class MinedaMOS < MinedaPCellCommon
@@ -126,11 +126,11 @@ module MinedaPCell
             create_path indices[:pol], x3, y, x3, y2-vs + gate_ext - u1, vs, 0,0
           else
             pcont_inst = insert_cell indices[:pcont], x, y
-            pcont_size = pcont_inst.bbox.width
+            pcont_size = params[:pcont_pol_size] || pcont_inst.bbox.width
             insert_cell indices[:via], x, y if with_via
-            y = y - pcont_size/2 + pol_width/2
+            y = y - pcont_size/2 + [pol_width, u1].max/2
             x3 = x1+vs+pol_width/2+dgl
-            create_path2 indices[:pol], x, y, x3, y, x3, y2-vs + gate_ext - u1, pol_width, 0, 0
+            create_path2 indices[:pol], x, y, x3, y, x3, y2-vs + gate_ext - u1, [pol_width, u1].max, 0, 0
           end
         end
         offset = x1
@@ -422,11 +422,11 @@ module MinedaPCell
             create_path indices[:pol], x3, y, x3, y1+vs - gate_ext + u1, vs, 0,0
           else
             pcont_inst = insert_cell indices[:pcont], x, y
-            pcont_size = pcont_inst.bbox.width
+            pcont_size = params[:pcont_pol_size] || pcont_inst.bbox.width
             insert_cell indices[:via], x, y if with_via
-            y = y + pcont_size/2 - pol_width/2
+            y = y + pcont_size/2 - [pol_width, u1].max/2
             x3 = x1+vs+pol_width/2+dgl
-            create_path2 indices[:pol], x, y, x3, y, x3, y1+vs - gate_ext + u1, pol_width, 0, 0
+            create_path2 indices[:pol], x, y, x3, y, x3, y1+vs - gate_ext + u1, [pol_width, u1].max, 0, 0
           end
         end
         offset = x1
