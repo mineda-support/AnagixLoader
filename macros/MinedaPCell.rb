@@ -1,9 +1,9 @@
 # coding: cp932
-# MinedaPCell v0.973 Feb. 4th, 2024 copy right S. Moriyama (Anagix Corporation)
+# MinedaPCell v0.974 Feb. 5th, 2024 copy right S. Moriyama (Anagix Corporation)
 #
 #include MinedaPCellCommonModule
 module MinedaPCell
-  version = '0.973'
+  version = '0.974'
   include MinedaPCellCommonModule
   # The PCell declaration for the Mineda MOSFET
   class MinedaMOS < MinedaPCellCommon
@@ -112,6 +112,7 @@ module MinedaPCell
         y = y2 - vs/2 + pcont_dy
         gate_ext = params[:gate_ext] || 0
         mw1 = params[:m1_width] || u1
+        m1cnt_width = params[:m1cnt_width] || vs
         if defined?(wide_metal) &&wide_metal
           x = x - u1
           y = y + u1/2
@@ -129,7 +130,7 @@ module MinedaPCell
             pcont_size = params[:pcont_pol_size] || pcont_inst.bbox.width
             insert_cell indices[:via], x, y if with_via
             y = y - pcont_size/2 + [pol_width, u1].max/2
-            x3 = x1+vs+pol_width/2+dgl
+            x3 = x1+m1cnt_width+dgl+[pol_width, u1].max/2
             create_path2 indices[:pol], x, y, x3, y, x3, y2-vs + gate_ext - u1, [pol_width, u1].max, 0, 0
           end
         end
@@ -408,6 +409,7 @@ module MinedaPCell
         y = y1 + vs/2 + pcont_dy
         gate_ext = params[:gate_ext] || 0
         mw1 = params[:m1_width] || u1
+        m1cnt_width = params[:m1cnt_width] || vs
         if defined?(wide_metal) && wide_metal
           x = x - u1
           y = y - u1/2
@@ -425,7 +427,7 @@ module MinedaPCell
             pcont_size = params[:pcont_pol_size] || pcont_inst.bbox.width
             insert_cell indices[:via], x, y if with_via
             y = y + pcont_size/2 - [pol_width, u1].max/2
-            x3 = x1+vs+pol_width/2+dgl
+            x3 = x1+m1cnt_width+dgl+[pol_width, u1].max/2
             create_path2 indices[:pol], x, y, x3, y, x3, y1+vs - gate_ext + u1, [pol_width, u1].max, 0, 0
           end
         end
