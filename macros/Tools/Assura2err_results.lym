@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="utf-8"?>
+<klayout-macro>
+ <description/>
+ <version/>
+ <category/>
+ <prolog/>
+ <epilog/>
+ <doc/>
+ <autorun>false</autorun>
+ <autorun-early>false</autorun-early>
+ <priority>0</priority>
+ <shortcut/>
+ <show-in-menu>false</show-in-menu>
+ <group-name/>
+ <menu-path/>
+ <interpreter>ruby</interpreter>
+ <dsl-interpreter-name/>
+ <text>module MyMacro
+ 
+  include RBA
+
+  class Assura2results
+    include RBA
+    def initialize 
+      @converted = []
+      app = Application.instance
+      @mw = app.main_window
+      @cv = @mw.current_view.active_cellview
+    end
+    
+    def assura2results
+      err_file = QFileDialog::getOpenFileName(@mw, 'Assura DRC error file', File.dirname(@cv.filename), 'err(*.err)')
+      if err_file != ''
+        if data = read_assura(err_file)
+          err2results err_file, data          
+        end
+      end
+    end
+
+    def read_assura err_file
+      mode = nil
+      data = {}
+      rule = nil
+      File.read(err_file).each_line{|l|
+        if mode == 'bounding box'
+          next if l.strip.size == 0
+          l =~ /^  1        1 +(\S+) +(\S+) +(\S+) +(\S+)/
+          data[rule][:bb] = [$1, $2, $3, $4].map{|a| a.to_f*1000.to_i}
+          mode = nil
+        elsif mode == 'box'
+          next if l.strip.size == 0
+          if l =~ /====/
+            mode = nil
+          elsif l =~ /^ +\d+ +X +(\S+) +(\S+) +(\S+) +(\S+)/
+            data[rule][:box] &lt;&lt; [$1, $2, $3, $4].map{|a| a.to_f*1000.to_i}
+          end
+        elsif l =~ /^Cell Name : (\S+) /
+          data[rule][:cell_name] = $1
+        elsif l =~ /^Env\.  Env\. Placements/
+          mode = 'bounding box'
+        elsif l =~ /^Shape/
+          mode = 'box'
+          data[rule][:box] = []
+        elsif l =~ /^Rule No. +(\S+) : (.*)$/
+          rule = $2
+          data[rule] ||= {}
+          data[rule][:no] = $1
+        else
+          next if l =~ /^Real Error Count/
+          next
+        end
+      }
+      data.each_key{|rule|
+        puts "#{rule}: found #{data[rule][:box].count} errors on #{data[rule][:cell_name]}"
+      }
+      
+      def err2results err_file, data
+        File.open(err_file + '.results', 'w'){|f|
+          f.puts data[rule][:cell_name] + ' 1000'
+          data.each_pair{|rule, err|
+            f.puts rule
+            count = err[:box].count
+            f.puts "#{count} #{count} 2 #{Time.now}"
+            f.puts "Rule File Pathname: #{ARGV[2]||'unknown'}"
+            f.puts "Rule No. #{err[:no]} #{rule}"
+            err[:box].each_with_index{|p, i|
+              x1, y1, x2, y2 = p
+              f.puts "p #{i+1} 4"
+              # f.puts "CN #{err[:cell_name]} c 1 0 0 1 8300 970500 5"
+              f.puts "#{x1.to_i} #{y1.to_i}"
+              f.puts "#{x1.to_i} #{y2.to_i}"
+              f.puts "#{x2.to_i} #{y2.to_i}"
+              f.puts "#{x2.to_i} #{y1.to_i}"
+            }
+          }
+        }
+      end
+    end
+  end
+  a2k = Assura2results.new
+  a2k.assura2results
+end
+  
+</text>
+</klayout-macro>
