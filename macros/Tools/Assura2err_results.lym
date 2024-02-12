@@ -15,7 +15,8 @@
  <menu-path/>
  <interpreter>ruby</interpreter>
  <dsl-interpreter-name/>
- <text>module MyMacro
+ <text># Assura2err_results - Convert Assura DRC err file v0.2 Feb. 12th, 2024 copy right Seijiro Moriyama
+module MyMacro
  
   include RBA
 
@@ -32,7 +33,7 @@
       err_file = QFileDialog::getOpenFileName(@mw, 'Assura DRC error file', File.dirname(@cv.filename), 'err(*.err)')
       if err_file != ''
         if data = read_assura(err_file)
-          err2results err_file, data          
+          err2results err_file, data         
         end
       end
     end
@@ -41,6 +42,7 @@
       mode = nil
       data = {}
       rule = nil
+      cell_name = nil
       File.read(err_file).each_line{|l|
         if mode == 'bounding box'
           next if l.strip.size == 0
@@ -52,10 +54,10 @@
           if l =~ /====/
             mode = nil
           elsif l =~ /^ +\d+ +X +(\S+) +(\S+) +(\S+) +(\S+)/
-            data[rule][:box] &lt;&lt; [$1, $2, $3, $4].map{|a| a.to_f*1000.to_i}
+            data[rule][:box] &lt;&lt; [cell_name] + [$1, $2, $3, $4].map{|a| a.to_f*1000.to_i}
           end
         elsif l =~ /^Cell Name : (\S+) /
-          data[rule][:cell_name] = $1
+          cell_name = $1
         elsif l =~ /^Env\.  Env\. Placements/
           mode = 'bounding box'
         elsif l =~ /^Shape/
@@ -78,19 +80,21 @@
       
     def err2results err_file, data
       File.open(err_file + '.results', 'w'){|f|
-        first = true
+        f.puts "#{@cv.cell.name} #{(1/@cv.layout.dbu).round(0).to_i}" 
         data.each_pair{|rule, err|
-          f.puts data[rule][:cell_name] + ' 1000' if first
-          first = false
+          prev_cn = nil
           f.puts rule
           count = err[:box].count
           f.puts "#{count} #{count} 2 #{Time.now}"
           f.puts "Rule File Pathname: #{ARGV[2]||'unknown'}"
           f.puts "Rule No. #{err[:no]} #{rule}"
           err[:box].each_with_index{|p, i|
-            x1, y1, x2, y2 = p
+            cell_name, x1, y1, x2, y2 = p
             f.puts "p #{i+1} 4"
-            # f.puts "CN #{err[:cell_name]} c 1 0 0 1 8300 970500 5"
+            if prev_cn != cell_name
+              f.puts "CN #{cell_name} c 1 0 0 1 0 0 1"
+              prev_cn = cell_name
+            end
             f.puts "#{x1.to_i} #{y1.to_i}"
             f.puts "#{x1.to_i} #{y2.to_i}"
             f.puts "#{x2.to_i} #{y2.to_i}"
