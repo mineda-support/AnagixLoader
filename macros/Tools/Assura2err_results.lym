@@ -73,28 +73,31 @@
       data.each_key{|rule|
         puts "#{rule}: found #{data[rule][:box].count} errors on #{data[rule][:cell_name]}"
       }
+      data
+    end
       
-      def err2results err_file, data
-        File.open(err_file + '.results', 'w'){|f|
-          f.puts data[rule][:cell_name] + ' 1000'
-          data.each_pair{|rule, err|
-            f.puts rule
-            count = err[:box].count
-            f.puts "#{count} #{count} 2 #{Time.now}"
-            f.puts "Rule File Pathname: #{ARGV[2]||'unknown'}"
-            f.puts "Rule No. #{err[:no]} #{rule}"
-            err[:box].each_with_index{|p, i|
-              x1, y1, x2, y2 = p
-              f.puts "p #{i+1} 4"
-              # f.puts "CN #{err[:cell_name]} c 1 0 0 1 8300 970500 5"
-              f.puts "#{x1.to_i} #{y1.to_i}"
-              f.puts "#{x1.to_i} #{y2.to_i}"
-              f.puts "#{x2.to_i} #{y2.to_i}"
-              f.puts "#{x2.to_i} #{y1.to_i}"
-            }
+    def err2results err_file, data
+      File.open(err_file + '.results', 'w'){|f|
+        first = true
+        data.each_pair{|rule, err|
+          f.puts data[rule][:cell_name] + ' 1000' if first
+          first = false
+          f.puts rule
+          count = err[:box].count
+          f.puts "#{count} #{count} 2 #{Time.now}"
+          f.puts "Rule File Pathname: #{ARGV[2]||'unknown'}"
+          f.puts "Rule No. #{err[:no]} #{rule}"
+          err[:box].each_with_index{|p, i|
+            x1, y1, x2, y2 = p
+            f.puts "p #{i+1} 4"
+            # f.puts "CN #{err[:cell_name]} c 1 0 0 1 8300 970500 5"
+            f.puts "#{x1.to_i} #{y1.to_i}"
+            f.puts "#{x1.to_i} #{y2.to_i}"
+            f.puts "#{x2.to_i} #{y2.to_i}"
+            f.puts "#{x2.to_i} #{y1.to_i}"
           }
         }
-      end
+      }
     end
   end
   a2k = Assura2results.new
