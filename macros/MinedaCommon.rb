@@ -1,6 +1,6 @@
 # $autorun-early
 # $priority: 1
-# Mineda Common v1.1 Jan. 27th 2024
+# Mineda Common v1.11 Feb. 21st 2024
 #   Force on-grid v0.1 July 39th 2022 copy right S. Moriyama (Anagix Corp.)
 #   LVS preprocessor(get_reference) v0.77 Nov. 24, 2023 copyright by S. Moriyama (Anagix Corporation)
 #   * ConvertPCells and PCellDefaults moved from MinedaPCell v0.4 Nov. 22nd 2022
@@ -8,7 +8,7 @@
 #   ConvertLibraryCells (ConvertPCells) v0.67 Dec. 6th 2023  copy right S. Moriyama
 #   PCellTest v0.2 August 22nd 2022 S. Moriyama
 #   DRC_helper::find_cells_to_exclude v0.1 Sep 23rd 2022 S. Moriyama
-#   MinedaInput v0.33 Oct. 17th 2023 S. Moriyama
+#   MinedaInput v0.34 Feb. 21st 2024 S. Moriyama
 #   MinedaPCellCommon v0.28 Jan. 1st 2024 S. Moriyama
 #   Create Backannotation data v0.171 May 14th 2023 S. Moriyama
 #   MinedaAutoplace v0.31 July 26th 2023 S. Moriyama
@@ -442,6 +442,7 @@ module MinedaCommon
               ba_data[prefix][old_dcname || dcname][l][w_key] = rest
             elsif old_dcname && dcname != old_dcname
               w_key = "#{old_w}*#{rest.size}"
+              ba_data[prefix][old_dcname][l] ||= {}
               ba_data[prefix][old_dcname][l][w_key] = rest
               rest = [latest]
             else
