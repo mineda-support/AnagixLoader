@@ -1,6 +1,6 @@
 # $autorun-early
 # $priority: 1
-# Mineda Common v1.11 Feb. 21st 2024
+# Mineda Common v1.12 Feb. 22nd 2024
 #   Force on-grid v0.1 July 39th 2022 copy right S. Moriyama (Anagix Corp.)
 #   LVS preprocessor(get_reference) v0.77 Nov. 24, 2023 copyright by S. Moriyama (Anagix Corporation)
 #   * ConvertPCells and PCellDefaults moved from MinedaPCell v0.4 Nov. 22nd 2022
@@ -9,7 +9,7 @@
 #   PCellTest v0.2 August 22nd 2022 S. Moriyama
 #   DRC_helper::find_cells_to_exclude v0.1 Sep 23rd 2022 S. Moriyama
 #   MinedaInput v0.34 Feb. 21st 2024 S. Moriyama
-#   MinedaPCellCommon v0.28 Jan. 1st 2024 S. Moriyama
+#   MinedaPCellCommon v0.29 Feb. 22nd 2024 S. Moriyama
 #   Create Backannotation data v0.171 May 14th 2023 S. Moriyama
 #   MinedaAutoplace v0.31 July 26th 2023 S. Moriyama
 #   ChangePCellParameters v0.1 July 29th 2023 S. Moriyama
@@ -20,7 +20,7 @@ module MinedaPCellCommonModule
   class MinedaPCellCommon < PCellDeclarationHelper
     include RBA
     attr_accessor :defaults, :layer_index
-    @@lyp_file = @@basic_library = @@layer_index = nil
+    @@lyp_file = @@basic_library = @@layer_index = @@alias = nil
     
     def initialize 
       key = 'PCells_' + self.class.name.to_s.split('::').first + '-defaults'
@@ -82,7 +82,7 @@ module MinedaPCellCommonModule
 
     def param name, type, desc, last_resort
       cellname = self.class.name.to_s.split('::').last.to_s
-      cellname = @@alias[cellname.to_sym] || cellname
+      cellname = @@alias && @@alias[cellname.to_sym] || cellname
       if @defaults && @defaults[cellname]
         if (value = @defaults[cellname][name.to_s]) || (value == nil) || (value == false)
           # puts "#{self.class.name} '#{name}' => #{value}"
