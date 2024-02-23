@@ -1,5 +1,5 @@
 # coding: cp932
-# MinedaPCell v0.975 Feb. 23rd, 2024 copy right S. Moriyama (Anagix Corporation)
+# MinedaPCell v0.976 Feb. 23rd, 2024 copy right S. Moriyama (Anagix Corporation)
 #
 #include MinedaPCellCommonModule
 module MinedaPCell
@@ -956,7 +956,7 @@ module MinedaPCell
       "Diff Capacitor\r\n(L=#{l.round(3)}um,W=#{w.round(3)}um,C=#{cval.to_s})"
     end
 
-    def produce_impl indices, vs, u1, area_index=nil, well_index=nil, params={}
+    def produce_impl indices, vs, u1, area_index=nil, well_index=nil, params={}, label=nil
       oo_layout_dbu = 1 / layout.dbu
       cw = (w*oo_layout_dbu).to_i
       cl = (l*oo_layout_dbu).to_i
@@ -984,10 +984,10 @@ module MinedaPCell
       end
 
       if polcnt_outside
-        create_box indices[:pol], -u2-vs, 0, cw + cap_ext, cl
+        create_box indices[:pol], -u2-vs, 0, cw + cap_ext, cl, label
         create_contacts_vertically indices, -u1-vs/2, 0, cl, vs, u1, params[:vpitch], true # false
       else
-        create_box indices[:pol], -u1, 0, cw + cap_ext, cl
+        create_box indices[:pol], -u1, 0, cw + cap_ext, cl, label
         create_contacts_vertically indices, u1+vs/2, u1/2, cl-u1/2, vs, u1, params[:vpitch], true # false
       end
       indices[:pol] = nil # this tells create_contacts_horizontally to use dcont
@@ -1013,7 +1013,7 @@ module MinedaPCell
       "Poly Capacitor\r\n(L=#{l.round(3)}um,W=#{w.round(3)}um,C=#{cval.to_s})"
     end
 
-    def produce_impl indices, vs, u1, params = {}
+    def produce_impl indices, vs, u1, params = {}, label=nil
       oo_layout_dbu = 1 / layout.dbu
       cw = (w*oo_layout_dbu).to_i
       cl = (l*oo_layout_dbu).to_i
@@ -1024,10 +1024,10 @@ module MinedaPCell
       create_box indices[:m1], 0, 0, offset + cw + cap_ext, cl
       create_box indices[:cap], offset, 0, offset + cw, cl
       if polcnt_outside
-        create_box indices[:pol], offset, -cap_ext, offset + cw , cl+u2+vs + pcont_dy
+        create_box indices[:pol], offset, -cap_ext, offset + cw , cl+u2+vs + pcont_dy, label
         create_contacts_horizontally indices, offset,  offset + cw, cl + vs/2 + u1 + pcont_dy, vs, u1, params[:hpitch]
       else
-        create_box indices[:pol], offset, -cap_ext, offset + cw , cl-u2-vs + pcont_dy
+        create_box indices[:pol], offset, -cap_ext, offset + cw , cl-u2-vs + pcont_dy, label
         create_contacts_horizontally indices, offset,  offset + cw, cl - vs/2 - u1 + pcont_dy, vs, u1, params[:hpitch]
       end
     end
