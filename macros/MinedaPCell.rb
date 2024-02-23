@@ -1,5 +1,5 @@
 # coding: cp932
-# MinedaPCell v0.974 Feb. 5th, 2024 copy right S. Moriyama (Anagix Corporation)
+# MinedaPCell v0.975 Feb. 23rd, 2024 copy right S. Moriyama (Anagix Corporation)
 #
 #include MinedaPCellCommonModule
 module MinedaPCell
@@ -967,7 +967,7 @@ module MinedaPCell
       # create_box indices[:cap], 0, 0, cw, cl+u1+vs
       diff_enclosure = params[:diff_enclosure] || 0
       area_enc= params[:area_enc] || u1/2
-      create_box area_index, -area_enc, -u1-area_enc, cw + area_enc, cl + area_enc + vs + u1 + diff_enclosure
+      create_box area_index, -area_enc, -cap_ext - area_enc, cw + area_enc, cl + area_enc + vs + u1 + diff_enclosure
       well_diff_enc = params[:wd_enc] || u1*5
       if well_index
         if nsub_cont = indices[:nsubcont]
