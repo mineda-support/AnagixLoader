@@ -1,9 +1,9 @@
 # coding: cp932
-# MinedaPCell v0.976 Feb. 23rd, 2024 copy right S. Moriyama (Anagix Corporation)
+# MinedaPCell v0.978 Feb. 25th, 2024 copy right S. Moriyama (Anagix Corporation)
 #
 #include MinedaPCellCommonModule
 module MinedaPCell
-  version = '0.974'
+  version = '0.978'
   include MinedaPCellCommonModule
   # The PCell declaration for the Mineda MOSFET
   class MinedaMOS < MinedaPCellCommon
@@ -98,7 +98,7 @@ module MinedaPCell
   class MinedaNch < MinedaMOS
     include RBA
 
-    def display_text_impl naame='Nch'
+    def display_text_impl # name='Nch'
       "#{name}\r\n(L=#{l.round(3)}um,W=#{w.round(3)}um,n=#{n.to_s},Total W=#{wtot.round(3)}um)"
     end
 
@@ -190,8 +190,9 @@ module MinedaPCell
           insert_cell indices[:via], x, y if with_via
         end
         #create_box indices[:narea], x1-u1, y1+vs+u1/2, offset-gl+u1, y2-vs-u1/2
+        area_ext = params[:area_ext] || 0
         narea_bw = params[:narea_bw] || u1 + u1/4
-        create_box indices[:narea], x1-narea_bw, y1+vs+u1-narea_bw, offset-gl+narea_bw, y2-vs-u1+narea_bw
+        create_box indices[:narea], x1-narea_bw, y1+vs+u1-narea_bw, offset-gl+narea_bw, y2-vs-u1+narea_bw+area_ext
         # create_box indices[:lvhvt], x1-narea_bw, y1+vs+u1-narea_bw, offset-gl+narea_bw, y2-vs-u1+narea_bw if indices[:lvhvt]
         create_box indices[:nhd], x1-narea_bw, y1+vs+u1-narea_bw, offset-gl+narea_bw, y2-vs-u1+narea_bw if indices[:nhd] # special for PTS06
         delta = params[:nex_delta] || u1*5
@@ -204,9 +205,9 @@ module MinedaPCell
           if one = params[:pwl_bw]
             if indices[:nex]
               create_box indices[:pwl], x1-delta-one, [y1+vs-u1/2-delta-u1-one, y2-vs+u1/2+delta+u1-4*one].min,
-                    [offset-gl+delta+one, x1-delta+4*one].max, y2-vs+u1/2+delta+u1+one
+                    [offset-gl+delta+one, x1-delta+4*one].max, y2-vs+u1/2+delta+u1+one+area_ext
             else
-              create_box indices[:pwl], x1-delta-one, y1+vs+u1-delta-one, offset-gl+delta+one, y2-vs-u1+delta+one
+              create_box indices[:pwl], x1-delta-one, y1+vs+u1-delta-one, offset-gl+delta+one, y2-vs-u1+delta+one+area_ext
             end
           end
         end
@@ -395,7 +396,7 @@ module MinedaPCell
   class MinedaPch < MinedaMOS
     include RBA
 
-    def display_text_impl name='Pch'
+    def display_text_impl #name='Pch'
       "#{name}\r\n(L=#{l.round(3)}um,W=#{w.round(3)}um,n=#{n.to_s},Total W=#{wtot.round(3)}um)"
     end
 
@@ -486,8 +487,9 @@ module MinedaPCell
           insert_cell indices[:nsubcont], x, y if indices[:nsubcont]
           insert_cell indices[:via], x, y if with_via
         end
+        area_ext = params[:area_ext] || 0
         parea_bw = params[:parea_bw] || u1 + u1/4
-        create_box indices[:parea], x1-parea_bw, y1+vs+u1-parea_bw, offset-gl+parea_bw, y2-vs-u1+parea_bw
+        create_box indices[:parea], x1-parea_bw, y1+vs+u1-parea_bw-area_ext, offset-gl+parea_bw, y2-vs-u1+parea_bw
         # create_box indices[:lvhvt], x1-parea_bw, y1+vs+u1-parea_bw, offset-gl+parea_bw, y2-vs-u1+parea_bw if indices[:lvhvt]
         delta = params[:pex_delta] || u1*5
         create_box indices[:pex], x1-delta, y1+vs-u1/2-delta-u1, offset-gl+delta, y2-vs+u1/2+delta+u1 if indices[:pex]
@@ -496,16 +498,16 @@ module MinedaPCell
         if indices[:nwl] && use_nwell
           if one = params[:nwl_bw] # bug fix 2023/5/11
             if indices[:pex]
-              create_box indices[:nwl],  x1-delta-one, y1+vs-u1/2-delta-u1-one, [offset-gl+delta+one, x1-delta+4*one].max,
+              create_box indices[:nwl],  x1-delta-one, y1+vs-u1/2-delta-u1-one-area_ext, [offset-gl+delta+one, x1-delta+4*one].max,
                      [y2-vs+u1/2+delta+u1+one, y1+vs-u1/2-delta-u1+4*one].max # just for tiascr130?
             else
-              create_box indices[:nwl],  x1-delta-one, y1+vs+u1-delta-one, offset-gl+delta+one, y2-vs-u1+delta+one
+              create_box indices[:nwl],  x1-delta-one, y1+vs+u1-delta-one-area_ext, offset-gl+delta+one, y2-vs-u1+delta+one
             end
           else
             if n % 2 == 0
-              create_box indices[:nwl], x1-vs, y1-u1-u1/2, offset-gl +2*u1, y2
+              create_box indices[:nwl], x1-vs, y1-u1-u1/2-area_ext, offset-gl +2*u1, y2
             else
-              create_box indices[:nwl], x1-vs, y1, offset-gl +2*u1, y2+u1+u1/2
+              create_box indices[:nwl], x1-vs, y1-area_ext, offset-gl +2*u1, y2+u1+u1/2
             end
           end
         end
