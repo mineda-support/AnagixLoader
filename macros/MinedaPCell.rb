@@ -1,9 +1,9 @@
 # coding: cp932
-# MinedaPCell v0.978 Feb. 25th, 2024 copy right S. Moriyama (Anagix Corporation)
+# MinedaPCell v0.979 Mar. 19th, 2024 copy right S. Moriyama (Anagix Corporation)
 #
 #include MinedaPCellCommonModule
 module MinedaPCell
-  version = '0.978'
+  version = '0.979'
   include MinedaPCellCommonModule
   # The PCell declaration for the Mineda MOSFET
   class MinedaMOS < MinedaPCellCommon
@@ -1121,6 +1121,8 @@ module MinedaPCell
       param(:s, TypeShape, "", :default => DPoint::new(20.0, 20.0))
       param(:lu, TypeDouble, "Ring length", :default => 20.0.um, :hidden =>true)
       param(:wu, TypeDouble, "Ring width", :default => 20.0.um, :hidden =>true)
+      param(:cng, TypeDouble, "Corner gap", :default => 0.0.um)
+      param(:ctg, TypeDouble, "Center gap", :default => 0.0.um)
     end
     def coerce_parameters_impl
       ls = ws = nil
@@ -1141,12 +1143,17 @@ module MinedaPCell
         ls = l
         set_s DPoint::new(ws, ls)
       end
+      set_cng 0 if ctg != 0.0
+      set_ctg 0 if cng != 0.0
     end
     def display_text_impl
       "Guard ring\r\n(width=#{w.round(3)}um,length=#{l.round(3)}um)"
     end
-    def produce_impl index, bw, fillers, length, width
-      [[-bw, -bw, width, 0],
+    def produce_impl index, bw, fillers, length, width, x1 = 0, x2 = 0
+    #[[-bw, -bw, width, 0],
+      area1 = [[x2, -bw, width, 0]]
+      area1 << [-bw, -bw, x1, 0] if x1 < x2
+      [*area1,
        [width, -bw, width+bw, length],
        [0, length, width+bw, length+bw],
        [-bw, 0, 0, length+bw]].each{|area|
