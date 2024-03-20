@@ -1,9 +1,9 @@
 # coding: cp932
-# MinedaPCell v0.979 Mar. 19th, 2024 copy right S. Moriyama (Anagix Corporation)
+# MinedaPCell v0.981 Mar. 19th, 2024 copy right S. Moriyama (Anagix Corporation)
 #
 #include MinedaPCellCommonModule
 module MinedaPCell
-  version = '0.979'
+  version = '0.981'
   include MinedaPCellCommonModule
   # The PCell declaration for the Mineda MOSFET
   class MinedaMOS < MinedaPCellCommon
@@ -1112,7 +1112,6 @@ module MinedaPCell
       create_box indices[:cap], 0, -finger_width/2, finger_length, finger_width*nf + finger_gap*(nf-1) - finger_width/2
     end
   end
-
   class MinedaFillRing < MinedaPCellCommon
     def initialize
       super
@@ -1151,7 +1150,7 @@ module MinedaPCell
     end
     def produce_impl index, bw, fillers, length, width, x1 = 0, x2 = 0
     #[[-bw, -bw, width, 0],
-      area1 = [[x2, -bw, width, 0]]
+      area1 = [[x2-bw, -bw, width, 0]]
       area1 << [-bw, -bw, x1, 0] if x1 < x2
       [*area1,
        [width, -bw, width+bw, length],
@@ -1164,7 +1163,44 @@ module MinedaPCell
     end
   end
   
- class MinedaFillBox < MinedaPCellCommon
+  class MinedaFillLine < MinedaPCellCommon
+    def initialize
+      super
+      param(:l, TypeDouble, "Line length", :default => 50.0.um)
+      param(:s, TypeShape, "", :default => DPoint::new(20.0, 20.0))
+      param(:lu, TypeDouble, "Line length", :default => 20.0.um, :hidden =>true)
+      param(:gp, TypeString, "Gap pettern", :default => '')
+    end
+    def coerce_parameters_impl
+      ls = ws = nil
+      w = 0.0.um
+      if s.is_a?(DPoint)
+        ws = s.y
+        ls = s.x
+      end
+      if  (l - lu) .abs < 1e-6
+        set_lu ls
+        set_l ls
+        w = ws
+      else
+        set_lu l
+        ws = w
+        ls = l
+        set_s DPoint::new(ls, ws)
+      end
+    end
+    def display_text_impl
+      "Guard line\r\n(length=#{l.round(3)}um)"
+    end
+    def produce_impl index, bw, fillers, length, gap_pattern
+      area = [0, -bw/2, length, bw/2]
+      fill_area(area, bw, fillers){|x, y|
+        insert_cell index, x, y if index && (gap_pattern.find_index{|a| a > x}||1)%2 == 1
+      }
+    end
+  end
+  
+  class MinedaFillBox < MinedaPCellCommon
     def initialize default_x=4.0.um, default_y=4.0.um, name = nil
        super()
        param(:l, TypeDouble, "X size", :default => default_x)
