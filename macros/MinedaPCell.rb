@@ -1,9 +1,9 @@
 # coding: cp932
-# MinedaPCell v0.981 Mar. 19th, 2024 copy right S. Moriyama (Anagix Corporation)
+# MinedaPCell v0.982 Mar. 19th, 2024 copy right S. Moriyama (Anagix Corporation)
 #
 #include MinedaPCellCommonModule
 module MinedaPCell
-  version = '0.981'
+  version = '0.982'
   include MinedaPCellCommonModule
   # The PCell declaration for the Mineda MOSFET
   class MinedaMOS < MinedaPCellCommon
@@ -1169,7 +1169,7 @@ module MinedaPCell
       param(:l, TypeDouble, "Line length", :default => 50.0.um)
       param(:s, TypeShape, "", :default => DPoint::new(20.0, 20.0))
       param(:lu, TypeDouble, "Line length", :default => 20.0.um, :hidden =>true)
-      param(:gp, TypeString, "Gap pettern", :default => '')
+      param(:gp, TypeString, "Gap pattern", :default => '')
     end
     def coerce_parameters_impl
       ls = ws = nil
@@ -1187,6 +1187,10 @@ module MinedaPCell
         ws = w
         ls = l
         set_s DPoint::new(ls, ws)
+      end
+      gap_pattern = (gp || '').split(/[ ,] */)
+      if gap_pattern.size % 2 == 0
+        gp.sub! /[ ,] *[^,]+$/, ''
       end
     end
     def display_text_impl
