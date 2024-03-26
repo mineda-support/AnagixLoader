@@ -1,9 +1,9 @@
 # coding: cp932
-# MinedaPCell v0.982 Mar. 19th, 2024 copy right S. Moriyama (Anagix Corporation)
+# MinedaPCell v0.983 Mar. 25th, 2024 copy right S. Moriyama (Anagix Corporation)
 #
 #include MinedaPCellCommonModule
 module MinedaPCell
-  version = '0.982'
+  version = '0.983'
   include MinedaPCellCommonModule
   # The PCell declaration for the Mineda MOSFET
   class MinedaMOS < MinedaPCellCommon
@@ -1148,12 +1148,28 @@ module MinedaPCell
     def display_text_impl
       "Guard ring\r\n(width=#{w.round(3)}um,length=#{l.round(3)}um)"
     end
-    def produce_impl index, bw, fillers, length, width, x1 = 0, x2 = 0
+    def produce_impl index, bw, fillers, length, width, x1 = 0, x2 = 0, off_layers_on_gap=[]
     #[[-bw, -bw, width, 0],
-      area1 = [[x2-bw, -bw, width, 0]]
-      area1 << [-bw, -bw, x1, 0] if x1 < x2
-      [*area1,
-       [width, -bw, width+bw, length],
+      if index
+        cell_on_gap = layout.cell(index).dup
+        cell_on_gap.flatten(true)
+        off_layers_on_gap.each{|off_layer|
+          cell_on_gap.clear(layout.find_layer(get_layer_index(off_layer, false), 0))
+        }
+        cell_on_gap_index = cell_on_gap.cell_index
+      else
+        cell_on_gap_index = nil
+      end
+      fill_area([-bw, -bw, width, 0], bw, nil){|x, y|
+        if  x1 - bw <x && x < x2
+          insert_cell cell_on_gap_index, x, y if cell_on_gap_index 
+        else
+          insert_cell index, x, y if index
+        end
+      }
+      fill_area([-bw, -bw, x1, 0], bw, fillers) if x1 > 0
+      fill_area([x2, -bw, width, 0], bw, fillers)
+      [[width, -bw, width+bw, length],
        [0, length, width+bw, length+bw],
        [-bw, 0, 0, length+bw]].each{|area|
         fill_area(area, bw, fillers){|x, y|
@@ -1196,10 +1212,24 @@ module MinedaPCell
     def display_text_impl
       "Guard line\r\n(length=#{l.round(3)}um)"
     end
-    def produce_impl index, bw, fillers, length, gap_pattern
+    def produce_impl index, bw, fillers, length, gap_pattern=[], off_layers_on_gap=[]
+      if index
+        cell_on_gap = layout.cell(index).dup
+        cell_on_gap.flatten(true)
+        off_layers_on_gap.each{|off_layer|
+          cell_on_gap.clear(layout.find_layer(get_layer_index(off_layer, false), 0))
+        }
+        cell_on_gap_index = cell_on_gap.cell_index
+      else
+        cell_on_gap_index = nil
+      end
       area = [0, -bw/2, length, bw/2]
       fill_area(area, bw, fillers){|x, y|
-        insert_cell index, x, y if index && (gap_pattern.find_index{|a| a > x}||1)%2 == 1
+        if  (gap_pattern.find_index{|a| a > x}||1)%2 == 1
+          insert_cell(index, x, y) if index
+        else
+          insert_cell(cell_on_gap_index, x, y) if cell_on_gap_index
+        end
       }
     end
   end

@@ -1,6 +1,6 @@
 # $autorun-early
 # $priority: 1
-# Mineda Common v1.13 Mar. 7th 2024
+# Mineda Common v1.14 Mar. 25th 2024
 #   Force on-grid v0.1 July 39th 2022 copy right S. Moriyama (Anagix Corp.)
 #   LVS preprocessor(get_reference) v0.77 Nov. 24, 2023 copyright by S. Moriyama (Anagix Corporation)
 #   * ConvertPCells and PCellDefaults moved from MinedaPCell v0.4 Nov. 22nd 2022
@@ -9,7 +9,7 @@
 #   PCellTest v0.2 August 22nd 2022 S. Moriyama
 #   DRC_helper::find_cells_to_exclude v0.1 Sep 23rd 2022 S. Moriyama
 #   MinedaInput v0.34 Feb. 21st 2024 S. Moriyama
-#   MinedaPCellCommon v0.3 Mar. 7th 2024 S. Moriyama
+#   MinedaPCellCommon v0.31 Mar. 25th 2024 S. Moriyama
 #   Create Backannotation data v0.171 May 14th 2023 S. Moriyama
 #   MinedaAutoplace v0.31 July 26th 2023 S. Moriyama
 #   ChangePCellParameters v0.1 July 29th 2023 S. Moriyama
@@ -71,8 +71,9 @@ module MinedaPCellCommonModule
       @layer_index = @@layer_index
     end
 
-    def get_layer_index name
+    def get_layer_index name, insert_layer = true
       layer, data_type = @layer_index[name]
+      return layer unless insert_layer
       # puts "get_layer_index:for #{name} = #{layer}/#{data_type}"
       layout.insert_layer(LayerInfo::new layer, data_type)
     end
@@ -221,7 +222,7 @@ module MinedaPCellCommonModule
       yoffset = y2 - y1 - m * square_size
       for i in 0..[n-1, 0].max
         for j in 0..[m-1, 0].max
-          yield x1 + xoffset/2 + (n<=0? 0 : i*square_size + square_size/2), y1 + yoffset/2 +  (m<=0? 0 : j*square_size + square_size/2)
+          yield x1 + xoffset/2 + (n<=0? 0 : i*square_size + square_size/2), y1 + yoffset/2 +  (m<=0? 0 : j*square_size + square_size/2) if block_given?
         end
       end
     end
