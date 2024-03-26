@@ -1,9 +1,9 @@
 # coding: cp932
-# MinedaPCell v0.983 Mar. 25th, 2024 copy right S. Moriyama (Anagix Corporation)
+# MinedaPCell v0.984 Mar. 25th, 2024 copy right S. Moriyama (Anagix Corporation)
 #
 #include MinedaPCellCommonModule
 module MinedaPCell
-  version = '0.983'
+  version = '0.984'
   include MinedaPCellCommonModule
   # The PCell declaration for the Mineda MOSFET
   class MinedaMOS < MinedaPCellCommon
@@ -1135,7 +1135,7 @@ module MinedaPCell
         set_wu ws
         set_w ws
       else
-              puts "l=#{l} w=#{w}"
+        #      puts "l=#{l} w=#{w}"
         set_lu l
         set_wu w
         ws = w
@@ -1160,15 +1160,15 @@ module MinedaPCell
       else
         cell_on_gap_index = nil
       end
-      fill_area([-bw, -bw, width, 0], bw, nil){|x, y|
-        if  x1 - bw <x && x < x2
+      fill_area([-bw, -bw, width, 0], bw, fillers){|x, y|
+        if  x1 - bw <x && x < x2 && x1 != x2
           insert_cell cell_on_gap_index, x, y if cell_on_gap_index 
         else
           insert_cell index, x, y if index
         end
       }
-      fill_area([-bw, -bw, x1, 0], bw, fillers) if x1 > 0
-      fill_area([x2, -bw, width, 0], bw, fillers)
+      #fill_area([-bw, -bw, x1, 0], bw, fillers) if x1 > 0
+      #fill_area([x2 > 0 ? x2 : x2-bw, -bw, width, 0], bw, fillers)
       [[width, -bw, width+bw, length],
        [0, length, width+bw, length+bw],
        [-bw, 0, 0, length+bw]].each{|area|
