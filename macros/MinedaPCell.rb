@@ -1,9 +1,9 @@
 # coding: cp932
-# MinedaPCell v0.984 Mar. 25th, 2024 copy right S. Moriyama (Anagix Corporation)
+# MinedaPCell v0.985 Mar. 27th, 2024 copy right S. Moriyama (Anagix Corporation)
 #
 #include MinedaPCellCommonModule
 module MinedaPCell
-  version = '0.984'
+  version = '0.985'
   include MinedaPCellCommonModule
   # The PCell declaration for the Mineda MOSFET
   class MinedaMOS < MinedaPCellCommon
@@ -61,6 +61,19 @@ module MinedaPCell
       sd_width = [gw, vs + vs_extra].max
       offset = 0
       m1cnt_width = params[:m1cnt_width] || vs
+      if (defined?(ld_length) && ld_length > 0.0) || (defined?(rd_length) && rd_length > 0.0)
+        dcont_for_dummy = layout.cell(indices[:dcont]).dup
+        dcont_for_dummy.clear(layout.find_layer(get_layer_index('ML1', false), 0))
+        dcont_for_dummy.clear(layout.find_layer(get_layer_index('CNT', false), 0))
+      end
+      # left dummy
+      if defined?(ld_length) && ld_length > 0.0 # left_dummy_length
+        ldl = [ (ld_length*oo_layout_dbu).to_i, gl].min
+        x = -ldl/2 -  dgl - xshift
+        create_path(indices[:pol], x, vs-yshift+u1, x, vs-yshift+u1+sd_width, ldl, gate_ext, gate_ext)
+        x = -ldl - dgl*2 - m1cnt_width/2 - xshift
+        create_dcont(dcont_for_dummy.cell_index, x, vs-yshift+u1, x, vs-yshift+u1+sd_width, vs + vs_extra, params[:dcont_offset])
+      end
       (n+1).times{|i|
         x = offset + m1cnt_width/2 - xshift
         create_path(indices[:m1], x, vs-yshift+u1+u1cut, x, vs-yshift+u1-u1cut+sd_width, m1cnt_width, 0, 0)
@@ -76,6 +89,14 @@ module MinedaPCell
         end
         offset = offset + m1cnt_width + gl + 2*dgl
       }
+      # right dummy
+      if defined?(rd_length) && rd_length > 0.0 # right_dummy_length
+        rdl = [(rd_length*oo_layout_dbu).to_i, gl].min
+        x = x - gl/2 + rdl/2
+        create_path(indices[:pol], x, vs-yshift+u1, x, vs-yshift+u1+sd_width, rdl, gate_ext, gate_ext)
+        x = x + m1cnt_width/2 + rdl/2 + dgl
+        create_dcont(dcont_for_dummy.cell_index, x, vs-yshift+u1, x, vs-yshift+u1+sd_width, vs + vs_extra, params[:dcont_offset])
+      end
       if gw > vs + vs_extra
         create_box indices[:diff], -xshift, vs-yshift+u1, offset - gl - 2*dgl - xshift, vs-yshift+u1+gw
       else
