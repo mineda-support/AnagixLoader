@@ -1,6 +1,5 @@
 # coding: cp932
 # MinedaPCell v0.986 Mar. 28th, 2024 copy right S. Moriyama (Anagix Corporation)
-#
 #include MinedaPCellCommonModule
 module MinedaPCell
   version = '0.986'
@@ -97,10 +96,18 @@ module MinedaPCell
         x = x + m1cnt_width/2 + rdl/2 + dgl
         create_dcont(dcont_for_dummy.cell_index, x, vs-yshift+u1, x, vs-yshift+u1+sd_width, vs + vs_extra, params[:dcont_offset])
       end
+      x1 = 0
+      if defined?(ld_length) && ld_length > 0.0
+        x1 = - ldl - 2*dgl - m1cnt_width
+      end
+      x2 = offset - gl - 2*dgl
+      if defined?(rd_length) && rd_length > 0.0
+        x2 = x2 + rdl + 2*dgl + m1cnt_width
+      end
       if gw > vs + vs_extra
-        create_box indices[:diff], -xshift, vs-yshift+u1, offset - gl - 2*dgl - xshift, vs-yshift+u1+gw
+        create_box indices[:diff], x1-xshift, vs-yshift+u1, x2 - xshift, vs-yshift+u1+gw
       else
-        create_box indices[:diff], -xshift, vs-yshift+u1+(vs+vs_extra)/2-gw/2, offset - gl - 2*dgl - xshift, vs-yshift+u1+gw+(vs+vs_extra)/2-gw/2
+        create_box indices[:diff], x1-xshift, vs-yshift+u1+(vs+vs_extra)/2-gw/2, x2 - xshift, vs-yshift+u1+gw+(vs+vs_extra)/2-gw/2
       end
       yield -xshift, -yshift, vs*2+gl-xshift, (vs+u1)*2+sd_width-yshift, gl, gw, dgl, m1cnt_width
     end
