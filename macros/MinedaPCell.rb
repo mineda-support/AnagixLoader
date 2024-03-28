@@ -1,9 +1,9 @@
 # coding: cp932
-# MinedaPCell v0.985 Mar. 27th, 2024 copy right S. Moriyama (Anagix Corporation)
+# MinedaPCell v0.986 Mar. 28th, 2024 copy right S. Moriyama (Anagix Corporation)
 #
 #include MinedaPCellCommonModule
 module MinedaPCell
-  version = '0.985'
+  version = '0.986'
   include MinedaPCellCommonModule
   # The PCell declaration for the Mineda MOSFET
   class MinedaMOS < MinedaPCellCommon
@@ -126,7 +126,7 @@ module MinedaPCell
     def produce_impl indices, vs, u1, params = {} # NMOS
       produce_impl_core(indices, vs, u1, params){|x1, y1, x2, y2, gl, gw, dgl, m1cnt_width|
         # create ncon
-        wm_offset = defined?(wide_metal) && wide_metal ? u1 : 0
+        wm_offset = defined?(wide_metal) && wide_metal ? params[:wm_offset] || u1 : 0
         via_offset = params[:via_offset] || 0
         x = x1 + vs/2
         pcont_dy = params[:pcont_dy] || u1/4
@@ -242,7 +242,7 @@ module MinedaPCell
     def produce_impl indices, vs, u1, params = {} # NMOS_SOI
       produce_impl_core(indices, vs, u1, params){|x1, y1, x2, y2, gl, gw, dgl, m1cnt_width|
         # create ncon
-        wm_offset = defined?(wide_metal) && wide_metal ? u1 : 0
+        wm_offset = defined?(wide_metal) && wide_metal ? params[:wm_offset] || u1 : 0
         
         x = x1 + vs/2
         pcont_dy = params[:pcont_dy] || u1/4
@@ -424,7 +424,7 @@ module MinedaPCell
     def produce_impl indices, vs, u1, params = {} # PMOS
       produce_impl_core(indices, vs, u1, params){|x1, y1, x2, y2, gl, gw, dgl, m1cnt_width|
         # create pcont
-        wm_offset = defined?(wide_metal) && wide_metal ? vs/2 : 0
+        wm_offset = defined?(wide_metal) && wide_metal ? params[:wm_offset] || vs/2 : 0
         via_offset = params[:via_offset] || 0
         x = x1 + vs/2
         pcont_dy = params[:pcont_dy] || -u1/4
@@ -542,7 +542,7 @@ module MinedaPCell
     def produce_impl indices, vs, u1, params = {} # PMOS_SOI
       produce_impl_core(indices, vs, u1, params){|x1, y1, x2, y2, gl, gw, dgl, m1cnt_width|
         # create pcont
-        wm_offset = defined?(wide_metal) && wide_metal ? vs/2 : 0
+        wm_offset = defined?(wide_metal) && wide_metal ? params[:wm_offset] || vs/2 : 0
         x = x1 + vs/2
         pcont_dy = params[:pcont_dy] || -u1/4
         y = y1 + vs/2 + pcont_dy
