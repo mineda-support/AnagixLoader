@@ -215,7 +215,7 @@ module MinedaPCell
             y = y1 + vs/2 - psubcont_dy
             y = y - u1/2 if defined?(wide_metal) && wide_metal
           end
-          insert_cell indices[:psubcont], x, y if indices[:psubcont]
+          insert_cell indices[:psubcont], x, y, false, params[:psubcont_bbox] if indices[:psubcont]
           insert_cell indices[:via], x, y if with_via
         end
         x1 = x1 - m1cnt_width - ldl - 2*dgl if ldl > 0

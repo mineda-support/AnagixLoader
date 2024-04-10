@@ -1,6 +1,6 @@
 # $autorun-early
 # $priority: 1
-# Mineda Common v1.14 Mar. 25th 2024
+# Mineda Common v1.15 April 8th 2024
 #   Force on-grid v0.1 July 39th 2022 copy right S. Moriyama (Anagix Corp.)
 #   LVS preprocessor(get_reference) v0.77 Nov. 24, 2023 copyright by S. Moriyama (Anagix Corporation)
 #   * ConvertPCells and PCellDefaults moved from MinedaPCell v0.4 Nov. 22nd 2022
@@ -9,7 +9,7 @@
 #   PCellTest v0.2 August 22nd 2022 S. Moriyama
 #   DRC_helper::find_cells_to_exclude v0.1 Sep 23rd 2022 S. Moriyama
 #   MinedaInput v0.34 Feb. 21st 2024 S. Moriyama
-#   MinedaPCellCommon v0.31 Mar. 25th 2024 S. Moriyama
+#   MinedaPCellCommon v0.32 April 8th 2024 S. Moriyama
 #   Create Backannotation data v0.171 May 14th 2023 S. Moriyama
 #   MinedaAutoplace v0.31 July 26th 2023 S. Moriyama
 #   ChangePCellParameters v0.1 July 29th 2023 S. Moriyama
@@ -123,8 +123,12 @@ module MinedaPCellCommonModule
       cell.shapes(index).insert_text(Text::new text, (x1+x2)/2, (y1+y2)/2) if text
     end
 
-    def insert_cell via_index, x, y, rotate=false
+    def insert_cell via_index, x, y, rotate=false, bbox_layer=nil
       via = CellInstArray.new(via_index, rotate ? Trans.new(1, false, x, y) : Trans.new(x, y))
+      if bbox_layer
+        bb = via.bbox(layout)
+        create_box bbox_layer, bb.p1.x, bb.p1.y, bb.p2.x, bb.p2.y 
+      end
       inst = cell.insert(via)
     end 
     
