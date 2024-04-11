@@ -1,6 +1,6 @@
 # $autorun-early
 # $priority: 1
-# Mineda Common v1.15 April 8th 2024
+# Mineda Common v1.16 April 11th 2024
 #   Force on-grid v0.1 July 39th 2022 copy right S. Moriyama (Anagix Corp.)
 #   LVS preprocessor(get_reference) v0.77 Nov. 24, 2023 copyright by S. Moriyama (Anagix Corporation)
 #   * ConvertPCells and PCellDefaults moved from MinedaPCell v0.4 Nov. 22nd 2022
@@ -9,7 +9,7 @@
 #   PCellTest v0.2 August 22nd 2022 S. Moriyama
 #   DRC_helper::find_cells_to_exclude v0.1 Sep 23rd 2022 S. Moriyama
 #   MinedaInput v0.34 Feb. 21st 2024 S. Moriyama
-#   MinedaPCellCommon v0.32 April 8th 2024 S. Moriyama
+#   MinedaPCellCommon v0.33 April 11th 2024 S. Moriyama
 #   Create Backannotation data v0.171 May 14th 2023 S. Moriyama
 #   MinedaAutoplace v0.31 July 26th 2023 S. Moriyama
 #   ChangePCellParameters v0.1 July 29th 2023 S. Moriyama
@@ -204,20 +204,11 @@ module MinedaPCellCommonModule
       result
     end
     
-    def fill_area area, square_size, filler=nil
+    def fill_area area, square_size, filler=nil, fill_margin=0
       x1, y1, x2, y2, margin = area
       margin_x = margin_y = (margin || 0)
       if margin.class == Array
         margin_x, margin_y = margin
-      end
-      if filler
-        if filler.class == Array
-          filler.each{|index|
-            create_box index, x1, y1, x2, y2
-        }
-        else
-          create_box filler, x1, y1, x2, y2
-        end
       end
       return if square_size == nil || square_size == 0
       n = ((x2 - x1 - 2*margin_x)/square_size).to_i
@@ -227,6 +218,33 @@ module MinedaPCellCommonModule
       for i in 0..[n-1, 0].max
         for j in 0..[m-1, 0].max
           yield x1 + xoffset/2 + (n<=0? 0 : i*square_size + square_size/2), y1 + yoffset/2 +  (m<=0? 0 : j*square_size + square_size/2) if block_given?
+        end
+      end
+      if filler
+        if fill_margin
+          if fill_margin.class == Array
+            x1 = x1 + fill_margin[0]
+            x2 = x2 - fill_margin[0]
+            y1 = y1 + fill_margin[1]
+            y2 = y2 - fill_margin[1]
+          else
+            x1 = x1 + fill_margin
+            x2 = x2 - fill_margin
+            y1 = y1 + fill_margin
+            y2 = y2 - fill_margin
+          end
+        else # fill_margin == nil means to use calculated fill area usign margin_x and margin_y
+          x1 = x1 + xoffset/2
+          x2 = x2 - xoffset/2
+          y1 = y1 + yoffset/2
+          y2 = y2 - yoffset/2        
+        end    
+        if filler.class == Array
+          filler.each{|index|
+            create_box index, x1, y1, x2, y2
+        }
+        else
+          create_box filler, x1, y1, x2, y2
         end
       end
     end

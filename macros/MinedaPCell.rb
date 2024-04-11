@@ -1,8 +1,8 @@
 # coding: cp932
-# MinedaPCell v0.987 Mar. 28th, 2024 copy right S. Moriyama (Anagix Corporation)
+# MinedaPCell v0.988 April 11th, 2024 copy right S. Moriyama (Anagix Corporation)
 #include MinedaPCellCommonModule
 module MinedaPCell
-  version = '0.987'
+  version = '0.988'
   include MinedaPCellCommonModule
   # The PCell declaration for the Mineda MOSFET
   class MinedaMOS < MinedaPCellCommon
@@ -979,7 +979,7 @@ module MinedaPCell
     end
   end
 
-  class  MinedaDiff_cap < MinedaCapacitor
+  class MinedaDiff_cap < MinedaCapacitor
     def initialize
       super
       param(:cval, TypeDouble, "Capacitor value", :default => 0, :hidden=> true)
@@ -1245,7 +1245,8 @@ module MinedaPCell
     def display_text_impl
       "Guard line\r\n(length=#{l.round(3)}um)"
     end
-    def produce_impl index, bw, fillers, length, gap_pattern=[], off_layers_on_gap=[]
+    def produce_impl index, bw_margin, fillers, fill_margin, length, gap_pattern=[], off_layers_on_gap=[]
+      bw, margin = (bw_margin.class == Array) ? bw_margin : [bw_margin, 0]
       if index
         cell_on_gap = layout.cell(index).dup
         cell_on_gap.flatten(true)
@@ -1256,8 +1257,8 @@ module MinedaPCell
       else
         cell_on_gap_index = nil
       end
-      area = [0, -bw/2, length, bw/2]
-      fill_area(area, bw, fillers){|x, y|
+      area = [0, -bw/2, length, bw/2, margin]
+      fill_area(area, bw, fillers, fill_margin){|x, y|
         if  (gap_pattern.find_index{|a| a > x}||1)%2 == 1
           insert_cell(index, x, y) if index
         else
