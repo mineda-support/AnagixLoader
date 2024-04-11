@@ -1,8 +1,8 @@
 # coding: cp932
-# MinedaPCell v0.988 April 11th, 2024 copy right S. Moriyama (Anagix Corporation)
+# MinedaPCell v0.989 April 11th, 2024 copy right S. Moriyama (Anagix Corporation)
 #include MinedaPCellCommonModule
 module MinedaPCell
-  version = '0.988'
+  version = '0.989'
   include MinedaPCellCommonModule
   # The PCell declaration for the Mineda MOSFET
   class MinedaMOS < MinedaPCellCommon
@@ -1216,24 +1216,28 @@ module MinedaPCell
     def initialize
       super
       param(:l, TypeDouble, "Line length", :default => 50.0.um)
+      param(:w2, TypeDouble, "Line width/2", :default => 0.0.um)
       param(:s, TypeShape, "", :default => DPoint::new(20.0, 20.0))
       param(:lu, TypeDouble, "Line length", :default => 20.0.um, :hidden =>true)
+      param(:wu, TypeDouble, "Line width/2", :default => 0.0.um, :hidden =>true)
       param(:gp, TypeString, "Gap pattern", :default => '')
     end
     def coerce_parameters_impl
       ls = ws = nil
-      w = 0.0.um
       if s.is_a?(DPoint)
-        ws = s.y
         ls = s.x
+        ws = s.y
       end
-      if  (l - lu) .abs < 1e-6
+      if  (l - lu) .abs < 1e-6 && (w2 - wu).abs < 1e-6
         set_lu ls
         set_l ls
-        w = ws
+        set_wu ws
+        set_w2 ws
       else
+        #      puts "l=#{l} w=#{w}"
         set_lu l
-        ws = w
+        set_wu w2
+        ws = w2
         ls = l
         set_s DPoint::new(ls, ws)
       end
@@ -1243,9 +1247,9 @@ module MinedaPCell
       end
     end
     def display_text_impl
-      "Guard line\r\n(length=#{l.round(3)}um)"
+      "Guard line\r\n(length=#{l.round(3)}um, width=#{w.round(3)}um)"
     end
-    def produce_impl index, bw_margin, fillers, fill_margin, length, gap_pattern=[], off_layers_on_gap=[]
+    def produce_impl index, bw_margin, fillers, fill_margin, length, half_width, gap_pattern=[], off_layers_on_gap=[]
       bw, margin = (bw_margin.class == Array) ? bw_margin : [bw_margin, 0]
       if index
         cell_on_gap = layout.cell(index).dup
@@ -1257,7 +1261,7 @@ module MinedaPCell
       else
         cell_on_gap_index = nil
       end
-      area = [0, -bw/2, length, bw/2, margin]
+      area = [0, -[bw/2, half_width.abs].max, length, [bw/2, half_width.abs].max, margin]
       fill_area(area, bw, fillers, fill_margin){|x, y|
         if  (gap_pattern.find_index{|a| a > x}||1)%2 == 1
           insert_cell(index, x, y) if index
