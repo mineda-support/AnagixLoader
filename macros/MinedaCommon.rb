@@ -1,6 +1,6 @@
 # $autorun-early
 # $priority: 1
-# Mineda Common v1.16 April 11th 2024
+# Mineda Common v1.17 April 12th 2024
 #   Force on-grid v0.1 July 39th 2022 copy right S. Moriyama (Anagix Corp.)
 #   LVS preprocessor(get_reference) v0.77 Nov. 24, 2023 copyright by S. Moriyama (Anagix Corporation)
 #   * ConvertPCells and PCellDefaults moved from MinedaPCell v0.4 Nov. 22nd 2022
@@ -9,7 +9,7 @@
 #   PCellTest v0.2 August 22nd 2022 S. Moriyama
 #   DRC_helper::find_cells_to_exclude v0.1 Sep 23rd 2022 S. Moriyama
 #   MinedaInput v0.34 Feb. 21st 2024 S. Moriyama
-#   MinedaPCellCommon v0.33 April 11th 2024 S. Moriyama
+#   MinedaPCellCommon v0.34 April 12th 2024 S. Moriyama
 #   Create Backannotation data v0.171 May 14th 2023 S. Moriyama
 #   MinedaAutoplace v0.31 July 26th 2023 S. Moriyama
 #   ChangePCellParameters v0.1 July 29th 2023 S. Moriyama
@@ -210,14 +210,16 @@ module MinedaPCellCommonModule
       if margin.class == Array
         margin_x, margin_y = margin
       end
-      return if square_size == nil || square_size == 0
-      n = ((x2 - x1 - 2*margin_x)/square_size).to_i
-      xoffset = x2 - x1 - n * square_size
-      m = ((y2 - y1 - 2*margin_y)/square_size).to_i
-      yoffset = y2 - y1 - m * square_size
-      for i in 0..[n-1, 0].max
-        for j in 0..[m-1, 0].max
-          yield x1 + xoffset/2 + (n<=0? 0 : i*square_size + square_size/2), y1 + yoffset/2 +  (m<=0? 0 : j*square_size + square_size/2) if block_given?
+      xoffset=yoffset=0
+      unless square_size == nil || square_size == 0
+        n = ((x2 - x1 - 2*margin_x)/square_size).to_i
+        xoffset = x2 - x1 - n * square_size
+        m = ((y2 - y1 - 2*margin_y)/square_size).to_i
+        yoffset = y2 - y1 - m * square_size
+        for i in 0..[n-1, 0].max
+          for j in 0..[m-1, 0].max
+            yield x1 + xoffset/2 + (n<=0? 0 : i*square_size + square_size/2), y1 + yoffset/2 +  (m<=0? 0 : j*square_size + square_size/2) if block_given?
+          end
         end
       end
       if filler
