@@ -15,7 +15,7 @@
  <menu-path/>
  <interpreter>ruby</interpreter>
  <dsl-interpreter-name/>
- <text># Assura2err_results - Convert Assura DRC err file v0.2 Feb. 12th, 2024 copy right Seijiro Moriyama
+ <text># Assura2err_results - Convert Assura DRC err file v0.3 April 14th, 2024 copy right Seijiro Moriyama
 module MyMacro
  
   include RBA
@@ -32,10 +32,32 @@ module MyMacro
     def assura2results
       err_file = QFileDialog::getOpenFileName(@mw, 'Assura DRC error file', File.dirname(@cv.filename), 'err(*.err)')
       if err_file != ''
-        if data = read_assura(err_file)
-          err2results err_file, data         
+        data, cell_names = read_assura(err_file)
+        if data
+          err2results err_file, data
+          Dir.chdir(File.dirname(err_file)){
+            cell_names.each{|cell|
+              next if cell == @cv.cell.name
+              err2results cell + '.err', select(data, cell), cell
+            }  
+          }       
         end
       end
+    end
+    
+    def select data, cell
+      selected = {}
+      data.each_key{|rule|
+        selected[rule] ||= {}
+        selected[rule][:bb] = data[rule][:bb]
+        selected[rule][:no] = data[rule][:no]
+        selected[rule][:box] = []
+        data[rule][:box].each{|err_marker|
+          next if err_marker[0] != cell
+          selected[rule][:box] &lt;&lt; err_marker
+        }
+      }
+      selected
     end
 
     def read_assura err_file
@@ -43,6 +65,7 @@ module MyMacro
       data = {}
       rule = nil
       cell_name = nil
+      cell_names = []
       File.read(err_file).each_line{|l|
         if mode == 'bounding box'
           next if l.strip.size == 0
@@ -58,6 +81,7 @@ module MyMacro
           end
         elsif l =~ /^Cell Name : (\S+) /
           cell_name = $1
+          cell_names &lt;&lt; cell_name unless cell_names.include? cell_name
         elsif l =~ /^Env\.  Env\. Placements/
           mode = 'bounding box'
         elsif l =~ /^Shape/
@@ -75,12 +99,12 @@ module MyMacro
       data.each_key{|rule|
         puts "#{rule}: found #{data[rule][:box].count} errors on #{data[rule][:cell_name]}"
       }
-      data
+      [data, cell_names]
     end
       
-    def err2results err_file, data
+    def err2results err_file, data, cell = @cv.cell.name
       File.open(err_file + '.results', 'w'){|f|
-        f.puts "#{@cv.cell.name} #{(1/@cv.layout.dbu).round(0).to_i}" 
+        f.puts "#{cell || @cv.cell.name} #{(1/@cv.layout.dbu).round(0).to_i}" 
         data.each_pair{|rule, err|
           prev_cn = nil
           f.puts rule
