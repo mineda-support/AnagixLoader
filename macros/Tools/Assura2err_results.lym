@@ -15,7 +15,7 @@
  <menu-path/>
  <interpreter>ruby</interpreter>
  <dsl-interpreter-name/>
- <text># Assura2err_results - Convert Assura DRC err file v0.4 April 15th, 2024 copy right Seijiro Moriyama
+ <text># Assura2err_results - Convert Assura DRC err file v0.5 April 16th, 2024 copy right Seijiro Moriyama
 module MyMacro
  
   include RBA
@@ -73,6 +73,10 @@ module MyMacro
           l =~ /^  1        1 +(\S+) +(\S+) +(\S+) +(\S+)/
           data[rule][:bb] = [$1, $2, $3, $4].map{|a| a.to_f*1000.to_i}
           mode = nil
+        elsif l =~ /^Cell Name : (\S+)/
+          cell_name = $1
+          puts "Cell Name: #{cell_name}"
+          cell_names &lt;&lt; cell_name unless cell_names.include? cell_name
         elsif mode == 'box'
           next if l.strip.size == 0
           if l =~ /====/ || l =~ /----/
@@ -81,16 +85,13 @@ module MyMacro
             data[rule][:box] &lt;&lt; [cell_name] + [$1, $2, $3, $4].map{|a| a.to_f*1000.to_i}
             # puts  [[cell_name] + [$1, $2, $3, $4].map{|a| a.to_f*1000.to_i}].inspect
           end
-        elsif l =~ /^Cell Name : (\S+) /
-          cell_name = $1
-          puts "Cell Name: #{cell_name}"
-          cell_names &lt;&lt; cell_name unless cell_names.include? cell_name
         elsif l =~ /^Env\.  Env\. Placements/
           mode = 'bounding box'
         elsif l =~ /^Shape/
           mode = 'box'
         elsif l =~ /^Rule No. +(\S+) : (.*)$/
           rule = $2
+          puts "*** rule = #{rule}"
           data[rule] ||= {}
           data[rule][:no] = $1
           data[rule][:box] = []
