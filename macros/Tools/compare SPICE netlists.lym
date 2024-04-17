@@ -15,7 +15,8 @@
  <menu-path/>
  <interpreter>ruby</interpreter>
  <dsl-interpreter-name/>
- <text>module MyMacro
+ <text>#module MyMacro
+# see https://www.klayout.de/forum/discussion/1446/schematic-vs-schematic-svs-not-lvs
 
 # This class provides a receiver for netlist compare events
 class NetlistCompareTestLogger &lt; RBA::GenericNetlistCompareLogger
@@ -28,7 +29,7 @@ class NetlistCompareTestLogger &lt; RBA::GenericNetlistCompareLogger
     @texts &lt;&lt; text
   end
 
-  def device_class_mismatch(a, b)
+  def device_class_mismatch(a, b, msg)
     out("device_class_mismatch " + dc2str(a) + " " + dc2str(b))
   end
 
@@ -36,15 +37,15 @@ class NetlistCompareTestLogger &lt; RBA::GenericNetlistCompareLogger
     out("begin_circuit " + circuit2str(a) + " " + circuit2str(b))
   end
 
-  def end_circuit(a, b, matching)
+  def end_circuit(a, b, matching, msg)
     out("end_circuit " + circuit2str(a) + " " + circuit2str(b) + " " + (matching ? "MATCH" : "NOMATCH"))
   end
 
-  def circuit_skipped(a, b)
+  def circuit_skipped(a, b, msg)
     out("circuit_skipped " + circuit2str(a) + " " + circuit2str(b))
   end
 
-  def circuit_mismatch(a, b)
+  def circuit_mismatch(a, b, msg)
     out("circuit_mismatch " + circuit2str(a) + " " + circuit2str(b))
   end
 
@@ -52,11 +53,11 @@ class NetlistCompareTestLogger &lt; RBA::GenericNetlistCompareLogger
     out("match_nets " + net2str(a) + " " + net2str(b))
   end
 
-  def match_ambiguous_nets(a, b)
+  def match_ambiguous_nets(a, b, msg)
     out("match_ambiguous_nets " + net2str(a) + " " + net2str(b))
   end
 
-  def net_mismatch(a, b)
+  def net_mismatch(a, b, msg)
     out("net_mismatch " + net2str(a) + " " + net2str(b))
   end
 
@@ -64,7 +65,7 @@ class NetlistCompareTestLogger &lt; RBA::GenericNetlistCompareLogger
     out("match_devices " + device2str(a) + " " + device2str(b))
   end
 
-  def device_mismatch(a, b)
+  def device_mismatch(a, b, msg)
     out("device_mismatch " + device2str(a) + " " + device2str(b))
   end
 
@@ -80,7 +81,7 @@ class NetlistCompareTestLogger &lt; RBA::GenericNetlistCompareLogger
     out("match_pins " + pin2str(a) + " " + pin2str(b))
   end
 
-  def pin_mismatch(a, b)
+  def pin_mismatch(a, b, msg)
     out("pin_mismatch " + pin2str(a) + " " + pin2str(b))
   end
 
@@ -88,7 +89,7 @@ class NetlistCompareTestLogger &lt; RBA::GenericNetlistCompareLogger
     out("match_subcircuits " + subcircuit2str(a) + " " + subcircuit2str(b))
   end
 
-  def subcircuit_mismatch(a, b)
+  def subcircuit_mismatch(a, b, msg)
     out("subcircuit_mismatch " + subcircuit2str(a) + " " + subcircuit2str(b))
   end
 
@@ -127,15 +128,14 @@ class NetlistCompareTestLogger &lt; RBA::GenericNetlistCompareLogger
 end
 
 # This is the actual compare step
-app = Application.instance
+app = RBA::Application.instance
 @mw = app.main_window
 @cv = @mw.current_view.active_cellview
-cir_path1 = QFileDialog::getOpenFileName(@mw, 'Netlist file 1', File.dirname(@cv.filename), 'schematic(*.net *.cir *.spice *.sp *.spc)')
-cir_path2 = QFileDialog::getOpenFileName(@mw, 'Netlist file 2', File.dirname(@cv.filename), 'schematic(*.net *.cir *.spice *.sp *.spc)')
-
+cir_path1 = RBA::QFileDialog::getOpenFileName(@mw, 'Netlist file 1', File.dirname(@cv.filename), 'schematic(*.net *.cir *.spice *.sp *.spc)')
 nl1 = RBA::Netlist::new
 nl1.read(cir_path1, RBA::NetlistSpiceReader::new)
 
+cir_path2 = RBA::QFileDialog::getOpenFileName(@mw, 'Netlist file 2', File.dirname(@cv.filename), 'schematic(*.net *.cir *.spice *.sp *.spc)')
 nl2 = RBA::Netlist::new
 nl2.read(cir_path2, RBA::NetlistSpiceReader::new)
 
@@ -144,5 +144,5 @@ comp = RBA::NetlistComparer::new(logger)
 comp.compare(nl1, nl2)
 # dump compare log
 puts logger.text
-end</text>
+#end</text>
 </klayout-macro>
