@@ -1,11 +1,11 @@
 # $autorun-early
 # $priority: 1
-# Mineda Common v1.17 April 12th 2024
+# Mineda Common v1.18 May 25th 2024
 #   Force on-grid v0.1 July 39th 2022 copy right S. Moriyama (Anagix Corp.)
 #   LVS preprocessor(get_reference) v0.77 Nov. 24, 2023 copyright by S. Moriyama (Anagix Corporation)
 #   * ConvertPCells and PCellDefaults moved from MinedaPCell v0.4 Nov. 22nd 2022
 #   Change PCell Defaults v0.2 Jan. 27 2024 copyright S. Moriyama
-#   ConvertLibraryCells (ConvertPCells) v0.67 Dec. 6th 2023  copy right S. Moriyama
+#   ConvertLibraryCells (ConvertPCells) v0.68 May. 25th 2024  copy right S. Moriyama
 #   PCellTest v0.2 August 22nd 2022 S. Moriyama
 #   DRC_helper::find_cells_to_exclude v0.1 Sep 23rd 2022 S. Moriyama
 #   MinedaInput v0.34 Feb. 21st 2024 S. Moriyama
@@ -781,7 +781,7 @@ module MinedaCommon
             path = shape.path
             # path.width = [(path.width*args[:path_scale]).to_i, args[:path_min]].max
             # next if args[layer_name][:pws].nil?
-            path.width = path.width*(args[layer_name][:pws] || 1).to_i
+            path.width = (path.width*(args[layer_name][:pws] || 1.0)).to_i
             path.width = args[layer_name][:pwm] if args[layer_name][:pwm]  && path.width < args[layer_name][:pwm]
             shape.path = path if args[layer_name][:pwx].nil? || path.width < args[layer_name][:pwx]
             paths = paths + 1
@@ -831,7 +831,7 @@ module MinedaCommon
       rsf = args[:routing_scale_factor]
       args[:path].each_pair{|layer_name, params|
         path_args[layer_name] ||= {}
-        path_args[layer_name][:pws] = params[:path_width_scale] && params[:path_width_scale]/rsf
+        path_args[layer_name][:pws] = params[:path_width_scale]  && params[:path_width_scale]/rsf
         path_args[layer_name][:pwm] = (params[:path_width_min] && (params[:path_width_min]*oo_layout_dbu).to_i)
         path_args[layer_name][:pwx] = (params[:path_width_max] && (params[:path_width_max]*oo_layout_dbu).to_i)
       }
@@ -1504,7 +1504,9 @@ class MinedaLVS
               end
             end
             # others = p.map{|a| "#{a[0]}=#{a[1]}"}.join ' '
-            raise "Error: L or W is not given for '#{body}'" if p['L'] == nil || p['W'] == nil
+            if p['L'] == nil || p['W'] == nil
+              raise "Error: L or W is not given for '#{body}'" 
+            end
             others = "l=#{p['L']} w=#{p['W']}" # supress other parameters like as, ps, ad and pd
             others << " m=#{p['M']}" if p['M']
           end
