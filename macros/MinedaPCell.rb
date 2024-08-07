@@ -1,8 +1,8 @@
 # coding: cp932
-# MinedaPCell v0.990 August 7th, 2024 copy right S. Moriyama (Anagix Corporation)
+# MinedaPCell v0.991 August 7th, 2024 copy right S. Moriyama (Anagix Corporation)
 #include MinedaPCellCommonModule
 module MinedaPCell
-  version = '0.990'
+  version = '0.991'
   include MinedaPCellCommonModule
   # The PCell declaration for the Mineda MOSFET
   class MinedaMOS < MinedaPCellCommon
@@ -951,7 +951,7 @@ module MinedaPCell
         else
           insert_cell indices[:dcont], x, y0
         end
-        insert_cell indices[:via], x, y0 if indices[:via]
+        insert_cell indices[:via], x, y0 if indices[:via] && defined?(use_ml2) && use_ml2
       }
     end
 
@@ -969,7 +969,7 @@ module MinedaPCell
           else
             insert_cell indices[:dcont], x0, y
           end
-          insert_cell indices[:via], x0, y if indices[:via]
+          insert_cell indices[:via], x0, y if indices[:via] && defined?(use_ml2) && use_ml2
         end
       }
     end
@@ -1037,15 +1037,21 @@ module MinedaPCell
   end
 
   class MinedaPoly_cap < MinedaCapacitor
-    def initialize
-      super
+    def initialize args={use_ml2: ['Use 2nd ML', false]}
+      super()
       param(:cval, TypeDouble, "Capacitor value", :default => 0, :hidden=> true)
+      param(:use_ml2, TypeBoolean, args[:use_ml2][0], :default => args[:use_ml2][1])
       param(:polcnt_outside, TypeBoolean, "Poly contact outside?", :default => true, :hidden => false)
     end
 
     def display_text_impl
       # Provide a descriptive text for the cell
       "Poly Capacitor\r\n(L=#{l.round(3)}um,W=#{w.round(3)}um,C=#{cval.to_s})"
+    end
+    
+    def coerce_parameters_impl value
+      area_cap = value
+      set_cval(area_cap * l * w)
     end
 
     def produce_impl indices, vs, u1, params = {}, label=nil
@@ -1058,12 +1064,15 @@ module MinedaPCell
       offset = vs+ u2+u1/2+u1/8
       create_box indices[:m1], 0, 0, offset + cw + cap_ext, cl
       create_box indices[:cap], offset, 0, offset + cw, cl
+      if use_ml2
+        create_box indices[:m2], offset, -u1, offset + cw , cl+u2+vs
+      end
       if polcnt_outside
         create_box indices[:pol], offset, -cap_ext, offset + cw , cl+u2+vs + pcont_dy, label
-        create_contacts_horizontally indices, offset,  offset + cw, cl + vs/2 + u1 + pcont_dy, vs, u1, params[:hpitch]
+        create_contacts_horizontally indices, offset+u1/2,  offset + cw -u1/2, cl + vs/2 + u1 + pcont_dy, vs, u1, params[:hpitch]
       else
         create_box indices[:pol], offset, -cap_ext, offset + cw , cl-u2-vs + pcont_dy, label
-        create_contacts_horizontally indices, offset,  offset + cw, cl - vs/2 - u1 + pcont_dy, vs, u1, params[:hpitch]
+        create_contacts_horizontally indices, offset+u1/2,  offset + cw -u1/2, cl - vs/2 - u1 + pcont_dy, vs, u1, params[:hpitch]
       end
     end
   end
