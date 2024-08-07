@@ -9,7 +9,7 @@
 #   PCellTest v0.2 August 22nd 2022 S. Moriyama
 #   DRC_helper::find_cells_to_exclude v0.1 Sep 23rd 2022 S. Moriyama
 #   MinedaInput v0.34 Feb. 21st 2024 S. Moriyama
-#   MinedaPCellCommon v0.34 April 12th 2024 S. Moriyama
+#   MinedaPCellCommon v0.341 July 27th 2024 S. Moriyama
 #   Create Backannotation data v0.171 May 14th 2023 S. Moriyama
 #   MinedaAutoplace v0.31 July 26th 2023 S. Moriyama
 #   ChangePCellParameters v0.1 July 29th 2023 S. Moriyama
@@ -88,7 +88,7 @@ module MinedaPCellCommonModule
       if @defaults && @defaults[cellname]
         if (value = @defaults[cellname][name.to_s]) || (value == nil) || (value == false)
           # puts "#{self.class.name} '#{name}' => #{value}"
-          if last_resort[:default] != RBA::DPoint && last_resort[:default] == true
+          if last_resort[:default].class != RBA::DPoint && last_resort[:default] == true
             super name, type, desc, {default: value}
           else
             super name, type, desc, value ? {default: value} : last_resort
