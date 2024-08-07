@@ -1,8 +1,8 @@
 # coding: cp932
-# MinedaPCell v0.989 April 11th, 2024 copy right S. Moriyama (Anagix Corporation)
+# MinedaPCell v0.990 August 7th, 2024 copy right S. Moriyama (Anagix Corporation)
 #include MinedaPCellCommonModule
 module MinedaPCell
-  version = '0.989'
+  version = '0.990'
   include MinedaPCellCommonModule
   # The PCell declaration for the Mineda MOSFET
   class MinedaMOS < MinedaPCellCommon
@@ -892,7 +892,7 @@ module MinedaPCell
           end
         end
         x = x + delta
-
+ 
         lower_end = offset - (width < cs + ol*2? ml1_cnt : 0) + ml1_margin
         upper_end = width + offset +  (width < cs + ol*2? ml1_cnt : 0) - ml1_margin
         [[ol - ml1_cnt, lower_end, ol + cs + ml1_cnt,upper_end, cnt_margin],
@@ -951,7 +951,7 @@ module MinedaPCell
         else
           insert_cell indices[:dcont], x, y0
         end
-        insert_cell indices[:via], x, y0
+        insert_cell indices[:via], x, y0 if indices[:via]
       }
     end
 
@@ -969,7 +969,7 @@ module MinedaPCell
           else
             insert_cell indices[:dcont], x0, y
           end
-          insert_cell indices[:via], x0, y
+          insert_cell indices[:via], x0, y if indices[:via]
         end
       }
     end
@@ -980,10 +980,10 @@ module MinedaPCell
   end
 
   class MinedaDiff_cap < MinedaCapacitor
-    def initialize
-      super
+    def initialize(args={polcnt_outside: ["Poly contact outside?", true]})
+      super()
       param(:cval, TypeDouble, "Capacitor value", :default => 0, :hidden=> true)
-      param(:polcnt_outside, TypeBoolean, "Poly contact outside?", :default => true, :hidden => false)
+      param(:polcnt_outside, TypeBoolean, args[:polcnt_outside][0], :default =>args[:polcnt_outside][1], :hidden => false)
     end
 
     def display_text_impl
