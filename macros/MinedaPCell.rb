@@ -1,8 +1,9 @@
+# $description: DRC for OpenRule1um
 # coding: cp932
-# MinedaPCell v0.991 August 7th, 2024 copy right S. Moriyama (Anagix Corporation)
+# MinedaPCell v0.992 August 8th, 2024 copy right S. Moriyama (Anagix Corporation)
 #include MinedaPCellCommonModule
 module MinedaPCell
-  version = '0.991'
+  version = '0.992'
   include MinedaPCellCommonModule
   # The PCell declaration for the Mineda MOSFET
   class MinedaMOS < MinedaPCellCommon
@@ -951,7 +952,7 @@ module MinedaPCell
         else
           insert_cell indices[:dcont], x, y0
         end
-        insert_cell indices[:via], x, y0 if indices[:via] && defined?(use_ml2) && use_ml2
+        insert_cell indices[:via], x, y0 if indices[:via] #&& defined?(use_ml2) && use_ml2
       }
     end
 
@@ -969,7 +970,7 @@ module MinedaPCell
           else
             insert_cell indices[:dcont], x0, y
           end
-          insert_cell indices[:via], x0, y if indices[:via] && defined?(use_ml2) && use_ml2
+          insert_cell indices[:via], x0, y if indices[:via] #&& defined?(use_ml2) && use_ml2
         end
       }
     end
