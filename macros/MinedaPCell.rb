@@ -1,9 +1,9 @@
 # $description: DRC for OpenRule1um
 # coding: cp932
-# MinedaPCell v0.992 August 8th, 2024 copy right S. Moriyama (Anagix Corporation)
+# MinedaPCell v0.9921 August 13th, 2024 copy right S. Moriyama (Anagix Corporation)
 #include MinedaPCellCommonModule
 module MinedaPCell
-  version = '0.992'
+  version = '0.9921'
   include MinedaPCellCommonModule
   # The PCell declaration for the Mineda MOSFET
   class MinedaMOS < MinedaPCellCommon
@@ -1041,7 +1041,7 @@ module MinedaPCell
     def initialize args={use_ml2: ['Use 2nd ML', false]}
       super()
       param(:cval, TypeDouble, "Capacitor value", :default => 0, :hidden=> true)
-      param(:use_ml2, TypeBoolean, args[:use_ml2][0], :default => args[:use_ml2][1])
+      param(:use_ml2, TypeBoolean, args[:use_ml2][0], :default => args[:use_ml2][1], :hidden=> true)
       param(:polcnt_outside, TypeBoolean, "Poly contact outside?", :default => true, :hidden => false)
     end
 

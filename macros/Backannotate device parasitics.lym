@@ -81,8 +81,8 @@ module BackannotateModule
     def backannotate file, ba=@ba
       Dir.chdir(File.dirname file){
         ckt_name = File.basename(file).sub(File.extname(file), '').upcase
-        # puts "ckt_name=#{ckt_name}"
-        # puts "ba: #{ba.inspect}"
+        puts "ckt_name=#{ckt_name}"
+        puts "ba: #{ba.inspect}"
         (ba[ckt_name] &amp;&amp; ba = ba[ckt_name])||(ba['.TOP'] &amp;&amp; ba = ba['.TOP'])
         #netlist = File.read(file).encode('UTF-8')
         netlist = File.open(file, 'r:Windows-1252').read.encode('UTF-8', invalid: :replace)
