@@ -1,9 +1,9 @@
 # $description: DRC for OpenRule1um
 # coding: cp932
-# MinedaPCell v0.9921 August 13th, 2024 copy right S. Moriyama (Anagix Corporation)
+# MinedaPCell v0.9922 August 22nd, 2024 copy right S. Moriyama (Anagix Corporation)
 #include MinedaPCellCommonModule
 module MinedaPCell
-  version = '0.9921'
+  version = '0.9922'
   include MinedaPCellCommonModule
   # The PCell declaration for the Mineda MOSFET
   class MinedaMOS < MinedaPCellCommon
@@ -1042,7 +1042,6 @@ module MinedaPCell
       super()
       param(:cval, TypeDouble, "Capacitor value", :default => 0, :hidden=> true)
       param(:use_ml2, TypeBoolean, args[:use_ml2][0], :default => args[:use_ml2][1], :hidden=> true)
-      param(:polcnt_outside, TypeBoolean, "Poly contact outside?", :default => true, :hidden => false)
     end
 
     def display_text_impl
@@ -1062,19 +1061,14 @@ module MinedaPCell
       u2 = u1 + u1
       cap_ext = params[:cap_ext] || u1
       pcont_dy = params[:pcont_dy] || 0
-      offset = vs+ u2+u1/2+u1/8
+      offset = vs+ u2+u1/2+u1/4 # corrected +u1/8 -> +u1/4 to avoid off-grid
       create_box indices[:m1], 0, 0, offset + cw + cap_ext, cl
       create_box indices[:cap], offset, 0, offset + cw, cl
       if use_ml2
         create_box indices[:m2], offset, -u1, offset + cw , cl+u2+vs
       end
-      if polcnt_outside
-        create_box indices[:pol], offset, -cap_ext, offset + cw , cl+u2+vs + pcont_dy, label
-        create_contacts_horizontally indices, offset+u1/2,  offset + cw -u1/2, cl + vs/2 + u1 + pcont_dy, vs, u1, params[:hpitch]
-      else
-        create_box indices[:pol], offset, -cap_ext, offset + cw , cl-u2-vs + pcont_dy, label
-        create_contacts_horizontally indices, offset+u1/2,  offset + cw -u1/2, cl - vs/2 - u1 + pcont_dy, vs, u1, params[:hpitch]
-      end
+      create_box indices[:pol], offset, -cap_ext, offset + cw , cl+u2+vs + pcont_dy, label
+      create_contacts_horizontally indices, offset+u1/2,  offset + cw -u1/2, cl + vs/2 + u1 + pcont_dy, vs, u1, params[:hpitch]
     end
   end
 
