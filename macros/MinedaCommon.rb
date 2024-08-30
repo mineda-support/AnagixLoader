@@ -1,6 +1,6 @@
 # $autorun-early
 # $priority: 1
-# Mineda Common v1.18 May 25th 2024
+# Mineda Common v1.19 Aug. 30th 2024
 #   Force on-grid v0.1 July 39th 2022 copy right S. Moriyama (Anagix Corp.)
 #   LVS preprocessor(get_reference) v0.77 Nov. 24, 2023 copyright by S. Moriyama (Anagix Corporation)
 #   * ConvertPCells and PCellDefaults moved from MinedaPCell v0.4 Nov. 22nd 2022
@@ -222,6 +222,7 @@ module MinedaPCellCommonModule
           end
         end
       end
+      return_box = [x1 + xoffset/2, y1 + yoffset/2, x2 - xoffset/2, y2 - yoffset/2]
       if filler
         if fill_margin
           if fill_margin.class == Array
@@ -249,6 +250,7 @@ module MinedaPCellCommonModule
           create_box filler, x1, y1, x2, y2
         end
       end
+     return_box
     end
     
     def create_loop index, xs, ys, xl, yl, w
