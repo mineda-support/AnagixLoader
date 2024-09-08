@@ -1,7 +1,6 @@
 # $description: DRC for OpenRule1um
 # coding: cp932
 # MinedaPCell v0.9923 Sep. 7th, 2024 copy right S. Moriyama (Anagix Corporation)
-#include MinedaPCellCommonModule
 module MinedaPCell
   version = '0.9923'
   include MinedaPCellCommonModule
@@ -873,6 +872,8 @@ module MinedaPCell
       ml1_cnt = params[:ml1_cnt] || u1/5
       ml1_margin = params[:ml1_margin] || 0
       cnt_margin = params[:cnt_margin] || [0, 0] 
+      cnt_cover = params[:cnt_cover] || vs
+      cnt_adjust = (vs - cnt_cover)/2
       offset = 0
       #pol_enclosure = u10/2 # pol enclosure might not make sense process wise, pol is a tentative name
       for i in 0..ns-1
@@ -898,9 +899,10 @@ module MinedaPCell
         upper_end = width + offset +  (width < cs + ol*2? ml1_cnt : 0) - ml1_margin
         [[ol - ml1_cnt, lower_end, ol + cs + ml1_cnt,upper_end, cnt_margin],
          [x - ml1_cnt, lower_end, x + cs + ml1_cnt, upper_end, cnt_margin]].each{|area|
-          fill_area(area, vs, indices[:m1]){|x, y|
+          x1, y1, x2, y2 = fill_area(area, vs, indices[:m1]){|x, y|
             create_box indices[:cnt], x - cs/2, y - cs/2, x + cs/2, y + cs/2
           }
+          create_box indices[:cnt_cvr], x1 + cnt_adjust, y1 + cnt_adjust, x2 - cnt_adjust, y2 - cnt_adjust
         }
         dy = (width-cs)/2
         if width < cs + ol*2
