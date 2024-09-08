@@ -1,9 +1,9 @@
 # $description: DRC for OpenRule1um
 # coding: cp932
-# MinedaPCell v0.9922 August 22nd, 2024 copy right S. Moriyama (Anagix Corporation)
+# MinedaPCell v0.9923 Sep. 7th, 2024 copy right S. Moriyama (Anagix Corporation)
 #include MinedaPCellCommonModule
 module MinedaPCell
-  version = '0.9922'
+  version = '0.9923'
   include MinedaPCellCommonModule
   # The PCell declaration for the Mineda MOSFET
   class MinedaMOS < MinedaPCellCommon
@@ -1163,8 +1163,13 @@ module MinedaPCell
     def coerce_parameters_impl
       ls = ws = nil
       if s.is_a?(DPoint)
-        ls = s.y
-        ws = s.x
+        if defined?(sq_fit) and sq_fit
+          ls = ((s.y/sq_size).to_i)*sq_size
+          ws = ((s.x/sq_size).to_i)*sq_size
+        else
+          ls = s.y
+          ws = s.x
+        end
       end
       if  (l - lu) .abs < 1e-6 && (w - wu).abs < 1e-6
         set_lu ls
@@ -1175,8 +1180,8 @@ module MinedaPCell
         #      puts "l=#{l} w=#{w}"
         set_lu l
         set_wu w
-        ws = w
-        ls = l
+        ws = w # ((w/sq_size).to_i)*sq_size
+        ls = l # ((l/sq_size).to_i)*sq_size
         set_s DPoint::new(ws, ls)
       end
       set_cng 0 if ctg != 0.0
@@ -1229,8 +1234,13 @@ module MinedaPCell
     def coerce_parameters_impl
       ls = ws = nil
       if s.is_a?(DPoint)
-        ls = s.x
-        ws = s.y
+        if defined?(sq_fit) and sq_fit
+          ls = ((s.x/sq_size).to_i)*sq_size
+          ws = ((s.y/sq_size).to_i)*sq_size
+        else
+          ls = s.x
+          ws = s.y
+        end
       end
       if  (l - lu) .abs < 1e-6 && (w2 - wu).abs < 1e-6
         set_lu ls
