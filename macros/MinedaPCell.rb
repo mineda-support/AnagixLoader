@@ -1,8 +1,8 @@
 # $description: DRC for OpenRule1um
 # coding: cp932
-# MinedaPCell v0.9923 Sep. 7th, 2024 copy right S. Moriyama (Anagix Corporation)
+# MinedaPCell v0.9924 Sep. 9th, 2024 copy right S. Moriyama (Anagix Corporation)
 module MinedaPCell
-  version = '0.9923'
+  version = '0.9924'
   include MinedaPCellCommonModule
   # The PCell declaration for the Mineda MOSFET
   class MinedaMOS < MinedaPCellCommon
@@ -1152,10 +1152,10 @@ module MinedaPCell
     end
   end
   class MinedaFillRing < MinedaPCellCommon
-    def initialize
-      super
-      param(:l, TypeDouble, "Ring length", :default => 50.0.um)
-      param(:w, TypeDouble, "Ring width", :default => 50.0.um)
+    def initialize ring_length=50.0.um, ring_width=50.0.um
+      super()
+      param(:l, TypeDouble, "Ring length", :default => ring_length)
+      param(:w, TypeDouble, "Ring width", :default => ring_width)
       param(:s, TypeShape, "", :default => DPoint::new(20.0, 20.0))
       param(:lu, TypeDouble, "Ring length", :default => 20.0.um, :hidden =>true)
       param(:wu, TypeDouble, "Ring width", :default => 20.0.um, :hidden =>true)
@@ -1224,9 +1224,9 @@ module MinedaPCell
   end
   
   class MinedaFillLine < MinedaPCellCommon
-    def initialize
-      super
-      param(:l, TypeDouble, "Line length", :default => 50.0.um)
+    def initialize line_length=50.0.um
+      super()
+      param(:l, TypeDouble, "Line length", :default => line_length)
       param(:w2, TypeDouble, "Line width/2", :default => 0.0.um)
       param(:s, TypeShape, "", :default => DPoint::new(20.0, 20.0))
       param(:lu, TypeDouble, "Line length", :default => 20.0.um, :hidden =>true)
