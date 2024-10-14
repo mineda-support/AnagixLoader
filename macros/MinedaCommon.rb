@@ -1,14 +1,14 @@
 # $autorun-early
 # $priority: 1
-# Mineda Common v1.19 Aug. 30th 2024
+# Mineda Common v1.20 Oct. 15th 2024
 #   Force on-grid v0.1 July 39th 2022 copy right S. Moriyama (Anagix Corp.)
-#   LVS preprocessor(get_reference) v0.77 Nov. 24, 2023 copyright by S. Moriyama (Anagix Corporation)
+#   LVS preprocessor(get_reference) v0.78 Oct. 15th copyright by S. Moriyama (Anagix Corporation)
 #   * ConvertPCells and PCellDefaults moved from MinedaPCell v0.4 Nov. 22nd 2022
 #   Change PCell Defaults v0.2 Jan. 27 2024 copyright S. Moriyama
 #   ConvertLibraryCells (ConvertPCells) v0.68 May. 25th 2024  copy right S. Moriyama
 #   PCellTest v0.2 August 22nd 2022 S. Moriyama
 #   DRC_helper::find_cells_to_exclude v0.1 Sep 23rd 2022 S. Moriyama
-#   MinedaInput v0.34 Feb. 21st 2024 S. Moriyama
+#   MinedaInput v0.35 Oct. 15th S. Moriyama
 #   MinedaPCellCommon v0.341 July 27th 2024 S. Moriyama
 #   Create Backannotation data v0.171 May 14th 2023 S. Moriyama
 #   MinedaAutoplace v0.31 July 26th 2023 S. Moriyama
@@ -542,6 +542,19 @@ module MinedaCommon
         }
       }
       status
+    end
+    
+    def has_res3 file
+      has_res3 = nil
+      lines = File.read file
+      lines.each_line{|l|
+        if has_res3 == nil && l =~/^ *[rR]\S* +([^=]*) +(\S+=\S+)/
+          if $1 && $1.strip.split(/ +/).size >=4
+            return has_res3 = true
+          end
+        end
+      }
+      has_res3
     end
   end
 
@@ -1380,22 +1393,29 @@ class MinedaLVS
     p
   end
 
-  def expand_file file, lines
+def expand_file file, lines
+    has_res3 = nil
     # File.open(file, 'r:Windows-1252').read.encode('UTF-8', invalid: :replace).each_line{|l|
     File.open(file, 'r:Windows-1252').read.encode('UTF-8').gsub(181.chr(Encoding::UTF_8), 'u').each_line{|l|
       if l.chop =~ /.inc\S* +(\S+)/
         include_file = $1
         lines << '*' + l
         if File.exist? include_file
-          lines = expand_file(include_file, lines)
+          lines, has_res3_sub = expand_file(include_file, lines)
+          has_res3 ||= has_res3_sub
         end
+      elsif has_res3 == nil && l =~/^ *[xX][rR]\S* +([^=]*) +(\S+=\S+)/
+        if $1 && $1.strip.split(/ +/).size >=4
+          has_res3 = true
+        end
+        lines << l
       else
         lines << l
       end
     }
     # puts "*** #{file}:"
     # puts lines
-    lines
+    [lines, has_res3]
   end
 
   def lvs_go target_technology, settings = {}
@@ -1421,7 +1441,7 @@ class MinedaLVS
       cells = []
       circuit_top = nil
       device_class = {}
-      lines = expand_file netlist, ''
+      lines, has_res3 = expand_file netlist, ''
       unless settings[:do_not_expand_sub_params] # == cv.technology
         ckt = SubcktParams.new lines
         lines = ckt.expand
@@ -1546,6 +1566,9 @@ class MinedaLVS
             l.sub! /\S+=.*$/, ''
           end
           circuit_top ||= '.TOP'  unless inside_subckt
+          if has_res3 && l=~/^ *[xX][rR]/
+            l.sub! /^ *[xX]/, ''
+          end
         else
           l.sub! /^/, '*' if !(l =~ /^ *\+/) || prev_line =~ /^ *\*/ # comment_subckt
         end
