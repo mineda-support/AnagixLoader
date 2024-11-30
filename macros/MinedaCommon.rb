@@ -1,8 +1,8 @@
 # $autorun-early
 # $priority: 1
-# Mineda Common v1.20 Oct. 15th 2024
+# Mineda Common v1.21 Nov. 30th 2024
 #   Force on-grid v0.1 July 39th 2022 copy right S. Moriyama (Anagix Corp.)
-#   LVS preprocessor(get_reference) v0.78 Oct. 15th copyright by S. Moriyama (Anagix Corporation)
+#   LVS preprocessor(get_reference) v0.79 Nov. 30th copyright by S. Moriyama (Anagix Corporation)
 #   * ConvertPCells and PCellDefaults moved from MinedaPCell v0.4 Nov. 22nd 2022
 #   Change PCell Defaults v0.2 Jan. 27 2024 copyright S. Moriyama
 #   ConvertLibraryCells (ConvertPCells) v0.68 May. 25th 2024  copy right S. Moriyama
@@ -382,13 +382,19 @@ module MinedaCommon
     def start exclude
       reference, output = get_reference
       if settings = get_settings
+        undef vc_settings if defined? vc_settings
         undef set_blank_layout if defined? set_blank_layout
         load settings
+        puts "#{settings} loaded at #{self.class}"
         if defined? set_blank_layout
           exclude = set_blank_layout
         end
       end
       [reference, output, settings]
+    end
+    
+    def exec
+      yield
     end
     
     def lvs reference, output, lvs_data, l2n_data, is_deep = false
@@ -1393,7 +1399,7 @@ class MinedaLVS
     p
   end
 
-def expand_file file, lines
+  def expand_file file, lines
     has_res3 = nil
     # File.open(file, 'r:Windows-1252').read.encode('UTF-8', invalid: :replace).each_line{|l|
     File.open(file, 'r:Windows-1252').read.encode('UTF-8').gsub(181.chr(Encoding::UTF_8), 'u').each_line{|l|
@@ -1672,6 +1678,16 @@ def expand_file file, lines
       f.puts "  netlist.combine_devices"
       f.puts "  schematic.combine_devices"
       f.puts 'end'
+      if virtual_connections = settings[:virtual_connections]
+        f.puts <<EOS
+        def vc_settings
+          virtual_connections = #{virtual_connections}"
+          virtual_connectons.each{|vc|
+            connect_implicit vc
+          }
+        end
+EOS
+      end
     }
   end
 end
