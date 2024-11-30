@@ -1679,14 +1679,12 @@ class MinedaLVS
       f.puts "  schematic.combine_devices"
       f.puts 'end'
       if virtual_connections = settings[:virtual_connections]
-        f.puts <<EOS
-        def vc_settings
-          virtual_connections = #{virtual_connections}"
-          virtual_connectons.each{|vc|
-            connect_implicit vc
-          }
-        end
-EOS
+        f.puts "def vc_settings"
+        f.puts "  virtual_connections = #{virtual_connections}"
+        f.puts "  virtual_connections.each{|vc|"
+        f.puts "    connect_implicit vc"
+        f.puts "  }"
+        f.puts "end"
       end
     }
   end
