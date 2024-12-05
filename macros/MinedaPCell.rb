@@ -1,8 +1,8 @@
 # $description: DRC for OpenRule1um
 # coding: cp932
-# MinedaPCell v0.9924 Sep. 9th, 2024 copy right S. Moriyama (Anagix Corporation)
+# MinedaPCell v1.0, Dec. 5th, 2024 copy right S. Moriyama (Anagix Corporation)
 module MinedaPCell
-  version = '0.9924'
+  version = 1.0
   include MinedaPCellCommonModule
   # The PCell declaration for the Mineda MOSFET
   class MinedaMOS < MinedaPCellCommon
@@ -76,9 +76,11 @@ module MinedaPCell
       end
       (n+1).times{|i|
         x = offset + m1cnt_width/2 - xshift
-        create_path(indices[:m1], x, vs-yshift+u1+u1cut, x, vs-yshift+u1-u1cut+sd_width, m1cnt_width, 0, 0)
-        create_path(indices[:li1], x, vs-yshift+u1+u1cut, x, vs-yshift+u1-u1cut+sd_width, u1, 0, 0) if indices[:li1]
-        create_dcont(indices[:dcont], x, vs-yshift+u1, x, vs-yshift+u1+sd_width, vs + vs_extra, params[:dcont_offset])
+        if !no_finger_conn || with_sdcont  || i == 0 ||  i == n
+          create_path(indices[:m1], x, vs-yshift+u1+u1cut, x, vs-yshift+u1-u1cut+sd_width, m1cnt_width, 0, 0)
+          create_path(indices[:li1], x, vs-yshift+u1+u1cut, x, vs-yshift+u1-u1cut+sd_width, u1, 0, 0) if indices[:li1]
+          create_dcont(indices[:dcont], x, vs-yshift+u1, x, vs-yshift+u1+sd_width, vs + vs_extra, params[:dcont_offset])
+        end
         x = x + m1cnt_width/2 + gl/2 + dgl
         if i < n
           create_path(indices[:pol], x, vs-yshift+u1, x, vs-yshift+u1+sd_width, gl, gate_ext, gate_ext)
