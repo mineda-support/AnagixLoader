@@ -1,8 +1,8 @@
 # $description: DRC for OpenRule1um
 # coding: cp932
-# MinedaPCell v1.0, Dec. 5th, 2024 copy right S. Moriyama (Anagix Corporation)
+# MinedaPCell v1.01, Feb. 13th, 2025 copy right S. Moriyama (Anagix Corporation)
 module MinedaPCell
-  version = 1.0
+  version = 1.01
   include MinedaPCellCommonModule
   # The PCell declaration for the Mineda MOSFET
   class MinedaMOS < MinedaPCellCommon
@@ -312,8 +312,8 @@ module MinedaPCell
           if i % 2 == 0
             # first s/d and via
             y = y1+vs/2 - wm_offset
-            if with_sdcont # || n != 1
-              insert_cell indices[:via], x, y if with_via 
+            if !no_finger_conn && (with_sdcont || n != 1)
+              insert_cell indices[:via], x, y if with_via && with_sdcont 
               create_path indices[:m1], x, y, x, y1+vs+2*u1, pol_width, 0, 0
             end
             if top
@@ -612,9 +612,9 @@ module MinedaPCell
           if i % 2 == 0
             # first s/d and via
             y = y2-vs/2 + wm_offset
-            if with_sdcont # || n != 1
-              insert_cell indices[:via], x, y if with_via
-              create_path indices[:m1], x, y2-vs-2*u1, x, y, pol_width, 0, 0
+            if !no_finger_conn && (with_sdcont || n != 1)
+              insert_cell indices[:via], x, y if with_via && with_sdcont
+              create_path indices[:pol], x, y2-vs-2*u1, x, y, pol_width, 0, 0
             end
             if top && !no_finger_conn
               create_path indices[:m1], top, y, x, y, pol_width, pol_width/2, pol_width/2
@@ -640,7 +640,7 @@ module MinedaPCell
             else
               insert_cell indices[:via], x, y if with_via && with_sdcont
             end
-            create_path indices[:m1], x, y, x, y1+vs+2*u1, pol_width, 0, 0 if with_sdcont # || n != 1
+            create_path indices[:m1], x, y, x, y1+vs+2*u1, pol_width, 0, 0 if !no_finger_conn && (with_sdcont || n != 1)
             if bottom && !no_finger_conn
               if soi_bridge
                 create_path indices[:m1], bottom, y1-pol_width, x, y1-pol_width, pol_width+u1/4, pol_width/2, pol_width/2
