@@ -1,6 +1,6 @@
 # $description: DRC for OpenRule1um
 # coding: cp932
-# MinedaPCell v1.01, Feb. 13th, 2025 copy right S. Moriyama (Anagix Corporation)
+# MinedaPCell v1.02, Feb. 14th, 2025 copy right S. Moriyama (Anagix Corporation)
 module MinedaPCell
   version = 1.01
   include MinedaPCellCommonModule
@@ -614,7 +614,7 @@ module MinedaPCell
             y = y2-vs/2 + wm_offset
             if !no_finger_conn && (with_sdcont || n != 1)
               insert_cell indices[:via], x, y if with_via && with_sdcont
-              create_path indices[:pol], x, y2-vs-2*u1, x, y, pol_width, 0, 0
+              create_path indices[:m1], x, y2-vs-2*u1, x, y, pol_width, 0, 0
             end
             if top && !no_finger_conn
               create_path indices[:m1], top, y, x, y, pol_width, pol_width/2, pol_width/2
