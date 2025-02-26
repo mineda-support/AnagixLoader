@@ -502,11 +502,7 @@ module MinedaCommon
     def create_ba_data lvs_data
       ext_name = File.extname @source.path
       target = File.basename(@source.path).sub(ext_name, '') 
-      Dir.chdir(File.dirname @source.path){
-        if File.exist? file = target + '_ba.yaml'
-          File.delete(file)
-        end
-      }      
+      xref_data = {}
       ba_data = {}
       status = nil
       lvs_data.xref.each_circuit_pair.each{|c|
@@ -515,6 +511,7 @@ module MinedaCommon
                     c.status == NetlistCrossReference::MatchWithWarning
         status = c.status
         cname = c.second.name
+        xref_data[cname] = {}
         ba_data[cname] = {}
         lvs_data.xref.each_device_pair(c).each{|device| 
           next unless ext = device.first
@@ -527,6 +524,7 @@ module MinedaCommon
             if dname =~ /^\d+$/
               device = prefix + dname
               ba_data[cname][device] ||= {}
+              xref_data[cname][device] = [ref.id, ext.trans.to_s]
               ext && ext.device_class.parameter_definitions.each{|p|
                 ba_data[cname][device][p.name] = ext.parameter(p.name).round(5)
               }
@@ -543,7 +541,16 @@ module MinedaCommon
         }
       }
       status && Dir.chdir(File.dirname @source.path){
-        File.open(target + '_ba.yaml', 'w'){|f|
+        if File.exist? file = target + '_xref.yaml'
+          File.delete(file)
+        end
+        File.open(file, 'w'){|f|
+          f.puts xref_data.to_yaml
+        }
+        if File.exist? file = target + '_ba.yaml'
+          File.delete(file)
+        end
+        File.open(file, 'w'){|f|
           f.puts ba_data.to_yaml
         }
       }
