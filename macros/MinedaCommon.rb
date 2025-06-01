@@ -122,7 +122,7 @@ module MinedaPCellCommonModule
       cell.shapes(index).insert(Box::new(x1, y1, x2, y2)) if  index
       cell.shapes(index).insert_text(Text::new text, (x1+x2)/2, (y1+y2)/2) if text
     end
-
+=begin
     def insert_cell via_index, x, y, rotate=false, bbox_layer=nil
       via = CellInstArray.new(via_index, rotate ? Trans.new(1, false, x, y) : Trans.new(x, y))
       if bbox_layer
@@ -130,7 +130,26 @@ module MinedaPCellCommonModule
         create_box bbox_layer, bb.p1.x, bb.p1.y, bb.p2.x, bb.p2.y 
       end
       inst = cell.insert(via)
-    end 
+    end
+=end    
+    def insert_cell via_index, x, y, rotate=false, bbox_layer=nil
+      via = CellInstArray.new(via_index, rotate ? Trans.new(1, false, x, y) : Trans.new(x, y))
+      if bbox_layer
+        bb = via.bbox(layout)
+        create_box bbox_layer, bb.p1.x, bb.p1.y, bb.p2.x, bb.p2.y 
+      end
+      if @region
+        via_cell = layout.cell(via_index).flatten(true)
+        @region.each_pair{|lay_ind, region_shapes|
+          shapes = via_cell.shapes(lay_ind)
+          region_shapes.insert(shapes, Trans.new(x, y))#.transform(Trans.new(x, y)))
+          #cell.shapes(lay_ind).insert region_shapes
+        }
+        #cell_copy.clear
+      else
+        inst = cell.insert(via)
+      end
+    end
     
     def insert_contacts area, vs, contact
       fill_area(area, vs){|x, y|
