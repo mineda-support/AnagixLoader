@@ -1,8 +1,8 @@
 # $autorun-early
 # $priority: 1
-# Mineda Common v1.24 Mar. 14th, 2025
+# Mineda Common v1.25 June 6th, 2025
 #   Force on-grid v0.1 July 39th 2022 copy right S. Moriyama (Anagix Corp.)
-#   LVS preprocessor(get_reference) v0.8 Mar. 9th, 2025 copyright by S. Moriyama (Anagix Corporation)
+#   LVS preprocessor(get_reference) v0.81June 6th, 2025 copyright by S. Moriyama (Anagix Corporation)
 #   * ConvertPCells and PCellDefaults moved from MinedaPCell v0.4 Nov. 22nd 2022
 #   Change PCell Defaults v0.2 Jan. 27 2024 copyright S. Moriyama
 #   ConvertLibraryCells (ConvertPCells) v0.68 May. 25th 2024  copy right S. Moriyama
@@ -1665,13 +1665,30 @@ class MinedaLVS
           f.puts 'end'
         }
       end
-      unless File.exist? "lvs_work/#{target}_lvs_settings.rb"
-        set_settings cell, circuit_top, device_class, "lvs_work/#{target}_lvs_settings.rb", settings
+      if version = settings[:version]
+        if File.exist? stamp_file = 'lvs_work/get_reference_version.txt'
+          stamp = File.read(stamp_file).to_f
+          if version > stamp
+            set_settings cell, circuit_top, device_class, "lvs_work/#{target}_lvs_settings.rb", settings
+          end
+        else
+          set_settings cell, circuit_top, device_class, "lvs_work/#{target}_lvs_settings.rb", settings
+        end
+      else
+        unless File.exist? "lvs_work/#{target}_lvs_settings.rb"
+          set_settings cell, circuit_top, device_class, "lvs_work/#{target}_lvs_settings.rb", settings
+        end
       end
     end
   end
 
   def set_settings cell, circuit_top, device_class, file, settings
+    if version = settings[:version]
+      File.open(File.join(File.dirname(file), 'get_reference_version.txt'), 'w') {|f| f.puts version}
+    end
+    if File.exist? file
+      FileUtils.mv file, file.sub('.rb', '_KEEP.rb')
+    end
     cell_name = cell.name
     File.open(file, 'w'){|f|
       if  settings[:exclude_layer]
@@ -1705,7 +1722,13 @@ class MinedaLVS
       f.puts "  align"
       settings[:device] && device_class.merge!(settings[:device])
       device_class.each_pair{|p, q|
-        f.puts "  same_device_classes '#{p}', '#{q.upcase}'" if q
+        if q.class == Array
+          q.each{|r|
+            f.puts "  same_device_classes '#{p}', '#{r.upcase}'" if r
+          }
+        else
+          f.puts "  same_device_classes '#{p}', '#{q.upcase}'" if q
+        end
       }
       settings[:tolerance] && settings[:tolerance].each_pair{|d, spec|
         spec.each_pair{|p, v|
