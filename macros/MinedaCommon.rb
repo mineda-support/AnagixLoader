@@ -141,7 +141,8 @@ module MinedaPCellCommonModule
       if @region
         via_cell = layout.cell(via_index).flatten(true)
         @region.each_pair{|lay_ind, region_shapes|
-          shapes = via_cell.shapes(lay_ind)
+          #shapes = via_cell.shapes(lay_ind)
+          shapes = via_cell.shapes(layout.cell(via_index).layout.layer(lay_ind, 0))
           region_shapes.insert(shapes, Trans.new(x, y))#.transform(Trans.new(x, y)))
           #cell.shapes(lay_ind).insert region_shapes
         }
