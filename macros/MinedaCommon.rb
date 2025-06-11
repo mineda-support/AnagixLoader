@@ -1,6 +1,6 @@
 # $autorun-early
 # $priority: 1
-# Mineda Common v1.25 June 6th, 2025
+# Mineda Common v1.26 June 11th, 2025
 #   Force on-grid v0.1 July 39th 2022 copy right S. Moriyama (Anagix Corp.)
 #   LVS preprocessor(get_reference) v0.81June 6th, 2025 copyright by S. Moriyama (Anagix Corporation)
 #   * ConvertPCells and PCellDefaults moved from MinedaPCell v0.4 Nov. 22nd 2022
@@ -8,7 +8,7 @@
 #   ConvertLibraryCells (ConvertPCells) v0.68 May. 25th 2024  copy right S. Moriyama
 #   PCellTest v0.2 August 22nd 2022 S. Moriyama
 #   DRC_helper::find_cells_to_exclude v0.1 Sep 23rd 2022 S. Moriyama
-#   MinedaInput v0.37 Mar. 14th, 2025 S. Moriyama
+#   MinedaInput v0.38 June 11the. 14th, 2025 S. Moriyama
 #   MinedaPCellCommon v0.341 July 27th 2024 S. Moriyama
 #   Create Backannotation data v0.171 May 14th 2023 S. Moriyama
 #   MinedaAutoplace v0.31 July 26th 2023 S. Moriyama
@@ -535,6 +535,7 @@ module MinedaCommon
         lvs_data.xref.each_device_pair(c).each{|device| 
           next unless ext = device.first
           if ref = device.second
+            
             unless prefix = find_prefix(ext.device_class.class.name)
               puts "#{ref.device_class.class} does not match"
               prefix = ''
@@ -574,6 +575,106 @@ module MinedaCommon
         }
       }
       status
+    end
+    
+    def check_polarity lvs_data, polarity_check
+      result = [];
+      lvs_data.xref.each_circuit_pair.each{|c|
+        puts "Device polarity check for #{c.second.name}: #{c.status}"
+        lvs_data.xref.each_device_pair(c).each{|device| 
+          next unless ext = device.first
+          if ref = device.second
+            ext.device_abstract.name =~ /\$(\S+)/
+            puts device_name = $1.to_sym
+            # compare ref.net_for_terminal(0):ext.net_for_terminal(0)
+            #       with net.first:net.second
+            match1 = match2 = false
+            polarity_check.include?(device_name) &&
+            lvs_data.xref.each_net_pair(c).each{|net|
+              puts "net: #{net.first}:#{net.second}"
+              puts "ext0:#{ext.net_for_terminal(0)}, ref0:#{ref.net_for_terminal(0)}"
+              puts "ext1:#{ext.net_for_terminal(1)}, ref1:#{ref.net_for_terminal(1)}"
+              if ext.net_for_terminal(1).qname == net.first.qname &&
+                ref.net_for_terminal(0).qname == net.second.qname
+                match1 = true
+              elsif ext.net_for_terminal(0).qname == net.first.qname &&
+                ref.net_for_terminal(1).qname == net.second.qname
+                match2 = true
+              end
+            }
+            if match1 && match2
+              error_device = "#{device_name[0]}#{ref.expanded_name}(#{device_name})"
+              puts "Caution! #{error_device} polarity wrong!"
+              result << [error_device, device.first.trans.disp.x, device.first.trans.disp.y]
+            end
+          end 
+        }
+      }
+      result
+    end
+    
+    def polarity_error_dialog error_devices, title='Devices with polarity error'
+      dialog = QDialog.new(Application.instance.main_window)
+      dialog.windowTitle = title
+
+      mainLayout = QVBoxLayout::new(dialog)
+      dialog.setLayout(mainLayout)
+      #editor = QPlainTextEdit.new(dialog)
+      #editor.insertPlainText @config || ''
+      #mainLayout.addWidget(editor)
+      labelView = QLabel.new
+      labelText = ''
+      error_devices.each{|e|
+        labelText << e[0] + "\n"
+        put_marker e[1], e[2]
+      }
+      labelView.setText labelText
+      mainLayout.addWidget(labelView)
+      
+      # button boxes
+      layout = QHBoxLayout.new(dialog)
+      mainLayout.addLayout(layout)
+      
+      # Next button
+      buttonNext = QPushButton.new(dialog)
+      layout.addWidget(buttonNext)
+      buttonNext.text = ' Next '
+      buttonNext.clicked do
+        # dislay the next error (Change color?)
+      end
+      
+      # OK button
+      buttonOK = QPushButton.new(dialog)
+      layout.addWidget(buttonOK)
+      buttonOK.text = " OK "
+      buttonOK.clicked do 
+        dialog.accept()
+        #yield editor
+      end
+      # Cancel button
+      cancel = QPushButton.new(dialog)
+      layout.addWidget(cancel)
+      cancel.text = "cancel"
+      cancel.clicked do 
+        dialog.accept()
+      end
+      dialog.exec
+    end
+ 
+    def put_marker(x, y, marker_size=50.0)
+      lv = RBA::Application::instance.main_window.current_view
+      marker = RBA::Marker.new
+      vertices = [DPoint::new(x, y), DPoint::new(x+marker_size*0.5, y+marker_size*0.5),
+                  DPoint::new(x+marker_size*0.5, y+marker_size*0.5), DPoint::new(x+marker_size*0.2, y+marker_size*0.5),
+                  DPoint::new(x+marker_size*0.2, y+marker_size*0.5), DPoint::new(x+marker_size*0.2, y+marker_size),
+                  DPoint::new(x-marker_size*0.2, y+marker_size), DPoint::new(x-marker_size*0.2, y+marker_size),
+                  DPoint::new(x-marker_size*0.2, y+marker_size), DPoint::new(x-marker_size*0.2, y+marker_size*0.5),
+                  DPoint::new(x-marker_size*0.2, y+marker_size*0.5), DPoint::new(x-marker_size*0.5, y+marker_size*0.5),
+                  DPoint::new(x-marker_size*0.5, y+marker_size*0.5), DPoint::new(x, y)]
+      marker.color = 255*256*256+0*256+0 # Red: 255,0,0
+      marker.set(DPolygon::new(vertices))
+      lv.clear_markers
+      lv.add_marker(marker)
     end
     
     def has_rescap3 file
