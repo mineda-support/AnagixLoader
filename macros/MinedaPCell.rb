@@ -1,7 +1,7 @@
 # coding: cp932
-# MinedaPCell v1.02, Feb. 14th, 2025 copy right S. Moriyama (Anagix Corporation)
+# MinedaPCell v1.03, June12th, 2025 copy right S. Moriyama (Anagix Corporation)
 module MinedaPCell
-  version = 1.02
+  version = 1.03
   include MinedaPCellCommonModule
   # The PCell declaration for the Mineda MOSFET
   class MinedaMOS < MinedaPCellCommon
@@ -1152,6 +1152,7 @@ module MinedaPCell
       create_box indices[:cap], 0, -finger_width/2, finger_length, finger_width*nf + finger_gap*(nf-1) - finger_width/2
     end
   end
+
   class MinedaFillRing < MinedaPCellCommon
     def initialize ring_length=50.0.um, ring_width=50.0.um
       super()
@@ -1191,11 +1192,17 @@ module MinedaPCell
       set_ctg 0 if cng != 0.0
     end
     def display_text_impl
-      "Guard ring\r\n(width=#{w.round(3)}um,length=#{l.round(3)}um)"
+      "#{self.name}\r\n(width=#{w.round(3)}um,length=#{l.round(3)}um)"
     end
     def produce_impl index, bw, fillers, length, width, x1 = 0, x2 = 0, off_layers_on_gap=[]
     #[[-bw, -bw, width, 0],
+      @region = nil
       if index
+        @region = {}
+        layout.cell(index).layout.layer_indexes.each{|layer|
+          lay_ind = layout.get_info(layer).layer
+          @region[lay_ind] = Region::new()
+        }
         cell_on_gap = layout.cell(index).dup
         cell_on_gap.flatten(true)
         off_layers_on_gap.each{|off_layer|
@@ -1206,7 +1213,7 @@ module MinedaPCell
         cell_on_gap_index = nil
       end
       fill_area([-bw, -bw, width, 0], bw, fillers){|x, y|
-        if  x1 - bw <x && x < x2 && x1 != x2
+        if x1 - bw <x && x < x2 && x1 != x2
           insert_cell cell_on_gap_index, x, y if cell_on_gap_index 
         else
           insert_cell index, x, y if index
@@ -1219,8 +1226,13 @@ module MinedaPCell
        [-bw, 0, 0, length+bw]].each{|area|
         fill_area(area, bw, fillers){|x, y|
             insert_cell index, x, y if index
-          }
         }
+      }
+
+      @region && @region.each_pair{|lay_ind, region_shapes|
+        lay_index = layout.cell(index).layout.layer(lay_ind, 0)
+        cell.shapes(lay_index).insert(region_shapes.merge)
+      }
     end
   end
   
