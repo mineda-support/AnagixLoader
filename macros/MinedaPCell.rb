@@ -1,7 +1,7 @@
 # coding: cp932
-# MinedaPCell v1.03, June12th, 2025 copy right S. Moriyama (Anagix Corporation)
+# MinedaPCell v1.04, June 13th, 2025 copy right S. Moriyama (Anagix Corporation)
 module MinedaPCell
-  version = 1.03
+  version = 1.04
   include MinedaPCellCommonModule
   # The PCell declaration for the Mineda MOSFET
   class MinedaMOS < MinedaPCellCommon
@@ -1163,6 +1163,7 @@ module MinedaPCell
       param(:wu, TypeDouble, "Ring width", :default => 20.0.um, :hidden =>true)
       param(:cng, TypeDouble, "Corner gap", :default => 0.0.um)
       param(:ctg, TypeDouble, "Center gap", :default => 0.0.um)
+      param(:merge_layers, TypeBoolean, "Merge layers", :default => false)
     end
     def coerce_parameters_impl
       ls = ws = nil
@@ -1198,11 +1199,13 @@ module MinedaPCell
     #[[-bw, -bw, width, 0],
       @region = nil
       if index
-        @region = {}
-        layout.cell(index).layout.layer_indexes.each{|layer|
-          lay_ind = layout.get_info(layer).layer
-          @region[lay_ind] = Region::new()
-        }
+        if defined?(merge_layers) and merge_layers
+          @region = {}
+          layout.cell(index).layout.layer_indexes.each{|layer|
+            lay_ind = layout.get_info(layer).layer
+            @region[lay_ind] = Region::new()
+          }
+        end
         cell_on_gap = layout.cell(index).dup
         cell_on_gap.flatten(true)
         off_layers_on_gap.each{|off_layer|
