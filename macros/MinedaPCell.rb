@@ -1,7 +1,7 @@
 # coding: cp932
-# MinedaPCell v1.04, June 13th, 2025 copy right S. Moriyama (Anagix Corporation)
+# MinedaPCell v1.05, June 13th, 2025 copy right S. Moriyama (Anagix Corporation)
 module MinedaPCell
-  version = 1.04
+  version = 1.05
   include MinedaPCellCommonModule
   # The PCell declaration for the Mineda MOSFET
   class MinedaMOS < MinedaPCellCommon
@@ -1231,7 +1231,6 @@ module MinedaPCell
             insert_cell index, x, y if index
         }
       }
-
       @region && @region.each_pair{|lay_ind, region_shapes|
         lay_index = layout.cell(index).layout.layer(lay_ind, 0)
         cell.shapes(lay_index).insert(region_shapes.merge)
@@ -1248,6 +1247,7 @@ module MinedaPCell
       param(:lu, TypeDouble, "Line length", :default => 20.0.um, :hidden =>true)
       param(:wu, TypeDouble, "Line width/2", :default => 0.0.um, :hidden =>true)
       param(:gp, TypeString, "Gap pattern", :default => '')
+      param(:merge_layers, TypeBoolean, "Merge layers", :default => false)
     end
     def coerce_parameters_impl
       ls = ws = nil
@@ -1283,7 +1283,15 @@ module MinedaPCell
     end
     def produce_impl index, bw_margin, fillers, fill_margin, length, half_width, gap_pattern=[], off_layers_on_gap=[]
       bw, margin = (bw_margin.class == Array) ? bw_margin : [bw_margin, 0]
+      @region = nil
       if index
+        if defined?(merge_layers) and merge_layers
+          @region = {}
+          layout.cell(index).layout.layer_indexes.each{|layer|
+            lay_ind = layout.get_info(layer).layer
+            @region[lay_ind] = Region::new()
+          }
+        end
         cell_on_gap = layout.cell(index).dup
         cell_on_gap.flatten(true)
         off_layers_on_gap.each{|off_layer|
@@ -1300,6 +1308,10 @@ module MinedaPCell
         else
           insert_cell(cell_on_gap_index, x, y) if cell_on_gap_index
         end
+      }
+      @region && @region.each_pair{|lay_ind, region_shapes|
+        lay_index = layout.cell(index).layout.layer(lay_ind, 0)
+        cell.shapes(lay_index).insert(region_shapes.merge)
       }
     end
   end
