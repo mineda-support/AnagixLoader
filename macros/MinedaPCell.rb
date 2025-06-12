@@ -1,8 +1,7 @@
-# $description: DRC for OpenRule1um
 # coding: cp932
 # MinedaPCell v1.02, Feb. 14th, 2025 copy right S. Moriyama (Anagix Corporation)
 module MinedaPCell
-  version = 1.01
+  version = 1.02
   include MinedaPCellCommonModule
   # The PCell declaration for the Mineda MOSFET
   class MinedaMOS < MinedaPCellCommon

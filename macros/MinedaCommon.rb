@@ -595,6 +595,7 @@ module MinedaCommon
               puts "net: #{net.first}:#{net.second}"
               puts "ext0:#{ext.net_for_terminal(0)}, ref0:#{ref.net_for_terminal(0)}"
               puts "ext1:#{ext.net_for_terminal(1)}, ref1:#{ref.net_for_terminal(1)}"
+              next if net.first.nil? || net.second.nil? || ext.net_for_terminal(0).nil? || ext.net_for_terminal(1).nil?
               if ext.net_for_terminal(1).qname == net.first.qname &&
                 ref.net_for_terminal(0).qname == net.second.qname
                 match1 = true
