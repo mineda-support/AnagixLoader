@@ -1324,6 +1324,7 @@ module MinedaPCell
        param(:s, TypeShape, "", :default => DPoint::new(default_x, default_y))
        param(:xu, TypeDouble, "Previous X", :default => default_x, :hidden =>true)
        param(:yu, TypeDouble, "Previous Y", :default => default_y, :hidden =>true)
+      param(:merge_layers, TypeBoolean, "Merge layers", :default => false)
        @box_name = name || 'Fill box'
     end
     def display_text_impl
