@@ -1,6 +1,6 @@
 # $autorun-early
 # $priority: 1
-# Mineda Common v1.27 June 13th, 2025
+# Mineda Common v1.28 June 16th, 2025
 #   Force on-grid v0.1 July 39th 2022 copy right S. Moriyama (Anagix Corp.)
 #   LVS preprocessor(get_reference) v0.81June 6th, 2025 copyright by S. Moriyama (Anagix Corporation)
 #   * ConvertPCells and PCellDefaults moved from MinedaPCell v0.4 Nov. 22nd 2022
@@ -619,7 +619,7 @@ module MinedaCommon
       result
     end
     
-    def polarity_error_dialog error_devices, title='Devices w/ polarity error'
+    def polarity_error_dialog error_devices, title='Devices with polarity error'
       dialog = QDialog.new(Application.instance.main_window)
       dialog.windowTitle = title
 
@@ -629,25 +629,27 @@ module MinedaCommon
       #editor.insertPlainText @config || ''
       #mainLayout.addWidget(editor)
       labelView = QLabel.new
-      labelText = ''
+      labelText = "Following devices have polarity error:\n\n"
       error_devices.each{|e|
-        labelText << e[0] + "\n"
+        labelText << '    ' + e[0] + "\n"
         put_marker e[1], e[2]
       }
+      labelText <<"\nPlease check the guidelines (GL03) and make corrections."
+ 
       labelView.setText labelText
       mainLayout.addWidget(labelView)
-      
+
       # button boxes
       layout = QHBoxLayout.new(dialog)
       mainLayout.addLayout(layout)
       
       # Next button
-      buttonNext = QPushButton.new(dialog)
-      layout.addWidget(buttonNext)
-      buttonNext.text = ' reserved '
-      buttonNext.clicked do
+      #buttonNext = QPushButton.new(dialog)
+      #layout.addWidget(buttonNext)
+      #buttonNext.text = ' reserved '
+      #uttonNext.clicked do
         # dislay the next error (Change color?)
-      end
+      #end
       
       # OK button
       buttonOK = QPushButton.new(dialog)
