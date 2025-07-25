@@ -1,6 +1,6 @@
 # $autorun-early
 # $priority: 1
-# Mineda Common v1.28 June 16th, 2025
+# Mineda Common v1.29 July 25th, 2025
 #   Force on-grid v0.1 July 39th 2022 copy right S. Moriyama (Anagix Corp.)
 #   LVS preprocessor(get_reference) v0.81June 6th, 2025 copyright by S. Moriyama (Anagix Corporation)
 #   * ConvertPCells and PCellDefaults moved from MinedaPCell v0.4 Nov. 22nd 2022
@@ -8,7 +8,7 @@
 #   ConvertLibraryCells (ConvertPCells) v0.68 May. 25th 2024  copy right S. Moriyama
 #   PCellTest v0.2 August 22nd 2022 S. Moriyama
 #   DRC_helper::find_cells_to_exclude v0.1 Sep 23rd 2022 S. Moriyama
-#   MinedaInput v0.391 June 13th, 2025 S. Moriyama
+#   MinedaInput v0.392 July 25th, 2025 S. Moriyama
 #   MinedaPCellCommon v0.341 July 27th 2024 S. Moriyama
 #   Create Backannotation data v0.171 May 14th 2023 S. Moriyama
 #   MinedaAutoplace v0.31 July 26th 2023 S. Moriyama
@@ -630,11 +630,14 @@ module MinedaCommon
       #mainLayout.addWidget(editor)
       labelView = QLabel.new
       labelText = "Following devices have polarity error:\n\n"
+      
+      lv = RBA::Application::instance.main_window.current_view
+      lv.clear_markers
       error_devices.each{|e|
         labelText << '    ' + e[0] + "\n"
-        put_marker e[1], e[2]
+        put_marker lv, e[1], e[2]
       }
-      labelText <<"\nPlease check the guidelines (GL03) and make corrections."
+      labelText << "\nPlease check the guidelines (GL03) and make corrections."
  
       labelView.setText labelText
       mainLayout.addWidget(labelView)
@@ -669,8 +672,7 @@ module MinedaCommon
       dialog.exec
     end
  
-    def put_marker(x, y, marker_size=50.0)
-      lv = RBA::Application::instance.main_window.current_view
+    def put_marker(lv, x, y, marker_size=50.0)
       marker = RBA::Marker.new
       vertices = [DPoint::new(x, y), DPoint::new(x+marker_size*0.5, y+marker_size*0.5),
                   DPoint::new(x+marker_size*0.5, y+marker_size*0.5), DPoint::new(x+marker_size*0.2, y+marker_size*0.5),
@@ -681,7 +683,6 @@ module MinedaCommon
                   DPoint::new(x-marker_size*0.5, y+marker_size*0.5), DPoint::new(x, y)]
       marker.color = 255*256*256+0*256+0 # Red: 255,0,0
       marker.set(DPolygon::new(vertices))
-      lv.clear_markers
       lv.add_marker(marker)
     end
     
