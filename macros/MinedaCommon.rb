@@ -1,6 +1,6 @@
 # $autorun-early
 # $priority: 1
-# Mineda Common v1.29 July 25th, 2025
+# Mineda Common v1.30 June 27th, 2025
 #   Force on-grid v0.1 July 39th 2022 copy right S. Moriyama (Anagix Corp.)
 #   LVS preprocessor(get_reference) v0.81June 6th, 2025 copyright by S. Moriyama (Anagix Corporation)
 #   * ConvertPCells and PCellDefaults moved from MinedaPCell v0.4 Nov. 22nd 2022
@@ -8,7 +8,7 @@
 #   ConvertLibraryCells (ConvertPCells) v0.68 May. 25th 2024  copy right S. Moriyama
 #   PCellTest v0.2 August 22nd 2022 S. Moriyama
 #   DRC_helper::find_cells_to_exclude v0.1 Sep 23rd 2022 S. Moriyama
-#   MinedaInput v0.392 July 25th, 2025 S. Moriyama
+#   MinedaInput v0.393 June 27th, 2025 S. Moriyama
 #   MinedaPCellCommon v0.341 July 27th 2024 S. Moriyama
 #   Create Backannotation data v0.171 May 14th 2023 S. Moriyama
 #   MinedaAutoplace v0.31 July 26th 2023 S. Moriyama
@@ -346,7 +346,8 @@ module MinedaCommon
   class MinedaInput
     include RBA
     attr_accessor :layer_index
-    def initialize source, params={}
+    def initialize source=nil, params={}
+      return unless source
       @source = source
       tech = @source.layout.technology
       lyp_file = File.join(tech.base_path, tech.layer_properties_file)
@@ -382,6 +383,10 @@ module MinedaCommon
         end
       end
       [reference, output]
+    end
+    
+    def tweak settings
+      settings
     end
     
     def report_netlist_file
