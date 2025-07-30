@@ -1,14 +1,14 @@
 # $autorun-early
 # $priority: 1
-# Mineda Common v1.31 June 28th, 2025
+# Mineda Common v1.32 June 30th, 2025
 #   Force on-grid v0.1 July 39th 2022 copy right S. Moriyama (Anagix Corp.)
-#   LVS preprocessor(get_reference) v0.81June 6th, 2025 copyright by S. Moriyama (Anagix Corporation)
+#   LVS preprocessor(get_reference) v0.82 June 30th, 2025 copyright by S. Moriyama (Anagix Corporation)
 #   * ConvertPCells and PCellDefaults moved from MinedaPCell v0.4 Nov. 22nd 2022
 #   Change PCell Defaults v0.2 Jan. 27 2024 copyright S. Moriyama
 #   ConvertLibraryCells (ConvertPCells) v0.68 May. 25th 2024  copy right S. Moriyama
 #   PCellTest v0.2 August 22nd 2022 S. Moriyama
 #   DRC_helper::find_cells_to_exclude v0.1 Sep 23rd 2022 S. Moriyama
-#   MinedaInput v0.394 June 28th, 2025 S. Moriyama
+#   MinedaInput v0.395 June 30th, 2025 S. Moriyama
 #   MinedaPCellCommon v0.341 July 27th 2024 S. Moriyama
 #   Create Backannotation data v0.171 May 14th 2023 S. Moriyama
 #   MinedaAutoplace v0.31 July 26th 2023 S. Moriyama
@@ -385,8 +385,10 @@ module MinedaCommon
       [reference, output]
     end
     
-    def tweak settings
-      settings
+    unless defined? tweak
+      def tweak settings
+        settings
+      end
     end
     
     def report_netlist_file
@@ -594,7 +596,8 @@ module MinedaCommon
           next unless ext = device.first
           if ref = device.second
             ext.device_abstract.name =~ /\$(\S+)/
-            puts device_name = $1.to_sym
+            device_name = $1.to_sym
+            puts "device_name = #{device_name}"
             # compare ref.net_for_terminal(0):ext.net_for_terminal(0)
             #       with net.first:net.second
             match1 = match2 = false
@@ -602,8 +605,8 @@ module MinedaCommon
             polarity_check.include?(device_name) &&
             lvs_data.xref.each_net_pair(c).each{|net|
               puts "net: #{net.first}:#{net.second}"
-              puts "ext0:#{ext.net_for_terminal(rev ? 1 : 0)}, ref0:#{ref.net_for_terminal(0)}"
-              puts "ext1:#{ext.net_for_terminal(rev ? 0 : 1)}, ref1:#{ref.net_for_terminal(1)}"
+              puts " ext0:#{ext.net_for_terminal(rev ? 1 : 0)}, ref0:#{ref.net_for_terminal(0)}"
+              puts " ext1:#{ext.net_for_terminal(rev ? 0 : 1)}, ref1:#{ref.net_for_terminal(1)}"
               next if net.first.nil? || net.second.nil? || ext.net_for_terminal(0).nil? || ext.net_for_terminal(1).nil?
               if ext.net_for_terminal(rev ? 1 : 0).qname == net.first.qname &&
                 ref.net_for_terminal(0).qname == net.second.qname
@@ -1780,18 +1783,19 @@ class MinedaLVS
           f.puts 'end'
         }
       end
+      settings_file = "lvs_work/#{target}_lvs_settings.rb"
       if version = settings[:version]
-        if File.exist? stamp_file = 'lvs_work/get_reference_version.txt'
+        if File.exist?(settings_file) && File.exist?(stamp_file = 'lvs_work/get_reference_version.txt')
           stamp = File.read(stamp_file).to_f
           if version > stamp
-            set_settings cell, circuit_top, device_class, "lvs_work/#{target}_lvs_settings.rb", settings
+            set_settings cell, circuit_top, device_class, settings_file, settings
           end
         else
-          set_settings cell, circuit_top, device_class, "lvs_work/#{target}_lvs_settings.rb", settings
+          set_settings cell, circuit_top, device_class, settings_file, settings
         end
       else
-        unless File.exist? "lvs_work/#{target}_lvs_settings.rb"
-          set_settings cell, circuit_top, device_class, "lvs_work/#{target}_lvs_settings.rb", settings
+        unless File.exist? settings_file
+          set_settings cell, circuit_top, device_class, settings_file, settings
         end
       end
     end
