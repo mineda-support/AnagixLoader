@@ -1,6 +1,6 @@
 # $autorun-early
 # $priority: 1
-# Mineda Common v1.32 June 30th, 2025
+# Mineda Common v1.33 Aug. 8th, 2025
 #   Force on-grid v0.1 July 39th 2022 copy right S. Moriyama (Anagix Corp.)
 #   LVS preprocessor(get_reference) v0.82 June 30th, 2025 copyright by S. Moriyama (Anagix Corporation)
 #   * ConvertPCells and PCellDefaults moved from MinedaPCell v0.4 Nov. 22nd 2022
@@ -14,6 +14,30 @@
 #   MinedaAutoplace v0.31 July 26th 2023 S. Moriyama
 #   ChangePCellParameters v0.1 July 29th 2023 S. Moriyama
 #   MinedaBridge v0.1 Sep. 17 2023 S. Moriyama
+#   MinedaUtility v0.1 Aug. 8, 2025 S. Moriyama
+
+module MinedaUtility
+  class ViewDoc
+    def self.view_doc file
+      home = ENV['USERPROFILE'] || ENV['HOME']
+      klayout = '.klayout'  
+      ampasand = '&amp;'
+      case RbConfig::CONFIG['host_os']
+        when /mswin|mingw|cygwin/ 
+          cmd = "start "
+          klayout = 'KLayout' 
+          ampasand = ''
+        when /darwin/
+          cmd = "open "
+        when /linux|bsd/
+          cmd = "xdg-open "
+        else raise "No OS detected"
+      end
+      doc =  File.join "file:///#{home}/#{klayout}", file
+      b = system cmd + doc + ampasand
+    end
+  end
+end
 
 module MinedaPCellCommonModule
   include RBA
