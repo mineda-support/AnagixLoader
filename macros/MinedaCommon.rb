@@ -1,6 +1,6 @@
 # $autorun-early
 # $priority: 1
-# Mineda Common v1.33 Aug. 8th, 2025
+# Mineda Common v1.331 Aug. 20th, 2025
 #   Force on-grid v0.1 July 39th 2022 copy right S. Moriyama (Anagix Corp.)
 #   LVS preprocessor(get_reference) v0.82 June 30th, 2025 copyright by S. Moriyama (Anagix Corporation)
 #   * ConvertPCells and PCellDefaults moved from MinedaPCell v0.4 Nov. 22nd 2022
@@ -619,7 +619,7 @@ module MinedaCommon
         lvs_data.xref.each_device_pair(c).each{|device| 
           next unless ext = device.first
           if ref = device.second
-            ext.device_abstract.name =~ /\$(\S+)/
+            ext.device_abstract.name =~ /\$([^\$]+)/ # 2025/8/20 changed from /\$(\S+)/
             device_name = $1.to_sym
             puts "device_name = #{device_name}"
             # compare ref.net_for_terminal(0):ext.net_for_terminal(0)
