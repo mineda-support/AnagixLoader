@@ -1,8 +1,8 @@
 # $autorun-early
 # $priority: 1
-# Mineda Common v1.331 Aug. 20th, 2025
+# Mineda Common v1.332 Aug. 21st, 2025
 #   Force on-grid v0.1 July 39th 2022 copy right S. Moriyama (Anagix Corp.)
-#   LVS preprocessor(get_reference) v0.82 June 30th, 2025 copyright by S. Moriyama (Anagix Corporation)
+#   LVS preprocessor(get_reference) v0.83 Aug. 21st, 2025 copyright by S. Moriyama (Anagix Corporation)
 #   * ConvertPCells and PCellDefaults moved from MinedaPCell v0.4 Nov. 22nd 2022
 #   Change PCell Defaults v0.2 Jan. 27 2024 copyright S. Moriyama
 #   ConvertLibraryCells (ConvertPCells) v0.68 May. 25th 2024  copy right S. Moriyama
@@ -1649,6 +1649,7 @@ class MinedaLVS
       lines.each_line{|l|
         l.gsub! 00.chr, ''
         l.tr! "@%-", "$$_"
+        l.gsub! /([0-9][eE])_([0-9])/, '\1-\2' # revert 1E_6 to 1E-6
         c.puts l
         if l =~ /{(\S+)}/
           ov = $1
