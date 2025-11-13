@@ -1612,22 +1612,50 @@ class MinedaLVS
     #[lines, has_res3]
     lines
   end
-
   def lvs_go target_technology, settings = {}
-    app = Application.instance
-    mw = app.main_window
-    cv = mw.current_view.active_cellview
-    raise "You are running #{target_technology} version of 'get_reference' against #{cv.technology} layout" unless cv.technology == target_technology
-    raise 'Please save the layout first' if cv.nil? || cv.filename.nil? || cv.filename == ''
-    cell = cv.cell
-    netlist = QFileDialog::getOpenFileName(mw, 'Netlist file', File.dirname(cv.filename), 'netlist(*.net *.cir *.spc *.spice *.spi *.sp *.cdl)')
+    if !settings[:cui_mode]
+      #GUI mode
+      puts "GUI mode"
+      app = Application.instance
+      mw = app.main_window
+      cv = mw.current_view.active_cellview
+      raise "You are running #{target_technology} version of 'get_reference' against #{cv.technology} layout" unless cv.technology == target_technology
+      raise 'Please save the layout first' if cv.nil? || cv.filename.nil? || cv.filename == ''
+      cell = cv.cell
+      netlist = QFileDialog::getOpenFileName(mw, 'Netlist file', File.dirname(cv.filename), 'netlist(*.net *.cir *.spc *.spice *.spi *.sp *.cdl)')
+    else
+      #CUI mode
+      puts "CUI mode"
+      
+      raise "[ERR]: plsease set settings[:lvs_netlist]." unless settings[:lvs_netlist]
+      netlist=settings[:lvs_netlist]
+
+      raise "[ERR]: plsease set settings[:lvs_gds]." unless settings[:lvs_gds]
+      lvs_gds=settings[:lvs_gds]
+      
+      raise "[ERR]: plsease set settings[:top_cell]." unless settings[:top_cell]
+      top_cell=settings[:top_cell]
+      layout=RBA::Layout::new
+      layout.read(lvs_gds)
+      cell=layout.cell(top_cell)
+      
+    end
+
     if netlist && netlist.strip != ''
       netlist = netlist.force_encoding('UTF-8')
       # netlist = '/home/seijirom/Dropbox/work/LRmasterSlice/comparator/COMP_NLF.net'
       # raise "#{netlist} does not exist!" unless File.exist? netlist
-      Dir.chdir File.dirname(cv.filename).force_encoding('UTF-8')
-      ext_name = File.extname cv.filename
-      target = File.basename(cv.filename).sub(ext_name, '')
+      
+      if !settings[:cui_mode]
+        Dir.chdir File.dirname(cv.filename).force_encoding('UTF-8')
+        ext_name = File.extname cv.filename
+        target = File.basename(cv.filename).sub(ext_name, '')
+      else
+        Dir.chdir File.dirname(lvs_gds).force_encoding('UTF-8')
+        ext_name = File.extname lvs_gds
+        target = File.basename(lvs_gds).sub(ext_name, '')
+      end
+      
       Dir.mkdir 'lvs_work' unless File.directory? 'lvs_work'
       reference = File.join('lvs_work', "#{target}_reference.cir.txt")
       ref={'target' => target, 'reference'=> reference, 'netlist'=> netlist, 'schematic' => netlist.sub('.net', '.asc')}
@@ -1680,7 +1708,8 @@ class MinedaLVS
           subckt_name = $1
           inside_subckt = true
           subckt_params = l.scan /(\S+)=(\S+)/
-          unless settings[:do_not_expand_sub_params] == cv.technology
+          #unless settings[:do_not_expand_sub_params] == cv.technology
+          unless settings[:do_not_expand_sub_params] == target_technology
             l.sub! /\S+=.*$/, ''
           end
           if subckt_name.upcase == cell.name.upcase
@@ -1699,7 +1728,8 @@ class MinedaLVS
           model = $3
           others = ($4 && $4.upcase)
           if  (settings[:do_not_expand_sub_params] &&
-               settings[:do_not_expand_sub_params]  != cv.technology)
+               settings[:do_not_expand_sub_params]  != target_technology)
+               #settings[:do_not_expand_sub_params]  != cv.technology)
             subckt_params.each{|a, b| puts others.sub!(/=#{a}/, "=#{b}")}
           end
           # device_class['NMOS'] = model if model && model.upcase =~ /NCH|NMOS/
@@ -1752,14 +1782,16 @@ class MinedaLVS
             end          
           end
           if  (settings[:do_not_expand_sub_params] &&
-               settings[:do_not_expand_sub_params]  != cv.technology)          
+               settings[:do_not_expand_sub_params]  != target_technology)          
+               #settings[:do_not_expand_sub_params]  != cv.technology)          
             subckt_params.each{|a, b| puts value.sub!(/#{a}/, "#{b}")}
             l = "#{body} #{value} #{rest}\n"
           end
         elsif l =~ /^ *[xX]/
            l.sub!(/ \/ /, ' ') # special for CDL => bug fixed 2023/11/24
           if  (settings[:do_not_expand_sub_params] &&
-               settings[:do_not_expand_sub_params]  != cv.technology)
+               settings[:do_not_expand_sub_params]  != target_technology)
+               #settings[:do_not_expand_sub_params]  != cv.technology)
             l.sub! /\S+=.*$/, ''
           end
           circuit_top ||= '.TOP'  unless inside_subckt
@@ -1789,7 +1821,7 @@ class MinedaLVS
       # else
       #   File.symlink "../#{File.basename reference}", slink
       # end
-
+    
       puts "#{reference} created under #{Dir.pwd}"
       ['macros', 'pymacros', 'python', 'ruby', 'drc'].each{|f| FileUtils.rm_rf f if File.directory? f}
       if cells.size > 0
