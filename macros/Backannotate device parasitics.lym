@@ -6,7 +6,7 @@
  <prolog/>
  <epilog/>
  <doc/>
- <autorun>true</autorun>
+ <autorun>false</autorun>
  <autorun-early>false</autorun-early>
  <priority>0</priority>
  <shortcut/>
@@ -15,7 +15,7 @@
  <menu-path/>
  <interpreter>ruby</interpreter>
  <dsl-interpreter-name/>
- <text># Back Annotate v0.74 Mar. 12 2023 Copy right Seijiro Moriyama
+ <text># Back Annotate v0.741 Nov.18 2025 Copy right Seijiro Moriyama
 module BackannotateModule
   # require 'YAML'
   class Backannotate
@@ -425,7 +425,7 @@ module BackannotateModule
   end
   # ba = Backannotate.new
   # ba.do_backannotate
-  puts 'Caution: Please run Backannotation device parasitics in each PDK!'
+  # puts 'Caution: Please run Backannotation device parasitics in each PDK!'
 end
 </text>
 </klayout-macro>
