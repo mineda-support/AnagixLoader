@@ -1590,13 +1590,22 @@ class MinedaLVS
       puts l
       l.gsub!(181.chr(Encoding::UTF_8), 'u') # replace 'micron' with u
       l.gsub!(167.chr(Encoding::UTF_8), '')  # remove section character
-      if l.chop =~ /.inc\S* +(\S+)/
-        include_file = $1
+      #if l.chop =~ /.inc\S* +(\S+)/
+      #  include_file = $1
+      #  lines << '*' + l
+      #  if File.exist? include_file
+      #    lines = expand_file(include_file, lines)
+      #  end
+        
+      ll=l.sub(/\*.*/,'')  # remove comment after *
+      ll=ll.strip          # remove space
+      if ll =~ /^\.(inc|include)\s+(["']?)(.+?)\2$/i
+        include_file = $3.strip
+        base_dir = File.dirname(file)
+        include_path = File.expand_path(include_file, base_dir)
         lines << '*' + l
-        if File.exist? include_file
-          # lines, has_res3_sub = expand_file(include_file, lines)
-          lines = expand_file(include_file, lines)
-          # has_res3 ||= has_res3_sub
+        if File.exist? include_path
+          lines = expand_file(include_path, lines)
         end
       #elsif (has_res3 == nil) && l =~/^ *[xX][rR]\S* +([^=]*) +(\S+=\S+)/
       #  if $1 && $1.strip.split(/ +/).size >=4
@@ -1621,6 +1630,7 @@ class MinedaLVS
       cv = mw.current_view.active_cellview
       raise "You are running #{target_technology} version of 'get_reference' against #{cv.technology} layout" unless cv.technology == target_technology
       raise 'Please save the layout first' if cv.nil? || cv.filename.nil? || cv.filename == ''
+      top_cell=cv.cell.name
       cell = cv.cell
       netlist = QFileDialog::getOpenFileName(mw, 'Netlist file', File.dirname(cv.filename), 'netlist(*.net *.cir *.spc *.spice *.spi *.sp *.cdl)')
     else
@@ -1645,7 +1655,7 @@ class MinedaLVS
       netlist = netlist.force_encoding('UTF-8')
       # netlist = '/home/seijirom/Dropbox/work/LRmasterSlice/comparator/COMP_NLF.net'
       # raise "#{netlist} does not exist!" unless File.exist? netlist
-      
+
       if !settings[:cui_mode]
         Dir.chdir File.dirname(cv.filename).force_encoding('UTF-8')
         ext_name = File.extname cv.filename
@@ -1657,6 +1667,30 @@ class MinedaLVS
       end
       
       Dir.mkdir 'lvs_work' unless File.directory? 'lvs_work'
+
+      ##-- flatten all circuits except top-cell
+      if settings[:uniquify_subckt_param]
+        netlist_org=netlist
+        
+        #-- copy netlist --> netlist_org
+        netlist_bak=File.join('lvs_work', File.basename(netlist)+"_bak")  
+        File.write(netlist_bak, File.read(netlist_org))
+
+        #-- flatten(netlist) --> netlist_flatten
+        netlist=File.join('lvs_work', File.basename(netlist)+"_flatten")
+        circuit = RBA::Netlist.new
+        reader  = RBA::NetlistSpiceReader.new
+        writer  = RBA::NetlistSpiceWriter.new
+        writer.use_net_names = true      
+        circuit.read(netlist_org, reader)
+        circuit.flatten_circuit(top_cell)
+        circuit.each_circuit() do |ckt|
+          ckt_name_old=ckt.name
+          ckt.name = ckt_name_old.gsub(/[()=,]/, '_').gsub(/\.+/, 'p')
+        end        
+        circuit.write(netlist, writer)
+      end
+
       reference = File.join('lvs_work', "#{target}_reference.cir.txt")
       ref={'target' => target, 'reference'=> reference, 'netlist'=> netlist, 'schematic' => netlist.sub('.net', '.asc')}
       File.open(target+'.yaml', 'w'){|f| f.puts ref.to_yaml}
@@ -1665,10 +1699,13 @@ class MinedaLVS
       circuit_top = nil
       device_class = {}
       #lines, has_res3 = expand_file netlist, ''
+      
       lines = expand_file netlist, ''
-      unless settings[:do_not_expand_sub_params] # == cv.technology
-        ckt = SubcktParams.new lines
-        lines = ckt.expand
+      unless settings[:uniquify_subckt_param]
+        unless settings[:do_not_expand_sub_params] # == cv.technology
+          ckt = SubcktParams.new lines
+          lines = ckt.expand_
+        end
       end
       params = get_params netlist
       puts "params: #{params.inspect}"
