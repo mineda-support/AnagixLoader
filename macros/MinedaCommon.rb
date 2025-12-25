@@ -1,11 +1,11 @@
 # $show-in-menu
 # $priority: 1
-# Mineda Common v1.335 Dec. 18th, 2025
+# Mineda Common v1.336 Dec. 25th, 2025
 #   Force on-grid v0.1 July 39th 2022 copy right S. Moriyama (Anagix Corp.)
 #   LVS preprocessor(get_reference) v0.86 Dec. 18th, 2025 copyright by S. Moriyama (Anagix Corporation)
 #   * ConvertPCells and PCellDefaults moved from MinedaPCell v0.4 Nov. 22nd 2022
-#   Change PCell Defaults v0.2 Jan. 27 2024 copyright S. Moriyama
-#   ConvertLibraryCells (ConvertPCells) v0.68 May. 25th 2024  copy right S. Moriyama
+#   Change PCell Defaults v0.3 Dec. 25 2025 copyright S. Moriyama
+#   ConvertLibraryCells (ConvertPCells) v0.681 Dec. 25th 2025  copy right S. Moriyama
 #   PCellTest v0.2 August 22nd 2022 S. Moriyama
 #   DRC_helper::find_cells_to_exclude v0.1 Sep 23rd 2022 S. Moriyama
 #   MinedaInput v0.395 June 30th, 2025 S. Moriyama
@@ -111,8 +111,9 @@ module MinedaPCellCommonModule
       cellname = @@alias && @@alias[libname] && @@alias[libname][cellname] || cellname.to_s
       if @defaults && @defaults[cellname]
         if (value = @defaults[cellname][name.to_s]) || (value == nil) || (value == false)
-          # puts "#{self.class.name} '#{name}' => #{value}"
-          if last_resort[:default].class != RBA::DPoint && last_resort[:default] == true
+          puts "#{self.class.name} '#{name}' => #{value}"
+          if ![RBA::DPoint, RBA::LayerInfo].include?(last_resort[:default].class) &&
+              last_resort[:default] == true
             super name, type, desc, {default: value}
           else
             super name, type, desc, value ? {default: value} : last_resort
@@ -909,6 +910,9 @@ module MinedaCommon
           cells_to_add_via << [pcv, t, inst, i_cell_name, via] 
         else
           if inst.pcell_declaration.class.vs
+            if pd.class.vs.nil? || pd.class.u1.nil?
+              raise "vs/u1 are not set for #{pcell_lib}; please use use self.class.set_vs/set_u1"
+            end
             vso = inst.pcell_declaration.class.vs * pcell_factor
             u1o = inst.pcell_declaration.class.u1 * pcell_factor
             dg = ([((pcell_params['sdg']||0) - (pcell_params['l']||0))/2, pcell_params['dg']||0].max*oo_layout_dbu).to_i
