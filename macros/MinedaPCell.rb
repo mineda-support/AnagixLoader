@@ -1,5 +1,5 @@
 # coding: cp932
-# MinedaPCell v1.05, June 13th, 2025 copy right S. Moriyama (Anagix Corporation)
+# MinedaPCell v1.051, Dec. 25th 2025 copy right S. Moriyama (Anagix Corporation)
 module MinedaPCell
   version = 1.05
   include MinedaPCellCommonModule
@@ -1209,7 +1209,9 @@ module MinedaPCell
         cell_on_gap = layout.cell(index).dup
         cell_on_gap.flatten(true)
         off_layers_on_gap.each{|off_layer|
-          cell_on_gap.clear(layout.find_layer(get_layer_index(off_layer, false), 0))
+          if lay = layout.find_layer(get_layer_index(off_layer, false), 0)
+            cell_on_gap.clear(lay)
+          end
         }
         cell_on_gap_index = cell_on_gap.cell_index
       else
