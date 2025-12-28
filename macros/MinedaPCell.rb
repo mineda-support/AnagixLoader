@@ -1,7 +1,7 @@
 # coding: cp932
-# MinedaPCell v1.051, Dec. 25th 2025 copy right S. Moriyama (Anagix Corporation)
+# MinedaPCell v1.06, Dec. 28th 2025 copy right S. Moriyama (Anagix Corporation)
 module MinedaPCell
-  version = 1.05
+  version = 1.06
   include MinedaPCellCommonModule
   # The PCell declaration for the Mineda MOSFET
   class MinedaMOS < MinedaPCellCommon
@@ -1163,7 +1163,7 @@ module MinedaPCell
       param(:wu, TypeDouble, "Ring width", :default => 20.0.um, :hidden =>true)
       param(:cng, TypeDouble, "Corner gap", :default => 0.0.um)
       param(:ctg, TypeDouble, "Center gap", :default => 0.0.um)
-      param(:merge_layers, TypeBoolean, "Merge layers", :default => false)
+      param(:merge_layers, TypeBoolean, "Merge layers", :default => true)
     end
     def coerce_parameters_impl
       ls = ws = nil
@@ -1249,7 +1249,7 @@ module MinedaPCell
       param(:lu, TypeDouble, "Line length", :default => 20.0.um, :hidden =>true)
       param(:wu, TypeDouble, "Line width/2", :default => 0.0.um, :hidden =>true)
       param(:gp, TypeString, "Gap pattern", :default => '')
-      param(:merge_layers, TypeBoolean, "Merge layers", :default => false)
+      param(:merge_layers, TypeBoolean, "Merge layers", :default => true)
     end
     def coerce_parameters_impl
       ls = ws = nil
