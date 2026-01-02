@@ -1,7 +1,7 @@
 # coding: cp932
-# MinedaPCell v1.061, Dec. 28th 2025 copy right S. Moriyama (Anagix Corporation)
+# MinedaPCell v1.07, Jan. 2nd 2026 copy right S. Moriyama (Anagix Corporation)
 module MinedaPCell
-  version = 1.061
+  version = 1.07
   include MinedaPCellCommonModule
   # The PCell declaration for the Mineda MOSFET
   class MinedaMOS < MinedaPCellCommon
@@ -1164,6 +1164,7 @@ module MinedaPCell
       param(:cng, TypeDouble, "Corner gap", :default => 0.0.um)
       param(:ctg, TypeDouble, "Center gap", :default => 0.0.um)
       param(:merge_layers, TypeBoolean, "Merge layers", :default => true)
+      param(:sq_fit, TypeBoolean, "Fit fixed point", :default => true, :hidden => false)
     end
     def coerce_parameters_impl
       ls = ws = nil
@@ -1195,10 +1196,22 @@ module MinedaPCell
     def display_text_impl
       "#{self.name}\r\n(width=#{w.round(3)}um,length=#{l.round(3)}um)"
     end
-    def produce_impl index, bw, fillers, length, width, x1 = 0, x2 = 0, off_layers_on_gap=[]
-    #[[-bw, -bw, width, 0],
+    def produce_impl index, sq_size, fillers, fill_margin=nil, off_layers_on_gap=[]
+      oo_layout_dbu = 1.0/layout.dbu
+      bw = (sq_size*oo_layout_dbu).to_i
+      fm = fill_margin.nil? ? nil : (fill_margin*oo_layout_dbu).to_i
+      length = (l*oo_layout_dbu).to_i
+      width = (w*oo_layout_dbu).to_i  
+      x1 = x2 = 0
       @region = nil
       if index
+        if cng > 0 #corner gap
+          x1 =  -(sq_size*oo_layout_dbu).to_i
+          x2 =  ((cng-sq_size)*oo_layout_dbu).to_i
+        elsif ctg > 0 #center gap
+          x1 =  ((w-ctg)*oo_layout_dbu).to_i/2
+          x2 =  ((w+ctg)*oo_layout_dbu).to_i/2
+        end 
         if defined?(merge_layers) and merge_layers
           @region = {}
           layout.cell(index).layout.layer_indexes.each{|layer|
@@ -1216,20 +1229,19 @@ module MinedaPCell
         cell_on_gap_index = cell_on_gap.cell_index
       else
         cell_on_gap_index = nil
-      end
-      fill_area([-bw, -bw, width, 0], bw, fillers){|x, y|
-        if x1 - bw <x && x < x2 && x1 != x2
+      end  
+      area = [-bw, -bw, width, 0, nil, x1 == x2 ? nil : [x1, x2]]
+      fill_area(area, bw, fillers, fm){|x, y|
+        if x1 - bw/2 < x && x < x2 + bw/2 && x1 != x2
           insert_cell cell_on_gap_index, x, y if cell_on_gap_index 
         else
           insert_cell index, x, y if index
         end
       }
-      #fill_area([-bw, -bw, x1, 0], bw, fillers) if x1 > 0
-      #fill_area([x2 > 0 ? x2 : x2-bw, -bw, width, 0], bw, fillers)
       [[width, -bw, width+bw, length],
        [0, length, width+bw, length+bw],
        [-bw, 0, 0, length+bw]].each{|area|
-        fill_area(area, bw, fillers){|x, y|
+        fill_area(area, bw, fillers, fm){|x, y|
             insert_cell index, x, y if index
         }
       }
@@ -1248,18 +1260,20 @@ module MinedaPCell
       param(:s, TypeShape, "", :default => DPoint::new(20.0, 20.0))
       param(:lu, TypeDouble, "Line length", :default => 20.0.um, :hidden =>true)
       param(:wu, TypeDouble, "Line width/2", :default => 0.0.um, :hidden =>true)
-      param(:gp, TypeString, "Gap pattern", :default => '')
+      param(:cng, TypeDouble, "Corner gap", :default => 0.0.um)
+      param(:ctg, TypeDouble, "Center gap", :default => 0.0.um)
       param(:merge_layers, TypeBoolean, "Merge layers", :default => true)
+      param(:sq_fit, TypeBoolean, "Fit fixed point", :default => true, :hidden => false)
     end
     def coerce_parameters_impl
       ls = ws = nil
       if s.is_a?(DPoint)
         if defined?(sq_fit) and sq_fit
           ls = ((s.x/sq_size).to_i)*sq_size
-          ws = ((s.y/sq_size).to_i)*sq_size
+          ws = 0 # ((s.y/sq_size).to_i)*sq_size
         else
           ls = s.x
-          ws = s.y
+          ws = 0 # s.y
         end
       end
       if  (l - lu) .abs < 1e-6 && (w2 - wu).abs < 1e-6
@@ -1275,18 +1289,30 @@ module MinedaPCell
         ls = l
         set_s DPoint::new(ls, ws)
       end
-      gap_pattern = (gp || '').split(/[ ,] */)
-      if gap_pattern.size % 2 == 0
-        gp.sub! /[ ,] *[^,]+$/, ''
-      end
+      set_cng 0 if ctg != 0.0
+      set_ctg 0 if cng != 0.0
     end
     def display_text_impl
-      "Guard line\r\n(length=#{l.round(3)}um, width=#{w.round(3)}um)"
+      #"Guard line\r\n(length=#{l.round(3)}um, width=#{w.round(3)}um)"
+      "#{self.name}\r\n(width=#{w.round(3)}um,length=#{l.round(3)}um)"
     end
-    def produce_impl index, bw_margin, fillers, fill_margin, length, half_width, gap_pattern=[], off_layers_on_gap=[]
-      bw, margin = (bw_margin.class == Array) ? bw_margin : [bw_margin, 0]
+    def produce_impl index, sq_size, fillers, fill_margin=nil, off_layers_on_gap=[]
+      oo_layout_dbu = 1.0/layout.dbu
+      bw = (sq_size*oo_layout_dbu).to_i
+      fm = fill_margin.nil? ? nil : (fill_margin*oo_layout_dbu).to_i
+      margin = 0
+      length = (l*oo_layout_dbu).to_i
+      half_width = (w2*oo_layout_dbu).to_i     
+      x1 = x2 = 0
       @region = nil
       if index
+        if cng > 0 #corner gap
+          x1 =  0
+          x2 =  (cng*oo_layout_dbu).to_i
+        elsif ctg > 0 #center gap
+          x1 =  ((l-ctg)*oo_layout_dbu).to_i/2
+          x2 =  ((l+ctg)*oo_layout_dbu).to_i/2
+        end
         if defined?(merge_layers) and merge_layers
           @region = {}
           layout.cell(index).layout.layer_indexes.each{|layer|
@@ -1305,12 +1331,13 @@ module MinedaPCell
       else
         cell_on_gap_index = nil
       end
-      area = [0, -[bw/2, half_width.abs].max, length, [bw/2, half_width.abs].max, margin]
-      fill_area(area, bw, fillers, fill_margin){|x, y|
-        if  (gap_pattern.find_index{|a| a > x}||1)%2 == 1
-          insert_cell(index, x, y) if index
+      area = [0, -[bw/2, half_width.abs].max, length, [bw/2, half_width.abs].max, margin,
+        x1 == x2 ? nil : [x1, x2]]
+      fill_area(area, bw, fillers, fm){|x, y|
+        if x1 - bw/2 < x && x < x2 + bw/2 && x1 != x2
+          insert_cell cell_on_gap_index, x, y if cell_on_gap_index 
         else
-          insert_cell(cell_on_gap_index, x, y) if cell_on_gap_index
+          insert_cell index, x, y if index
         end
       }
       @region && @region.each_pair{|lay_ind, region_shapes|
