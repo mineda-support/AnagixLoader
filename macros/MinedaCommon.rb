@@ -1708,7 +1708,7 @@ class MinedaLVS
       unless settings[:uniquify_subckt_param]
         unless settings[:do_not_expand_sub_params] # == cv.technology
           ckt = SubcktParams.new lines
-          lines = ckt.expand_
+          lines = ckt.expand
         end
       end
       params = get_params netlist
