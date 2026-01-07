@@ -1,6 +1,6 @@
 # $show-in-menu
 # $priority: 1
-# Mineda Common v1.336 Dec. 25th, 2025
+# Mineda Common v1.337 Jan. 7th, 2026
 #   Force on-grid v0.1 July 39th 2022 copy right S. Moriyama (Anagix Corp.)
 #   LVS preprocessor(get_reference) v0.86 Dec. 18th, 2025 copyright by S. Moriyama (Anagix Corporation)
 #   * ConvertPCells and PCellDefaults moved from MinedaPCell v0.4 Nov. 22nd 2022
@@ -250,7 +250,7 @@ module MinedaPCellCommonModule
     end
     
     def fill_area area, square_size, filler=nil, fill_margin=0
-      x1, y1, x2, y2, margin = area
+      x1, y1, x2, y2, margin, xgap = area
       margin_x = margin_y = (margin || 0)
       if margin.class == Array
         margin_x, margin_y = margin
@@ -289,10 +289,22 @@ module MinedaPCellCommonModule
         end    
         if filler.class == Array
           filler.each{|index|
-            create_box index, x1, y1, x2, y2
-        }
+            if xgap
+              xg1, xg2 = xgap
+              create_box index, x1, y1, xg1, y2 if xg1 > x1
+              create_box index, xg2, y1, x2, y2
+            else
+              create_box index, x1, y1, x2, y2
+            end
+          }
         else
-          create_box filler, x1, y1, x2, y2
+          if xgap
+            xg1, xg2 = xgap
+            create_box filler, x1, y1, xg1, y2
+            create_box filler, xg2, y1, x2, y2
+          else         
+            create_box filler, x1, y1, x2, y2
+          end
         end
       end
      return_box
