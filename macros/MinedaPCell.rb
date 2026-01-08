@@ -1,7 +1,7 @@
 # coding: cp932
-# MinedaPCell v1.081, Jan. 8th 2026 copy right S. Moriyama (Anagix Corporation)
+# MinedaPCell v1.082, Jan. 8th 2026 copy right S. Moriyama (Anagix Corporation)
 module MinedaPCell
-  version = 1.081
+  version = 1.082
   include MinedaPCellCommonModule
   # The PCell declaration for the Mineda MOSFET
   class MinedaMOS < MinedaPCellCommon
@@ -1245,7 +1245,7 @@ module MinedaPCell
             insert_cell index, x, y if index
         }
       }
-      cell_on_gap.delete
+      cell_on_gap.delete if cell_on_gap
       @region && @region.each_pair{|lay_ind, region_shapes|
         lay_index = layout.cell(index).layout.layer(lay_ind, 0)
          cell.shapes(lay_index).insert(region_shapes.merge)
@@ -1341,7 +1341,7 @@ module MinedaPCell
           insert_cell index, x, y if index
         end
       }
-      cell_on_gap.delete
+      cell_on_gap.delete if cell_on_gap
       @region && @region.each_pair{|lay_ind, region_shapes|
         lay_index = layout.cell(index).layout.layer(lay_ind, 0)
         cell.shapes(lay_index).insert(region_shapes.merge)
