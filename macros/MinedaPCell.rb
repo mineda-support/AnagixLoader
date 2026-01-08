@@ -1,7 +1,7 @@
 # coding: cp932
-# MinedaPCell v1.08, Jan. 8th 2026 copy right S. Moriyama (Anagix Corporation)
+# MinedaPCell v1.081, Jan. 8th 2026 copy right S. Moriyama (Anagix Corporation)
 module MinedaPCell
-  version = 1.08
+  version = 1.081
   include MinedaPCellCommonModule
   # The PCell declaration for the Mineda MOSFET
   class MinedaMOS < MinedaPCellCommon
@@ -1258,7 +1258,7 @@ module MinedaPCell
       super()
       param(:l, TypeDouble, "Line length", :default => line_length)
       param(:w2, TypeDouble, "Line width/2", :default => 0.0.um)
-      param(:s, TypeShape, "", :default => DPoint::new(20.0, 20.0))
+      param(:s, TypeShape, "", :default => DPoint::new(20.0, 0.0))
       param(:lu, TypeDouble, "Line length", :default => 20.0.um, :hidden =>true)
       param(:wu, TypeDouble, "Line width/2", :default => 0.0.um, :hidden =>true)
       param(:cng, TypeDouble, "Corner gap", :default => 0.0.um)
@@ -1271,7 +1271,7 @@ module MinedaPCell
       if s.is_a?(DPoint)
         if defined?(sq_fit) and sq_fit
           ls = ((s.x/sq_size).to_i)*sq_size
-          ws = 0 # ((s.y/sq_size).to_i)*sq_size
+          ws = 0 #((s.y/sq_size).to_i)*sq_size
         else
           ls = s.x
           ws = 0 # s.y
