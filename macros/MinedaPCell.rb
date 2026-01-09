@@ -1,7 +1,7 @@
 # coding: cp932
-# MinedaPCell v1.082, Jan. 8th 2026 copy right S. Moriyama (Anagix Corporation)
+# MinedaPCell v1.083, Jan. 9th 2026 copy right S. Moriyama (Anagix Corporation)
 module MinedaPCell
-  version = 1.082
+  version = 1.083
   include MinedaPCellCommonModule
   # The PCell declaration for the Mineda MOSFET
   class MinedaMOS < MinedaPCellCommon
@@ -1229,7 +1229,15 @@ module MinedaPCell
         cell_on_gap_index = cell_on_gap.cell_index
       else
         cell_on_gap_index = nil
-      end  
+      end
+      if defined?(wire_width) && wire_width > 0.0
+        ml1_index = fillers.shift # first of fillers MUST BE a metal wire_width
+        points = ((x1 > -bw/2) ? [[x2, -bw/2], [width+bw/2, -bw/2], [width+bw/2, length+bw/2],
+                  [-bw/2, length+bw/2], [-bw/2,  -bw/2], [x1, -bw/2]] :
+                  [[x2, -bw/2], [width+bw/2, -bw/2], [width+bw/2, length+bw/2],
+                  [-bw/2, length+bw/2], [-bw/2, 0]]).map{|x, y| Point::new(x, y)}
+        cell.shapes(ml1_index).insert(Path::new(points, (wire_width*oo_layout_dbu).to_i, 0, 0))
+      end 
       area = [-bw, -bw, width, 0, nil, x1 == x2 ? nil : [x1, x2]]
       fill_area(area, bw, fillers, fm){|x, y|
         if x1 - bw/2 < x && x < x2 + bw/2 && x1 != x2
@@ -1242,7 +1250,7 @@ module MinedaPCell
        [0, length, width+bw, length+bw],
        [-bw, 0, 0, length+bw]].each{|area|
         fill_area(area, bw, fillers, fm){|x, y|
-            insert_cell index, x, y if index
+          insert_cell index, x, y if index
         }
       }
       cell_on_gap.delete if cell_on_gap
@@ -1332,6 +1340,13 @@ module MinedaPCell
       else
         cell_on_gap_index = nil
       end
+      if defined?(wire_width) && wire_width > 0.0
+        ml1_index = fillers.shift # first of fillers MUST BE a metal wire_width
+        if x1 > 0
+          create_path ml1_index, 0, 0, x1, 0, (wire_width*oo_layout_dbu).to_i, 0, 0
+        end
+        create_path ml1_index, x2, 0, length, 0, (wire_width*oo_layout_dbu).to_i, 0, 0
+      end 
       area = [0, -[bw/2, half_width.abs].max, length, [bw/2, half_width.abs].max, margin,
         x1 == x2 ? nil : [x1, x2]]
       fill_area(area, bw, fillers, fm){|x, y|
