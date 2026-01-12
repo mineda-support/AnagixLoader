@@ -1,7 +1,7 @@
 # coding: cp932
-# MinedaPCell v1.083, Jan. 9th 2026 copy right S. Moriyama (Anagix Corporation)
+# MinedaPCell v1.084, Jan. 12th 2026 copy right S. Moriyama (Anagix Corporation)
 module MinedaPCell
-  version = 1.083
+  version = 1.084
   include MinedaPCellCommonModule
   # The PCell declaration for the Mineda MOSFET
   class MinedaMOS < MinedaPCellCommon
@@ -1340,7 +1340,7 @@ module MinedaPCell
       else
         cell_on_gap_index = nil
       end
-      if defined?(wire_width) && wire_width > 0.0
+      if fillers.class == Array && defined?(wire_width) && wire_width > 0.0
         ml1_index = fillers.shift # first of fillers MUST BE a metal wire_width
         if x1 > 0
           create_path ml1_index, 0, 0, x1, 0, (wire_width*oo_layout_dbu).to_i, 0, 0
