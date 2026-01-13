@@ -1,7 +1,7 @@
 # coding: cp932
-# MinedaPCell v1.084, Jan. 12th 2026 copy right S. Moriyama (Anagix Corporation)
+# MinedaPCell v1.085, Jan. 13th 2026 copy right S. Moriyama (Anagix Corporation)
 module MinedaPCell
-  version = 1.084
+  version = 1.085
   include MinedaPCellCommonModule
   # The PCell declaration for the Mineda MOSFET
   class MinedaMOS < MinedaPCellCommon
@@ -1178,10 +1178,10 @@ module MinedaPCell
         end
       end
       if  (l - lu) .abs < 1e-6 && (w - wu).abs < 1e-6
-        set_lu ls
-        set_l ls
-        set_wu ws
-        set_w ws
+        set_lu ls.round(5)
+        set_l ls.round(5)
+        set_wu ws.round(5)
+        set_w ws.round(5)
       else
         #      puts "l=#{l} w=#{w}"
         set_lu l
@@ -1229,36 +1229,42 @@ module MinedaPCell
         cell_on_gap_index = cell_on_gap.cell_index
       else
         cell_on_gap_index = nil
+        produce_impl_loop fillers, width, length, bw, x1, x2, bw+(fm || 0)*2
       end
-      if defined?(wire_width) && wire_width > 0.0
+      if fillers.class == Array && defined?(wire_width) && wire_width > 0.0
         ml1_index = fillers.shift # first of fillers MUST BE a metal wire_width
-        points = ((x1 > -bw/2) ? [[x2, -bw/2], [width+bw/2, -bw/2], [width+bw/2, length+bw/2],
-                  [-bw/2, length+bw/2], [-bw/2,  -bw/2], [x1, -bw/2]] :
-                  [[x2, -bw/2], [width+bw/2, -bw/2], [width+bw/2, length+bw/2],
-                  [-bw/2, length+bw/2], [-bw/2, 0]]).map{|x, y| Point::new(x, y)}
-        cell.shapes(ml1_index).insert(Path::new(points, (wire_width*oo_layout_dbu).to_i, 0, 0))
-      end 
-      area = [-bw, -bw, width, 0, nil, x1 == x2 ? nil : [x1, x2]]
-      fill_area(area, bw, fillers, fm){|x, y|
-        if x1 - bw/2 < x && x < x2 + bw/2 && x1 != x2
-          insert_cell cell_on_gap_index, x, y if cell_on_gap_index 
-        else
-          insert_cell index, x, y if index
-        end
-      }
-      [[width, -bw, width+bw, length],
-       [0, length, width+bw, length+bw],
-       [-bw, 0, 0, length+bw]].each{|area|
+        produce_impl_loop ml1_index, width, length, bw, x1, x2, (wire_width*oo_layout_dbu).to_i
+      end
+      if index
+        area = [-bw, -bw, width, 0, nil, x1 == x2 ? nil : [x1, x2]]
         fill_area(area, bw, fillers, fm){|x, y|
-          insert_cell index, x, y if index
+          if x1 - bw/2 < x && x < x2 + bw/2 && x1 != x2
+            insert_cell cell_on_gap_index, x, y if cell_on_gap_index 
+          else
+            insert_cell index, x, y if index
+          end
         }
-      }
-      cell_on_gap.delete if cell_on_gap
+        [[width, -bw, width+bw, length],
+         [0, length, width+bw, length+bw],
+         [-bw, 0, 0, length+bw]].each{|area|
+          fill_area(area, bw, fillers, fm){|x, y|
+            insert_cell index, x, y if index
+          }
+        }
+        cell_on_gap.delete if cell_on_gap
+      end
       @region && @region.each_pair{|lay_ind, region_shapes|
         lay_index = layout.cell(index).layout.layer(lay_ind, 0)
          cell.shapes(lay_index).insert(region_shapes.merge)
       }
     end
+    def produce_impl_loop ml1_index, width, length, bw, x1, x2, ww
+      points = ((x1 > -bw/2) ? [[x2, -bw/2], [width+bw/2, -bw/2], [width+bw/2, length+bw/2],
+                  [-bw/2, length+bw/2], [-bw/2,  -bw/2], [x1, -bw/2]] :
+                  [[x2, -bw/2], [width+bw/2, -bw/2], [width+bw/2, length+bw/2],
+                  [-bw/2, length+bw/2], [-bw/2, 0]]).map{|x, y| Point::new(x, y)}
+      cell.shapes(ml1_index).insert(Path::new(points, ww, 0, 0))
+    end   
   end
   
   class MinedaFillLine < MinedaPCellCommon
@@ -1286,10 +1292,10 @@ module MinedaPCell
         end
       end
       if  (l - lu) .abs < 1e-6 && (w2 - wu).abs < 1e-6
-        set_lu ls
-        set_l ls
-        set_wu ws
-        set_w2 ws
+        set_lu ls.round(5)
+        set_l ls.round(5)
+        set_wu ws.round(5)
+        set_w2 ws.round(5)
       else
         #      puts "l=#{l} w=#{w}"
         set_lu l
@@ -1339,6 +1345,7 @@ module MinedaPCell
         cell_on_gap_index = cell_on_gap.cell_index
       else
         cell_on_gap_index = nil
+        produce_impl_loop fillers, width, length, bw, x1, x2, bw+(fm || 0)*2
       end
       if fillers.class == Array && defined?(wire_width) && wire_width > 0.0
         ml1_index = fillers.shift # first of fillers MUST BE a metal wire_width
@@ -1346,17 +1353,19 @@ module MinedaPCell
           create_path ml1_index, 0, 0, x1, 0, (wire_width*oo_layout_dbu).to_i, 0, 0
         end
         create_path ml1_index, x2, 0, length, 0, (wire_width*oo_layout_dbu).to_i, 0, 0
-      end 
-      area = [0, -[bw/2, half_width.abs].max, length, [bw/2, half_width.abs].max, margin,
-        x1 == x2 ? nil : [x1, x2]]
-      fill_area(area, bw, fillers, fm){|x, y|
-        if x1 - bw/2 < x && x < x2 + bw/2 && x1 != x2
-          insert_cell cell_on_gap_index, x, y if cell_on_gap_index 
-        else
-          insert_cell index, x, y if index
-        end
-      }
-      cell_on_gap.delete if cell_on_gap
+      end
+      if index
+        area = [0, -[bw/2, half_width.abs].max, length, [bw/2, half_width.abs].max, margin,
+          x1 == x2 ? nil : [x1, x2]]
+        fill_area(area, bw, fillers, fm){|x, y|
+          if x1 - bw/2 < x && x < x2 + bw/2 && x1 != x2
+            insert_cell cell_on_gap_index, x, y if cell_on_gap_index 
+          else
+            insert_cell index, x, y if index
+          end
+        }
+        cell_on_gap.delete if cell_on_gap
+      end
       @region && @region.each_pair{|lay_ind, region_shapes|
         lay_index = layout.cell(index).layout.layer(lay_ind, 0)
         cell.shapes(lay_index).insert(region_shapes.merge)
