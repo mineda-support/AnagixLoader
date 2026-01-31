@@ -1,4 +1,3 @@
-# $show-in-menu
 # $priority: 1
 # Mineda Common v1.337 Jan. 7th, 2026
 #   Force on-grid v0.1 July 39th 2022 copy right S. Moriyama (Anagix Corp.)
