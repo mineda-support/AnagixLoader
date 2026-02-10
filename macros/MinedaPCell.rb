@@ -1,7 +1,7 @@
 # coding: cp932
-# MinedaPCell v1.085, Jan. 13th 2026 copy right S. Moriyama (Anagix Corporation)
+# MinedaPCell v1.086, Feb. 9th 2026 copy right S. Moriyama (Anagix Corporation)
 module MinedaPCell
-  version = 1.085
+  version = 1.086
   include MinedaPCellCommonModule
   # The PCell declaration for the Mineda MOSFET
   class MinedaMOS < MinedaPCellCommon
@@ -1203,6 +1203,7 @@ module MinedaPCell
       length = (l*oo_layout_dbu).to_i
       width = (w*oo_layout_dbu).to_i  
       x1 = x2 = 0
+      wm_sink = defined?(wide_metal) && wide_metal ? bw/2 : 0
       @region = nil
       if index
         if cng > 0 #corner gap
@@ -1229,13 +1230,13 @@ module MinedaPCell
         cell_on_gap_index = cell_on_gap.cell_index
       else
         cell_on_gap_index = nil
-        produce_impl_loop fillers, width, length, bw, x1, x2, bw+(fm || 0)*2
+        produce_impl_loop fillers, width, length, bw, x1, x2, bw+(fm || 0)*2, wm_sink
       end
       if fillers.class == Array && defined?(wire_width) && wire_width > 0.0
         ml1_index = fillers.shift # first of fillers MUST BE a metal wire_width
-        produce_impl_loop ml1_index, width, length, bw, x1, x2, (wire_width*oo_layout_dbu).to_i
+        produce_impl_loop ml1_index, width, length, bw, x1, x2, (wire_width*oo_layout_dbu).to_i, wm_sink
       end
-      if index
+      if index 
         area = [-bw, -bw, width, 0, nil, x1 == x2 ? nil : [x1, x2]]
         fill_area(area, bw, fillers, fm){|x, y|
           if x1 - bw/2 < x && x < x2 + bw/2 && x1 != x2
@@ -1245,8 +1246,8 @@ module MinedaPCell
           end
         }
         [[width, -bw, width+bw, length],
-         [0, length, width+bw, length+bw],
-         [-bw, 0, 0, length+bw]].each{|area|
+         [(wm_sink == 0 ? 0 : -bw) , length+wm_sink, width+bw, length+bw+wm_sink],
+         [-bw, 0, 0, length+ (wm_sink == 0 ? bw: 0)]].each{|area|
           fill_area(area, bw, fillers, fm){|x, y|
             insert_cell index, x, y if index
           }
@@ -1258,11 +1259,11 @@ module MinedaPCell
          cell.shapes(lay_index).insert(region_shapes.merge)
       }
     end
-    def produce_impl_loop ml1_index, width, length, bw, x1, x2, ww
-      points = ((x1 > -bw/2) ? [[x2, -bw/2], [width+bw/2, -bw/2], [width+bw/2, length+bw/2],
-                  [-bw/2, length+bw/2], [-bw/2,  -bw/2], [x1, -bw/2]] :
-                  [[x2, -bw/2], [width+bw/2, -bw/2], [width+bw/2, length+bw/2],
-                  [-bw/2, length+bw/2], [-bw/2, 0]]).map{|x, y| Point::new(x, y)}
+    def produce_impl_loop ml1_index, width, length, bw, x1, x2, ww, wm_sink=0
+      points = ((x1 > -bw/2) ? [[x2, -bw/2], [width+bw/2, -bw/2], [width+bw/2, length+bw/2+wm_sink],
+                  [-bw/2, length+bw/2+wm_sink], [-bw/2,  -bw/2], [x1, -bw/2]] :
+                  [[x2, -bw/2], [width+bw/2, -bw/2], [width+bw/2, length+bw/2+wm_sink],
+                  [-bw/2, length+bw/2+wm_sink], [-bw/2, 0]]).map{|x, y| Point::new(x, y)}
       cell.shapes(ml1_index).insert(Path::new(points, ww, 0, 0))
     end   
   end
