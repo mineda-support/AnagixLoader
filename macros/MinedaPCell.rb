@@ -1,5 +1,5 @@
 # coding: cp932
-# MinedaPCell v1.086, Feb. 9th 2026 copy right S. Moriyama (Anagix Corporation)
+# MinedaPCell v1.087, Feb. 11th 2026 copy right S. Moriyama (Anagix Corporation)
 module MinedaPCell
   version = 1.086
   include MinedaPCellCommonModule
@@ -59,10 +59,13 @@ module MinedaPCell
       sd_width = [gw, vs + vs_extra].max
       offset = 0
       m1cnt_width = params[:m1cnt_width] || vs
-      if (defined?(ld_length) && ld_length > 0.0) || (defined?(rd_length) && rd_length > 0.0)
-        dcont_for_dummy = layout.cell(indices[:dcont]).dup
-        dcont_for_dummy.clear(layout.find_layer(get_layer_index('ML1', false), 0))
-        dcont_for_dummy.clear(layout.find_layer(get_layer_index('CNT', false), 0))
+      dcont_for_dummy = nil
+      if defined?(dummy_sd) && dummy_sd
+        if (defined?(ld_length) && ld_length > 0.0) || (defined?(rd_length) && rd_length > 0.0)
+          dcont_for_dummy = layout.cell(indices[:dcont]).dup
+          dcont_for_dummy.clear(layout.find_layer(get_layer_index('ML1', false), 0))
+          dcont_for_dummy.clear(layout.find_layer(get_layer_index('CNT', false), 0))
+        end
       end
       ldl = rdl = 0
       # left dummy
@@ -70,8 +73,10 @@ module MinedaPCell
         ldl = [ (ld_length*oo_layout_dbu).to_i, gl].min
         x = -ldl/2 -  dgl - xshift
         create_path(indices[:pol], x, vs-yshift+u1, x, vs-yshift+u1+sd_width, ldl, gate_ext, gate_ext)
-        x = -ldl - dgl*2 - m1cnt_width/2 - xshift
-        create_dcont(dcont_for_dummy.cell_index, x, vs-yshift+u1, x, vs-yshift+u1+sd_width, vs + vs_extra, params[:dcont_offset])
+        if dcont_for_dummy
+          x = -ldl - dgl*2 - m1cnt_width/2 - xshift
+          create_dcont(dcont_for_dummy.cell_index, x, vs-yshift+u1, x, vs-yshift+u1+sd_width, vs + vs_extra, params[:dcont_offset])
+        end
       end
       (n+1).times{|i|
         x = offset + m1cnt_width/2 - xshift
@@ -95,23 +100,33 @@ module MinedaPCell
         rdl = [(rd_length*oo_layout_dbu).to_i, gl].min
         x = x - gl/2 + rdl/2
         create_path(indices[:pol], x, vs-yshift+u1, x, vs-yshift+u1+sd_width, rdl, gate_ext, gate_ext)
-        x = x + m1cnt_width/2 + rdl/2 + dgl
-        create_dcont(dcont_for_dummy.cell_index, x, vs-yshift+u1, x, vs-yshift+u1+sd_width, vs + vs_extra, params[:dcont_offset])
+        if dcont_for_dummy
+          x = x + m1cnt_width/2 + rdl/2 + dgl
+          create_dcont(dcont_for_dummy.cell_index, x, vs-yshift+u1, x, vs-yshift+u1+sd_width, vs + vs_extra, params[:dcont_offset])
+        end
       end
       x1 = 0
       if defined?(ld_length) && ld_length > 0.0
-        x1 = - ldl - 2*dgl - m1cnt_width
+        if dcont_for_dummy
+          x1 = - ldl - 2*dgl - m1cnt_width
+        else
+          x1 = - ldl
+        end
       end
       x2 = offset - gl - 2*dgl
       if defined?(rd_length) && rd_length > 0.0
-        x2 = x2 + rdl + 2*dgl + m1cnt_width
+        if dcont_for_dummy
+          x2 = x2 + rdl + 2*dgl + m1cnt_width
+        else
+          x2 = x2 + rdl
+        end
       end
       if gw > vs + vs_extra
         create_box indices[:diff], x1-xshift, vs-yshift+u1, x2 - xshift, vs-yshift+u1+gw
       else
         create_box indices[:diff], x1-xshift, vs-yshift+u1+(vs+vs_extra)/2-gw/2, x2 - xshift, vs-yshift+u1+gw+(vs+vs_extra)/2-gw/2
       end
-      yield -xshift, -yshift, vs*2+gl-xshift, (vs+u1)*2+sd_width-yshift, gl, gw, dgl, m1cnt_width, ldl, rdl
+      yield -xshift, -yshift, vs*2+gl-xshift, (vs+u1)*2+sd_width-yshift, gl, gw, dgl, m1cnt_width, ldl, rdl, dcont_for_dummy
     end
 
     def library_cell name, libname, layout
@@ -133,7 +148,7 @@ module MinedaPCell
     end
 
     def produce_impl indices, vs, u1, params = {} # NMOS
-      produce_impl_core(indices, vs, u1, params){|x1, y1, x2, y2, gl, gw, dgl, m1cnt_width, ldl, rdl|
+      produce_impl_core(indices, vs, u1, params){|x1, y1, x2, y2, gl, gw, dgl, m1cnt_width, ldl, rdl, dcont_for_dummy|
         # create ncon
         wm_offset = defined?(wide_metal) && wide_metal ? params[:wm_offset] || u1 : 0
         via_offset = params[:via_offset] || 0
@@ -219,8 +234,10 @@ module MinedaPCell
           insert_cell indices[:psubcont], x, y, false, params[:psubcont_bbox] if indices[:psubcont]
           insert_cell indices[:via], x, y if with_via
         end
-        x1 = x1 - m1cnt_width - ldl - 2*dgl if ldl > 0
-        offset = offset + m1cnt_width + rdl + 2*dgl if rdl > 0
+        x1 = x1 - ldl
+        x1 = x1 - m1cnt_width - 2*dgl if dcont_for_dummy
+        offset = offset + rdl
+        offset = offset + m1cnt_width + 2*dgl if dcont_for_dummy
         #create_box indices[:narea], x1-u1, y1+vs+u1/2, offset-gl+u1, y2-vs-u1/2
         area_ext = params[:area_ext] || 0
         narea_bw = params[:narea_bw] || u1 + u1/4
@@ -433,7 +450,7 @@ module MinedaPCell
     end
 
     def produce_impl indices, vs, u1, params = {} # PMOS
-      produce_impl_core(indices, vs, u1, params){|x1, y1, x2, y2, gl, gw, dgl, m1cnt_width, ldl, rdl|
+      produce_impl_core(indices, vs, u1, params){|x1, y1, x2, y2, gl, gw, dgl, m1cnt_width, ldl, rdl, dcont_for_dummy|
         # create pcont
         wm_offset = defined?(wide_metal) && wide_metal ? params[:wm_offset] || vs/2 : 0
         via_offset = params[:via_offset] || 0
@@ -519,8 +536,10 @@ module MinedaPCell
           insert_cell indices[:nsubcont], x, y if indices[:nsubcont]
           insert_cell indices[:via], x, y if with_via
         end
-        x1 = x1 - m1cnt_width - ldl - 2*dgl if ldl > 0
-        offset = offset + m1cnt_width + rdl + 2*dgl if rdl > 0
+        x1 = x1 - ldl
+        x1 = x1 - m1cnt_width - 2*dgl if dcont_for_dummy
+        offset = offset + rdl
+        offset = offset + m1cnt_width + 2*dgl if dcont_for_dummy
         area_ext = params[:area_ext] || 0
         parea_bw = params[:parea_bw] || u1 + u1/4
         create_box indices[:parea], x1-parea_bw, y1+vs+u1-parea_bw-area_ext, offset-gl+parea_bw, y2-vs-u1+parea_bw
