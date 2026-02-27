@@ -1,7 +1,7 @@
 # coding: cp932
-# MinedaPCell v1.087, Feb. 11th 2026 copy right S. Moriyama (Anagix Corporation)
+# MinedaPCell v1.088, Feb. 27th 2026 copy right S. Moriyama (Anagix Corporation)
 module MinedaPCell
-  version = 1.086
+  version = 1.088
   include MinedaPCellCommonModule
   # The PCell declaration for the Mineda MOSFET
   class MinedaMOS < MinedaPCellCommon
@@ -1224,6 +1224,7 @@ module MinedaPCell
       x1 = x2 = 0
       wm_sink = defined?(wide_metal) && wide_metal ? bw/2 : 0
       @region = nil
+      off_layers = []
       if index
         if cng > 0 #corner gap
           x1 =  -(sq_size*oo_layout_dbu).to_i
@@ -1245,6 +1246,7 @@ module MinedaPCell
           if lay = layout.find_layer(get_layer_index(off_layer, false), 0)
             cell_on_gap.clear(lay)
           end
+          off_layers << @layer_index[off_layer].first
         }
         cell_on_gap_index = cell_on_gap.cell_index
       else
@@ -1252,8 +1254,13 @@ module MinedaPCell
         produce_impl_loop fillers, width, length, bw, x1, x2, bw+(fm || 0)*2, wm_sink
       end
       if fillers.class == Array && defined?(wire_width) && wire_width > 0.0
-        ml1_index = fillers.shift # first of fillers MUST BE a metal wire_width
+        ml1_index = fillers.shift # first of fillers MUST BE a metal (with wire_width)
         produce_impl_loop ml1_index, width, length, bw, x1, x2, (wire_width*oo_layout_dbu).to_i, wm_sink
+        fillers.each{|filler|
+          if off_layers.include? layout.get_info(filler).layer
+            produce_impl_loop filler, width, length, bw, x2, x2, bw+(fm || 0)*2, wm_sink
+          end
+        }
       end
       if index 
         area = [-bw, -bw, width, 0, nil, x1 == x2 ? nil : [x1, x2]]
