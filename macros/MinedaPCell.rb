@@ -1,7 +1,7 @@
 # coding: cp932
-# MinedaPCell v1.089, Feb. 28th 2026 copy right S. Moriyama (Anagix Corporation)
+# MinedaPCell v1.090, Feb. 28th 2026 copy right S. Moriyama (Anagix Corporation)
 module MinedaPCell
-  version = 1.089
+  version = 1.090
   include MinedaPCellCommonModule
   # The PCell declaration for the Mineda MOSFET
   class MinedaMOS < MinedaPCellCommon
@@ -541,8 +541,13 @@ module MinedaPCell
         offset = offset + rdl
         offset = offset + m1cnt_width + 2*dgl if dcont_for_dummy
         area_ext = params[:area_ext] || 0
-        parea_bw = params[:parea_bw] || u1 + u1/4
-        create_box indices[:parea], x1-parea_bw, y1+vs+u1-parea_bw-area_ext, offset-gl+parea_bw, y2-vs-u1+parea_bw
+        if params[:parea_bw].class == Array
+          parea_bw, parea_bw_upper = params[:parea_bw]
+          create_box indices[:parea], x1-parea_bw, y1+vs+u1-parea_bw-area_ext, offset-gl+parea_bw, y2-vs-u1+parea_bw_upper
+        else
+          parea_bw = params[:parea_bw] || u1 + u1/4
+          create_box indices[:parea], x1-parea_bw, y1+vs+u1-parea_bw-area_ext, offset-gl+parea_bw, y2-vs-u1+parea_bw
+        end
         # create_box indices[:lvhvt], x1-parea_bw, y1+vs+u1-parea_bw, offset-gl+parea_bw, y2-vs-u1+parea_bw if indices[:lvhvt]
         delta = params[:pex_delta] || u1*5
         create_box indices[:pex], x1-delta, y1+vs-u1/2-delta-u1, offset-gl+delta, y2-vs+u1/2+delta+u1 if indices[:pex]
