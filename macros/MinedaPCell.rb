@@ -1,7 +1,7 @@
 # coding: cp932
-# MinedaPCell v1.091, Mar. 5th, 2026 copy right S. Moriyama (Anagix Corporation)
+# MinedaPCell v1.092, Mar. 5th, 2026 copy right S. Moriyama (Anagix Corporation)
 module MinedaPCell
-  version = 1.091
+  version = 1.092
   include MinedaPCellCommonModule
   # The PCell declaration for the Mineda MOSFET
   class MinedaMOS < MinedaPCellCommon
@@ -542,8 +542,10 @@ module MinedaPCell
         offset = offset + m1cnt_width + 2*dgl if dcont_for_dummy
         area_ext = params[:area_ext] || 0
         if params[:parea_bw].class == Array
-          parea_bw, parea_bw_upper = params[:parea_bw]
-          create_box indices[:parea], x1-parea_bw, y1+vs+u1-parea_bw-area_ext, offset-gl+parea_bw, y2-vs-u1+parea_bw_upper
+          parea_bw, parea_bw_upper, parea_bw_side = params[:parea_bw]
+          parea_bw_upper ||= parea_bw
+          parea_bw_side ||= parea_bw
+          create_box indices[:parea], x1-parea_bw_side, y1+vs+u1-parea_bw-area_ext, offset-gl+parea_bw_side, y2-vs-u1+parea_bw_upper
         else
           parea_bw = params[:parea_bw] || u1 + u1/4
           create_box indices[:parea], x1-parea_bw, y1+vs+u1-parea_bw-area_ext, offset-gl+parea_bw, y2-vs-u1+parea_bw
