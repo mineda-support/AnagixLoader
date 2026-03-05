@@ -1,7 +1,7 @@
 # coding: cp932
-# MinedaPCell v1.092, Mar. 5th, 2026 copy right S. Moriyama (Anagix Corporation)
+# MinedaPCell v1.093, Mar. 5th, 2026 copy right S. Moriyama (Anagix Corporation)
 module MinedaPCell
-  version = 1.092
+  version = 1.093
   include MinedaPCellCommonModule
   # The PCell declaration for the Mineda MOSFET
   class MinedaMOS < MinedaPCellCommon
@@ -893,9 +893,10 @@ module MinedaPCell
      # delta is used to adjust res end
       indices[:m1] = get_layer_index 'ML1'
       indices[:cnt] = get_layer_index 'CNT'
-      length = (l/layout.dbu).to_i
-      width = (w/layout.dbu).to_i
-      sseg = (ss/layout.dbu).to_i
+      oo_layout_dbu = 1.0/layout.dbu
+      length = (l*oo_layout_dbu).to_i
+      width = (w*oo_layout_dbu).to_i
+      sseg = (ss*oo_layout_dbu).to_i
       ml1_cnt = params[:ml1_cnt] || u1/5
       ml1_margin = params[:ml1_margin] || 0
       cnt_margin = params[:cnt_margin] || [0, 0] 
@@ -1237,8 +1238,8 @@ module MinedaPCell
           x1 =  -(sq_size*oo_layout_dbu).to_i
           x2 =  ((cng-sq_size)*oo_layout_dbu).to_i
         elsif ctg > 0 #center gap
-          x1 =  ((w-ctg)*oo_layout_dbu).to_i/2
-          x2 =  ((w+ctg)*oo_layout_dbu).to_i/2
+          x1 =  (((w-ctg)*oo_layout_dbu)).round(5).to_i/2
+          x2 =  (((w+ctg)*oo_layout_dbu)).round(5).to_i/2
         end 
         if defined?(merge_layers) and merge_layers
           @region = {}
@@ -1582,12 +1583,13 @@ module MinedaPCell
     end
        
     def produce_impl_core(indices, body, head, via_size = 9.0.um, grid = 4.0.um )
-      rw = (w/layout.dbu).to_i
-      rl = (l/layout.dbu).to_i
-      vs = (via_size/layout.dbu).to_i
-      sl = s.split(/[,\s]+/).map{|s| (s.to_f/layout.dbu).to_i}
+      oo_layout_dbu = 1/ layout.dbu
+      rw = (w*oo_layout_dbu).to_i
+      rl = (l*oo_layout_dbu).to_i
+      vs = (via_size*oo_layout_dbu).to_i
+      sl = s.split(/[,\s]+/).map{|s| (s.to_f*oo_layout_dbu).to_i}
       rrl = rl.abs + sl.map{|a| a.abs}.sum
-      u1 = (grid/layout.dbu).to_i
+      u1 = (grid*oo_layout_dbu).to_i
       nbc = nb.split(/[,\s]+/).map &:to_i
       x = vs/2
       y = (rl > 0) ? vs : 0
