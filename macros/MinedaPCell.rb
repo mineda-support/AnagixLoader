@@ -1,7 +1,7 @@
 # coding: cp932
-# MinedaPCell v1.090, Feb. 28th 2026 copy right S. Moriyama (Anagix Corporation)
+# MinedaPCell v1.091, Mar. 5th, 2026 copy right S. Moriyama (Anagix Corporation)
 module MinedaPCell
-  version = 1.090
+  version = 1.091
   include MinedaPCellCommonModule
   # The PCell declaration for the Mineda MOSFET
   class MinedaMOS < MinedaPCellCommon
@@ -110,7 +110,7 @@ module MinedaPCell
         if dcont_for_dummy
           x1 = - ldl - 2*dgl - m1cnt_width
         else
-          x1 = - ldl
+          x1 = - ldl - 2*dgl # 2026/3/5
         end
       end
       x2 = offset - gl - 2*dgl
@@ -118,7 +118,7 @@ module MinedaPCell
         if dcont_for_dummy
           x2 = x2 + rdl + 2*dgl + m1cnt_width
         else
-          x2 = x2 + rdl
+          x2 = x2 + rdl + 2*dgl # 2026/3/5
         end
       end
       if gw > vs + vs_extra
