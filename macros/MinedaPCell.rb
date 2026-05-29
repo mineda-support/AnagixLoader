@@ -1,7 +1,7 @@
 # coding: cp932
-# MinedaPCell v1.093, Mar. 5th, 2026 copy right S. Moriyama (Anagix Corporation)
+# MinedaPCell v1.094, May. 29th, 2026 copy right S. Moriyama (Anagix Corporation)
 module MinedaPCell
-  version = 1.093
+  version = 1.094
   include MinedaPCellCommonModule
   # The PCell declaration for the Mineda MOSFET
   class MinedaMOS < MinedaPCellCommon
@@ -234,10 +234,10 @@ module MinedaPCell
           insert_cell indices[:psubcont], x, y, false, params[:psubcont_bbox] if indices[:psubcont]
           insert_cell indices[:via], x, y if with_via
         end
-        x1 = x1 - ldl
-        x1 = x1 - m1cnt_width - 2*dgl if dcont_for_dummy
-        offset = offset + rdl
-        offset = offset + m1cnt_width + 2*dgl if dcont_for_dummy
+        x1 = x1 - ldl - dgl
+        x1 = x1 - m1cnt_width - dgl if dcont_for_dummy
+        offset = offset + rdl + dgl
+        offset = offset + m1cnt_width + dgl if dcont_for_dummy
         #create_box indices[:narea], x1-u1, y1+vs+u1/2, offset-gl+u1, y2-vs-u1/2
         area_ext = params[:area_ext] || 0
         narea_bw = params[:narea_bw] || u1 + u1/4
@@ -536,10 +536,10 @@ module MinedaPCell
           insert_cell indices[:nsubcont], x, y if indices[:nsubcont]
           insert_cell indices[:via], x, y if with_via
         end
-        x1 = x1 - ldl
-        x1 = x1 - m1cnt_width - 2*dgl if dcont_for_dummy
-        offset = offset + rdl
-        offset = offset + m1cnt_width + 2*dgl if dcont_for_dummy
+        x1 = x1 - ldl - dgl
+        x1 = x1 - m1cnt_width - dgl if dcont_for_dummy
+        offset = offset + rdl + dgl
+        offset = offset + m1cnt_width + dgl if dcont_for_dummy
         area_ext = params[:area_ext] || 0
         if params[:parea_bw].class == Array
           parea_bw, parea_bw_upper, parea_bw_side = params[:parea_bw]
