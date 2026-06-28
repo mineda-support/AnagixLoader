@@ -1,5 +1,5 @@
 # $priority: 1
-# Mineda Common v1.337 Jan. 7th, 2026
+# Mineda Common v1.34 June. 29th, 2026
 #   Force on-grid v0.1 July 39th 2022 copy right S. Moriyama (Anagix Corp.)
 #   LVS preprocessor(get_reference) v0.86 Dec. 18th, 2025 copyright by S. Moriyama (Anagix Corporation)
 #   * ConvertPCells and PCellDefaults moved from MinedaPCell v0.4 Nov. 22nd 2022
@@ -8,9 +8,9 @@
 #   PCellTest v0.2 August 22nd 2022 S. Moriyama
 #   DRC_helper::find_cells_to_exclude v0.1 Sep 23rd 2022 S. Moriyama
 #   MinedaInput v0.395 June 30th, 2025 S. Moriyama
-#   MinedaPCellCommon v0.341 July 27th 2024 S. Moriyama
+#   MinedaPCellCommon v0.35 June 29th 2024 S. Moriyama
 #   Create Backannotation data v0.171 May 14th 2023 S. Moriyama
-#   MinedaAutoplace v0.31 July 26th 2023 S. Moriyama
+#   MinedaAutoplace v0.4 June 29th 2023 S. Moriyama
 #   ChangePCellParameters v0.1 July 29th 2023 S. Moriyama
 #   MinedaBridge v0.1 Sep. 17 2023 S. Moriyama
 #   MinedaUtility v0.1 Aug. 8, 2025 S. Moriyama
@@ -46,7 +46,7 @@ module MinedaPCellCommonModule
     @@lyp_file = @@basic_library = @@layer_index = nil
     @@alias = {}
     
-    def initialize 
+    def initialize
       key = 'PCells_' + self.class.name.to_s.split('::').first + '-defaults'
       key.sub! 'PCells_OpenRule1um_v2', 'PCells'
       #@defaults = YAML.load(Application.instance.get_config key)
@@ -54,9 +54,134 @@ module MinedaPCellCommonModule
 
       # puts "Got PCell @defaults from #{key}"
       set_layer_index
+      # @kicad = ''
       super
     end
     
+    def generate_kicad_device
+      return unless @kicad 
+      footprint_name = cell.name
+      # S式（S-expression）テキストの構築
+      # ※ KiCad v6 / v7 / v8 形式に準拠
+      s_expr =  "(footprint \"#{footprint_name}\"\n"
+      s_expr += "  (version 20240101)\n"
+      s_expr += "  (generator \"KLayout_Ruby_Script\")\n"
+      s_expr += "  (layer \"F.Cu\")\n"
+      s_expr += "  (descr \"Generated automatically from KLayout PCell\")\n"
+      # デフォルトの参照符号（Reference）と値（Value）のテキスト配置
+      s_expr += "  (fp_text reference \"REF**\" (at 0 -5) (layer \"F.SilkS\") (effects (font (size 1 1) (thickness 0.15))))\n"
+      s_expr += "  (fp_text value \"#{footprint_name}\" (at 0 1) (layer \"F.Fab\") (effects (font (size 1 1) (thickness 0.15))))\n"
+      s_expr += "#{@kicad})\n"
+      app = RBA::Application.instance
+      mw = app.main_window
+      lv = mw.current_view
+      filename = lv.active_cellview.filename
+      dir = File.dirname filename
+      if File.extname(dir) == '.pretty' # create files under footprint library
+        kicad_mod_path = File.join(dir, "#{footprint_name}.kicad_mod")
+        File.open(kicad_mod_path, 'w'){|f| f.puts s_expr}
+        puts "#{kicad_mod_path} created"
+      else
+        puts "KiCad footprint for #{footprint_name}: #{s_expr.split(/\n/).length} lines"
+      end
+      s_expr  
+    end
+    
+    # --- ① ML1 (6/0) -> 表面銅箔パッド (F.Cu) ---
+    #flat_cell.each_shape(layer_ml1_scan) do |shape|
+    def ml1_to_kicad_Fcu (pin_num, bbox)
+      #bbox = shape.bbox
+      w = (bbox.width * layout.dbu).round(4)
+      h = (bbox.height * layout.dbu).round(4)
+      cx = (bbox.center.x * layout.dbu).round(4)
+      cy = -(bbox.center.y * layout.dbu).round(4)
+      
+      #pin_num = find_pin_num.call(cx, cy)
+      #s_expr += 
+      @kicad += "  (pad \"#{pin_num}\" smd rect (at #{cx} #{cy}) (size #{w} #{h}) (layers \"F.Cu\" \"F.Paste\" \"F.Mask\"))\n"
+    end
+
+    # --- ② ML2 (9/0) -> 裏面銅箔パッド (B.Cu) ---
+    #flat_cell.each_shape(layer_ml2) do |shape|
+    def ml2_to_kicad_Bcu (pin_num, bbox)
+      #bbox = shape.bbox
+      w = (bbox.width * layout.dbu).round(4)
+      h = (bbox.height * layout.dbu).round(4)
+      cx = (bbox.center.x * layout.dbu).round(4)
+      cy = -(bbox.center.y * layout.dbu).round(4)
+      
+      #pin_num = find_pin_num.call(cx, cy)
+      #s_expr += 
+      @kicad += "  (pad \"#{pin_num}\" smd rect (at #{cx} #{cy}) (size #{w} #{h}) (layers \"B.Cu\" \"B.Mask\"))\n"
+    end
+
+    # --- ③ VIA1 (8/0) -> スルーホール (Through-hole) ---
+    #flat_cell.each_shape(layer_via1) do |shape|
+    def via1_to_kicad_TH pin_num, bbox
+     # bbox = shape.bbox
+      via_w = (bbox.width * layout.dbu).round(4)
+      via_h = (bbox.height * layout.dbu).round(4)
+      cx = (bbox.center.x * layout.dbu).round(4)
+      cy = -(bbox.center.y * layout.dbu).round(4)
+      
+      size_dia = [via_w, via_h].max
+      drill_dia = (size_dia * 0.6).round(4)
+      
+      #pin_num = find_pin_num.call(cx, cy)
+      #s_expr += 
+      @kicad += "  (pad \"#{pin_num}\" thru_hole circle (at #{cx} #{cy}) (size #{size_dia} #{size_dia}) (drill #{drill_dia}) (layers \"*.Cu\" \"*.Mask\"))\n"
+      ml1_to_kicad_Fcu pin_num, bbox
+      ml2_to_kicad_Bcu pin_num, bbox
+    end
+
+    # --- ④ POL (4/0) -> ゲート形状を完璧に描き出す ---
+    #flat_cell.each_shape(layer_pol) do |shape|
+    def gate_shape_to_kicad bbox
+      #bbox = shape.bbox
+      w = (bbox.width * layout.dbu).round(4)
+      h = (bbox.height * layout.dbu).round(4)
+      
+      # 💡【最重要修正】Wが3倍になって大きくなったゲートPOLが消えないよう、制限を15.0μmに拡大
+      #next if w > 15.0 || h > 15.0 
+      
+      cx = (bbox.center.x * layout.dbu).round(4)
+      cy = -(bbox.center.y * layout.dbu).round(4)
+      
+      x1, x2 = (cx - w/2.0).round(4), (cx + w/2.0).round(4)
+      y1, y2 = (cy - h/2.0).round(4), (cy + h/2.0).round(4)
+      
+      #s_expr += 
+      @kicad += "  (fp_poly (pts (xy #{x1} #{y1}) (xy #{x2} #{y1}) (xy #{x2} #{y2}) (xy #{x1} #{y2})) (stroke (width 0.05) (type solid)) (fill solid) (layer \"F.Fab\"))\n"
+    end
+
+    # --- ⑤ DIFF (20/0：拡散層) -> アクティブ領域をシルク破線で囲む ---
+    #flat_cell.each_shape(layer_diff) do |shape|
+    def active_to_kicad_silk bbox, silk
+      #bbox = shape.bbox
+      w = (bbox.width * layout.dbu).round(4)
+      h = (bbox.height * layout.dbu).round(4)
+      #next if w > 15.0 || h > 15.0
+      
+      cx = (bbox.center.x * layout.dbu).round(4)
+      cy = -(bbox.center.y * layout.dbu).round(4)
+      
+      x1, x2 = (cx - w/2.0).round(4), (cx + w/2.0).round(4)
+      y1, y2 = (cy - h/2.0).round(4), (cy + h/2.0).round(4)
+      
+      #silk = (pcell_name == 'Nch') ? 'F.SilkS' : 'B.SilkS'
+      #s_expr += 
+      "  (fp_poly (pts (xy #{x1} #{y1}) (xy #{x2} #{y1}) (xy #{x2} #{y2}) (xy #{x1} #{y2})) (stroke (width 0.05) (type dash)) (fill none) (layer \"#{silk}\"))\n"
+    end
+    private :active_to_kicad_silk
+    
+    def ndiff_to_kicad_Fsilk bbox
+      @kicad += active_to_kicad_silk bbox, 'F.SilkS'
+    end
+    
+    def pdiff_to_kicad_Bsilk bbox
+      @kicad += active_to_kicad_silk bbox, 'B.SilkS'
+    end
+        
     def set_alias args={}
       @@alias.merge! args
     end
@@ -1998,7 +2123,7 @@ class MinedaAutoPlace
     unless lv = @mw.current_view
       raise "Shape Statistics: No view selected"
     end
-    @asc_file = QFileDialog::getOpenFileName(@mw, 'Schematic file', ENV['HOME'], 'asc file(*.asc)')
+    @asc_file = QFileDialog::getOpenFileName(@mw, 'Schematic file', ENV['HOME'], 'schematic file(*.asc *.kicad_sch *.sch)')
     raise 'Cancelled' if @asc_file.nil? || @asc_file == ''
     @cell = lv.active_cellview.cell
     technology = lv.active_cellview.technology
@@ -2031,7 +2156,20 @@ class MinedaAutoPlace
       lines = File.read(file)
     end
   end
-  def each_element file
+  #def each_element file
+  def q2c str
+    i=str.to_i
+    #(i*8)/10
+    (i*4)/5
+  end
+
+  def e2q str
+    #i = (str.to_f*8.0-0.5).to_i
+    i = (str.to_f/0.127).to_i * 2 # 2026/4/24
+  end
+
+  def get_elements file
+    elements = []
     sym=x=y=rot=name=l=w=m=nil
     xmax=ymax=0
     if File.extname(file).downcase == '.asc' # LTspice
@@ -2042,7 +2180,8 @@ class MinedaAutoPlace
           x2 = $2.to_i
           y3 = $3.to_i
           rot4=$4
-          yield sym, name, l, w, m ? m : 1, x, y, rot, xmax, ymax if name
+          #yield sym, name, l, w, m ? m : 1, x, y, rot, xmax, ymax if name
+          elements << [sym, name, l, w, m ? m : 1, x, y, rot, xmax, ymax] if name
           sym = sym1
           x = x2
           y = y3
@@ -2060,9 +2199,59 @@ class MinedaAutoPlace
           ymax = $2.to_i
         end
       }
-      yield sym, name, l, w, m ? m.to_i : 1, x, y, rot, xmax, ymax
+      #yield sym, name, l, w, m ? m.to_i : 1, x, y, rot, xmax, ymax
+      elements << [sym, name, l, w, m ? m.to_i : 1, x, y, rot, xmax, ymax]
+    elsif File.extname(file).downcase == '.kicad_sch' # LTspice
+      require 'sxp'
+      eescm = SXP.read(File.read(file).encode('UTF-8'))
+      elements = []
+      eescm[1..-1].each{|blk|
+        next unless blk[0] == :symbol
+        @component = {:type => 'Lib'}
+        inst = {}
+        blk[1..-1].each{|item|
+          #@component[:lib_path] = blk[1][1]
+          #@component[:label_pos] # to be filled
+          case item[0]
+          when :lib_id
+            item[1] =~ /\S+:(\S+)/
+            @component[:name] = $1
+          when :at
+            @component[:x] = q2c(e2q(item[1].to_i))
+            @component[:y] = q2c(e2q(item[2].to_i))
+            inst['rotation'] = item[3]
+          when :mirror
+            inst['mirror'] = item[1] # item[3]
+          when :property
+            inst[item[1]] = item[2] # item[1] == 'Reference'
+          when :pin
+            inst[:pin] ||= {}
+            inst[item[1]] = item[2][1] # item[1] == '1'
+          when :instances
+          end
+        }
+        @component[:symattr] ||= {}
+        @component[:symattr]['InstName'] = inst['Reference']
+        @component[:symattr]['Prefix'] = inst['Description']        
+        if inst['mirror'] == :x
+          @component[:rotation] = 'R' + (inst['rotation'] || '').to_s
+        else # :y
+          @component[:rotation] = 'M' + (inst['rotation'] || '').to_s
+        end
+        #@components << @component if @component
+                            # MPL01A l=1u w=10.2u m=5
+        inst['Sim.Params'] =~ /^\S+ +[lL]=(\S+)[uU] +[wW]=(\S+)[uU] +[mM]=(\S+)/ ||
+        inst['Sim.Params'] =~ /^\S+ +[lL]=(\S+)[uU] +[wW]=(\S+)[uU]/
+        l=$1.to_f
+        w=$2.to_f
+        m=$3.to_i || 1
+        elements << [@component[:name], @component[:symattr]['InstName'],
+                  l, w, m ? m.to_i : 1, @component[:x], @component[:y], 
+                  @component[:rotation], xmax, ymax]
+      }
+      elements
     else
-      raise 'autoplace now supports LTspice schematic only'
+      raise 'autoplace now supports LTspice/EEschema schematic only'
     end
   end
   
@@ -2074,7 +2263,8 @@ class MinedaAutoPlace
     res_index = library_cell(@res, @pcell_lib, layout)
     cap_index = library_cell(@cap, @pcell_lib, layout)
 
-    each_element(@asc_file){|sym, name, l, w, m, x, y, rot, xmax, ymax|
+    #each_element(@asc_file){|sym, name, l, w, m, x, y, rot, xmax, ymax|
+    get_elements(@asc_file).each{|sym, name, l, w, m, x, y, rot, xmax, ymax|
       instance = nil
       @cell.each_inst{|inst|
         if inst.property('name') == name
@@ -2083,7 +2273,7 @@ class MinedaAutoPlace
         end
       }
       if instance.nil?
-        puts "#{name}: l=#{l} w=#{w} m=#{m ? m : 1} @ (#{x}, #{y}), #{rot}"
+        puts "#{name}(#{sym}): l=#{l} w=#{w} m=#{m ? m : 1} @ (#{x}, #{y}), #{rot}"
         if sym =~ /NMOS|nmos/ #  'MinedaLIB\\NMOS_MIN'
           index = nch_index
         elsif sym =~ /PMOS|pmos/
