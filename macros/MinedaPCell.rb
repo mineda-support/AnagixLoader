@@ -132,7 +132,7 @@ module MinedaPCell
         create_box indices[:diff], x1-xshift, vs-yshift+u1+(vs+vs_extra)/2-gw/2, x2 - xshift, vs-yshift+u1+gw+(vs+vs_extra)/2-gw/2
       end
       yield -xshift, -yshift, vs*2+gl-xshift, (vs+u1)*2+sd_width-yshift, gl, gw, dgl, m1cnt_width, ldl, rdl, dcont_for_dummy
-      generate_kicad_device
+      generate_kicad_device l, w, n
     end
 
     def library_cell name, libname, layout
@@ -229,7 +229,7 @@ module MinedaPCell
             if n == 1
               if with_via && with_sdcont
                 insert_cell indices[:via], x, y2-vs/2 + (defined?(wide_metal) &&wide_metal ? u1/2 : 0) + via_offset 
-                @kicad && via1_to_kicad_TH(1, Box.new(vs).move(x, y2-vs/2 + (defined?(wide_metal) &&wide_metal ? u1/2 : 0) + via_offset))
+                @kicad && via1_to_kicad_TH(3, Box.new(vs).move(x, y2-vs/2 + (defined?(wide_metal) &&wide_metal ? u1/2 : 0) + via_offset))
               end
               y = y2-vs/2
             else
