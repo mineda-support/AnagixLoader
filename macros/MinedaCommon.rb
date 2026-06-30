@@ -1,5 +1,5 @@
 # $priority: 1
-# Mineda Common v1.34 June. 29th, 2026
+# Mineda Common v1.35 June. 30th, 2026
 #   Force on-grid v0.1 July 39th 2022 copy right S. Moriyama (Anagix Corp.)
 #   LVS preprocessor(get_reference) v0.86 Dec. 18th, 2025 copyright by S. Moriyama (Anagix Corporation)
 #   * ConvertPCells and PCellDefaults moved from MinedaPCell v0.4 Nov. 22nd 2022
@@ -10,7 +10,7 @@
 #   MinedaInput v0.395 June 30th, 2025 S. Moriyama
 #   MinedaPCellCommon v0.35 June 29th 2024 S. Moriyama
 #   Create Backannotation data v0.171 May 14th 2023 S. Moriyama
-#   MinedaAutoplace v0.4 June 29th 2023 S. Moriyama
+#   MinedaAutoplace v0.41 June 30th 2026 S. Moriyama
 #   ChangePCellParameters v0.1 July 29th 2023 S. Moriyama
 #   MinedaBridge v0.1 Sep. 17 2023 S. Moriyama
 #   MinedaUtility v0.1 Aug. 8, 2025 S. Moriyama
@@ -58,9 +58,9 @@ module MinedaPCellCommonModule
       super
     end
     
-    def generate_kicad_device
-      return unless @kicad 
-      footprint_name = cell.name
+    def generate_kicad_device l, w, m
+      return unless @kicad
+      footprint_name=cell.name
       # S式（S-expression）テキストの構築
       # ※ KiCad v6 / v7 / v8 形式に準拠
       s_expr =  "(footprint \"#{footprint_name}\"\n"
@@ -80,7 +80,7 @@ module MinedaPCellCommonModule
       if File.extname(dir) == '.pretty' # create files under footprint library
         kicad_mod_path = File.join(dir, "#{footprint_name}.kicad_mod")
         File.open(kicad_mod_path, 'w'){|f| f.puts s_expr}
-        puts "#{kicad_mod_path} created"
+        puts "#{kicad_mod_path} created for l=#{l} w=#{w} m=#{m}"
       else
         puts "KiCad footprint for #{footprint_name}: #{s_expr.split(/\n/).length} lines"
       end
@@ -2123,6 +2123,8 @@ class MinedaAutoPlace
     unless lv = @mw.current_view
       raise "Shape Statistics: No view selected"
     end
+    filename = lv.active_cellview.filename
+    @dir = File.dirname filename
     @asc_file = QFileDialog::getOpenFileName(@mw, 'Schematic file', ENV['HOME'], 'schematic file(*.asc *.kicad_sch *.sch)')
     raise 'Cancelled' if @asc_file.nil? || @asc_file == ''
     @cell = lv.active_cellview.cell
@@ -2233,7 +2235,7 @@ class MinedaAutoPlace
         @component[:symattr] ||= {}
         @component[:symattr]['InstName'] = inst['Reference']
         @component[:symattr]['Prefix'] = inst['Description']        
-        if inst['mirror'] == :x
+        if inst['mirror'] == :x || inst['mirror'].nil?
           @component[:rotation] = 'R' + (inst['rotation'] || '').to_s
         else # :y
           @component[:rotation] = 'M' + (inst['rotation'] || '').to_s
@@ -2244,7 +2246,7 @@ class MinedaAutoPlace
         inst['Sim.Params'] =~ /^\S+ +[lL]=(\S+)[uU] +[wW]=(\S+)[uU]/
         l=$1.to_f
         w=$2.to_f
-        m=$3.to_i || 1
+        m=($3 || 1).to_i # note: nil.to_i => 0
         elements << [@component[:name], @component[:symattr]['InstName'],
                   l, w, m ? m.to_i : 1, @component[:x], @component[:y], 
                   @component[:rotation], xmax, ymax]
@@ -2263,6 +2265,7 @@ class MinedaAutoPlace
     res_index = library_cell(@res, @pcell_lib, layout)
     cap_index = library_cell(@cap, @pcell_lib, layout)
 
+    kicad_elements = {}
     #each_element(@asc_file){|sym, name, l, w, m, x, y, rot, xmax, ymax|
     get_elements(@asc_file).each{|sym, name, l, w, m, x, y, rot, xmax, ymax|
       instance = nil
@@ -2286,9 +2289,11 @@ class MinedaAutoPlace
           l = nil
         end
         if index
+          kicad_cell_name = "#{layout.cell(index).name}.#{rot}l#{l}w#{w}m#{m}"
           mos = instantiate index, 0, 0
           inst = @cell.insert(mos)
           inst.set_property 'name', name
+          inst.set_property 'kicad_footprint', kicad_cell_name
           xpos = x*@xscale/@grid.to_i*@grid
           ypos = (ymax - y)*@yscale/@grid.to_i*@grid
           case rot
@@ -2326,8 +2331,29 @@ class MinedaAutoPlace
         inst.change_pcell_parameter 'w', w
         inst.change_pcell_parameter 'n', m
       end
+      kicad_elements[name] = [(x*layout.dbu).round(4), (y*layout.dbu).round(4), kicad_cell_name]
     }
     @mw.cm_zoom_fit
+    @asc_file =~ /(\S+)\.(\S+)/
+    Dir.chdir(@dir){
+      kicad_file = File.basename($1) + '.yaml'
+      File.open(kicad_file, 'w'){|f| f.puts kicad_elements.to_yaml}
+      @cell.each_inst{|inst|
+        kicad_footprint_file = "#{inst.cell.name}.kicad_mod"
+        new_name = kicad_elements[inst.property('name')][2]
+        #new_name = inst.property('kicad_footprint')
+        #puts("Weird: #{inst.property('name')}'s footprint is not #{new_name}!") 
+        inst_params = "(l=#{inst.pcell_parameter('l')},w=#{inst.pcell_parameter('w')},m=#{inst.pcell_parameter('n')})"
+        puts "#{inst.property('name')}:#{kicad_footprint_file}=>footprint:#{new_name}:#{inst_params}"
+        if new_name && File.exist?(kicad_footprint_file)
+          kicad_mod = File.read(kicad_footprint_file)
+          File.open("#{new_name}.kicad_mod", 'w'){|f|
+            f.puts kicad_mod.sub(/\(footprint "\S+"/, "(footprint \"#{new_name}\"")
+          }
+        end
+      }
+    }
+    kicad_elements
   end
   def adjust w, n, wmax, wmin = wmax/100
     return [w, n] if w <= wmax
