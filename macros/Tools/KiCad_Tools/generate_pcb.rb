@@ -1,12 +1,14 @@
+# assign_footprintsのおかげで不要になった
+
 # coding: utf-8
 require 'yaml'
 require 'securerandom'
-Dir.chdir '/home/anagix/Seafile/KiCad4LSI/Test4.pretty'
+Dir.chdir '/home/anagix/Seafile/KiCad4LSI/Op8_16.pretty'
 
 # --- 設定変数 ---
-YAML_FILE = 'op8_22_v2.yaml'       # 入力するYAMLファイル名
-OUTPUT_PCB = '../op8_22_v2.kicad_pcb'    # 出力するKiCad PCBファイル名
-LIB_NAME = 'Test4'             # KiCad上でのライブラリ識別子（任意）
+YAML_FILE = 'Op8_16_v2.yaml'       # 入力するYAMLファイル名
+OUTPUT_PCB = '../Op8_16_v2/Op8_16_v2.kicad_pcb'    # 出力するKiCad PCBファイル名
+LIB_NAME = 'Op8_16'             # KiCad上でのライブラリ識別子（任意）
 PRETTY_DIR = '.'
 # ----------------
 TARGET_CENTER_X = 150.0  # A4枠(297x210)のほぼ中央
