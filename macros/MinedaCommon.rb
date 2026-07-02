@@ -42,7 +42,7 @@ module MinedaPCellCommonModule
   include RBA
   class MinedaPCellCommon < PCellDeclarationHelper
     include RBA
-    attr_accessor :defaults, :layer_index
+    attr_accessor :defaults, :layer_index, :kicad
     @@lyp_file = @@basic_library = @@layer_index = nil
     @@alias = {}
     
@@ -58,9 +58,10 @@ module MinedaPCellCommonModule
       super
     end
     
-    def generate_kicad_device l, w, m
+    def generate_kicad_device l=0, w=0, m=0
       return unless @kicad
-      footprint_name=cell.name
+      #footprint_name=cell.name
+      footprint_name = "#{cell.name.sub(/\$.*$/,'')}.l#{l}w#{w}m#{m}"
       # S式（S-expression）テキストの構築
       # ※ KiCad v6 / v7 / v8 形式に準拠
       s_expr =  "(footprint \"#{footprint_name}\"\n"
@@ -2114,6 +2115,78 @@ class MinedaLVS
   end
 end
 
+class KiCadModTransformer
+  def initialize(mode)
+    @mode = mode.upcase
+  end
+
+  def transform(content, new_fp_name, name)
+    # 1. 内部のフットプリント名を新しい名前に書き換える
+    content.sub!(/^(\s*\(footprint\s+)"[^"]+"/) do
+      "#{$1}\"#{new_fp_name}\""
+    end
+    content.sub!(/^(\s*\(fp_text reference\s+)"REF\*\*"/) do
+      "#{$1}\"#{name}\""
+    end
+    content.sub!(/^(\s*\(footprint\s+)"[^"]+"/) do
+      "#{$1}\"#{new_fp_name}\""
+    end
+    # 2. ミラー指示 (M0, M90, M180, M270) の場合、内部のすべてのX座標を反転させる
+    if @mode.start_with?('M')
+      # (at X Y [ANGLE]) の X 座標を反転
+      content.gsub!(/\(at\s+([\d.-]+)\s+([\d.-]+)(?:\s+([\d.-]+))?\)/) do
+        x = -$1.to_f
+        y = $2.to_f
+        angle = $3 ? $3.to_f : 0.0
+        # 左右反転すると、個々のパーツが持つ自身の回転角（アングル）も逆回転(符号反転)になります
+        angle = (-angle) % 360
+        angle_str = angle == 0.0 ? "" : " #{angle.round(4)}"
+        "(at #{x.round(4)} #{y.round(4)}#{angle_str})"
+      end
+
+      # 直線やグラフィックの座標 (pts (xy X1 Y1) (xy X2 Y2)) などの X 座標を反転
+      content.gsub!(/\(xy\s+([\d.-]+)\s+([\d.-]+)\)/) do
+        x = -$1.to_f
+        y = $2.to_f
+        "(xy #{x.round(4)} #{y.round(4)})"
+      end
+
+      # レイヤーを表面(F.〇〇)から裏面(B.〇〇)へ切り替え
+      content.gsub!(/\b(F\.[a-zA-Z0-9_]+)\b/) do |layer|
+        layer.start_with?('F.') ? layer.sub(/^F\./, 'B.') : layer
+      end
+      content.gsub!(/\b(B\.[a-zA-Z0-9_]+)\b/) do |layer|
+        layer.start_with?('B.') ? layer.sub(/^B\./, 'F.') : layer
+      end
+    end
+
+    # 3. 指定された角度 (R90や M90 など) に応じて全体の回転処理を行う
+    # フットプリント全体のベース回転は、すべての (at X Y ANGLE) に角度を加算することで実現します
+    add_angle = case @mode
+                when 'R0', 'M0'     then 0
+                when 'R90', 'M90'   then 90
+                when 'R180', 'M180' then 180
+                when 'R270', 'M270' then 270
+                else
+                  warn "未知の変換指示です: #{@mode}"
+                  return content
+                end
+
+    if add_angle > 0
+      content.gsub!(/\(at\s+([\d.-]+)\s+([\d.-]+)(?:\s+([\d.-]+))?\)/) do
+        x = $1.to_f
+        y = $2.to_f
+        orig_angle = $3 ? $3.to_f : 0.0
+        new_angle = (orig_angle + add_angle) % 360
+        angle_str = new_angle == 0.0 ? "" : " #{new_angle.round(4)}"
+        "(at #{x} #{y}#{angle_str})"
+      end
+    end
+
+    content
+  end
+end
+
 class MinedaAutoPlace
   include RBA
   def initialize opts={}
@@ -2269,7 +2342,7 @@ class MinedaAutoPlace
     #each_element(@asc_file){|sym, name, l, w, m, x, y, rot, xmax, ymax|
     get_elements(@asc_file).each{|sym, name, l, w, m, x, y, rot, xmax, ymax|
       instance = nil
-      @cell.each_inst{|inst|
+     @cell.each_inst{|inst|
         if inst.property('name') == name
           instance = inst
           break
@@ -2289,11 +2362,8 @@ class MinedaAutoPlace
           l = nil
         end
         if index
-          kicad_cell_name = "#{layout.cell(index).name}.#{rot}l#{l}w#{w}m#{m}"
           mos = instantiate index, 0, 0
           inst = @cell.insert(mos)
-          inst.set_property 'name', name
-          inst.set_property 'kicad_footprint', kicad_cell_name
           xpos = x*@xscale/@grid.to_i*@grid
           ypos = (ymax - y)*@yscale/@grid.to_i*@grid
           case rot
@@ -2306,13 +2376,13 @@ class MinedaAutoPlace
           when 'R270'
             inst.transform Trans.new(Trans::R270, xpos, ypos)
           when 'M0'
-            inst.transform Trans.new(Trans::M90, xpos, ypos)
-          when 'M90'
-            inst.transform Trans.new(Trans::M135, xpos, ypos)
-          when 'M180'
             inst.transform Trans.new(Trans::M0, xpos, ypos)
+          when 'M90'
+            inst.transform Trans.new(Trans::M90, xpos, ypos)
+          when 'M180'
+            inst.transform Trans.new(Trans::M180, xpos, ypos)
           when 'M270'
-            inst.transform Trans.new(Trans::M45, xpos, ypos)
+            inst.transform Trans.new(Trans::M270, xpos, ypos)
           end
         else
           puts "warning: instance #{name} does not have a valid symbol"
@@ -2330,28 +2400,28 @@ class MinedaAutoPlace
         inst.change_pcell_parameter 'l', l
         inst.change_pcell_parameter 'w', w
         inst.change_pcell_parameter 'n', m
+        inst.set_property 'name', name
+        File.extname(@dir) == '.pretty' && Dir.chdir(@dir){
+          kicad_cell_name = "#{inst.cell.name.sub(/\$.*$/,'')}.l#{l}w#{w}m#{m}"
+          if File.exist?(infile=kicad_cell_name + '.kicad_mod')
+            content = File.read(infile, encoding: 'utf-8')
+            transformer = KiCadModTransformer.new(rot)
+            kicad_cell_rot = kicad_cell_name + '_' + rot
+            result = transformer.transform(content, kicad_cell_rot, name)
+            
+            inst.set_property 'kicad_footprint', kicad_cell_rot
+            File.write(kicad_cell_rot + '.kicad_mod', result, encoding: 'utf-8')
+            kicad_elements[name] = [(x*layout.dbu).round(4), (y*layout.dbu).round(4), kicad_cell_rot]
+          end
+        }
       end
-      kicad_elements[name] = [(x*layout.dbu).round(4), (y*layout.dbu).round(4), kicad_cell_name]
     }
     @mw.cm_zoom_fit
     @asc_file =~ /(\S+)\.(\S+)/
-    Dir.chdir(@dir){
+    File.extname(@dir) == '.pretty' && Dir.chdir(@dir){
       kicad_file = File.basename($1) + '.yaml'
       File.open(kicad_file, 'w'){|f| f.puts kicad_elements.to_yaml}
-      @cell.each_inst{|inst|
-        kicad_footprint_file = "#{inst.cell.name}.kicad_mod"
-        new_name = kicad_elements[inst.property('name')][2]
-        #new_name = inst.property('kicad_footprint')
-        #puts("Weird: #{inst.property('name')}'s footprint is not #{new_name}!") 
-        inst_params = "(l=#{inst.pcell_parameter('l')},w=#{inst.pcell_parameter('w')},m=#{inst.pcell_parameter('n')})"
-        puts "#{inst.property('name')}:#{kicad_footprint_file}=>footprint:#{new_name}:#{inst_params}"
-        if new_name && File.exist?(kicad_footprint_file)
-          kicad_mod = File.read(kicad_footprint_file)
-          File.open("#{new_name}.kicad_mod", 'w'){|f|
-            f.puts kicad_mod.sub(/\(footprint "\S+"/, "(footprint \"#{new_name}\"")
-          }
-        end
-      }
+      puts "#{kicad_file} created under #{Dir.pwd}"
     }
     kicad_elements
   end
