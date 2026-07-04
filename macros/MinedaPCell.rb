@@ -1,5 +1,5 @@
 # coding: cp932
-# MinedaPCell v1.094, May. 29th, 2026 copy right S. Moriyama (Anagix Corporation)
+# MinedaPCell v1.095, July 4th, 2026 copy right S. Moriyama (Anagix Corporation)
 module MinedaPCell
   version = 1.094
   include MinedaPCellCommonModule
@@ -194,6 +194,7 @@ module MinedaPCell
             y = y - pcont_size/2 + [pol_width, u1].max/2
             x3 = x1+m1cnt_width+dgl+[pol_width, u1].max/2
             create_path2 indices[:pol], x, y, x3, y, x3, y2-vs + gate_ext - u1, [pol_width, u1].max, 0, 0
+            @kicad && gate_shape_to_kicad(Box.new(x, y-[pol_width, u1].max/2, x3, y+[pol_width, u1].max/2))
           end
         end
         offset = x1
@@ -524,6 +525,7 @@ module MinedaPCell
             y = y + pcont_size/2 - [pol_width, u1].max/2
             x3 = x1+m1cnt_width+dgl+[pol_width, u1].max/2
             create_path2 indices[:pol], x, y, x3, y, x3, y1+vs - gate_ext + u1, [pol_width, u1].max, 0, 0
+            @kicad && gate_shape_to_kicad(Box.new(x, y-[pol_width, u1].max/2, x3, y+[pol_width, u1].max/2))
           end
         end
         offset = x1
