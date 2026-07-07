@@ -23,7 +23,7 @@ module PCB_to_gds
   # メソッドの中に処理を閉じ込める（GC対策）
   def self.run
     mw = Application.instance.main_window
-    view = mw.current_view&.active_cellview
+    view = mw.current_view.active_cellview
     
     if view
       pcb_file = QFileDialog::getOpenFileName(mw, 'KiCad PCB file', File.dirname(view.filename), 'pcb(*.kicad_pcb)')
@@ -42,7 +42,7 @@ module PCB_to_gds
       layout.dbu = 0.001
       top_cell = layout.create_cell("TOP")
     end
-    
+    top_cell.set_property 'fp-lib-table', '/home/anagix/Seafile/KiCad4LSI/Op8_16_v2/fp-lib-table'
     puts "*** pcb_file #{pcb_file} to GDS conversion started"
     
     # 完全にインクルードされたモジュールからインスタンス作成
@@ -62,8 +62,8 @@ module PCB_to_gds
       puts "Layer setup error: #{e.message}"
       return
     end
-
-    library = Library.library_by_name("PCells")
+    pcell_lib = ('PCells_' + view.technology).sub('PCells_OpenRule1um', 'PCells')
+    library = Library.library_by_name(pcell_lib)
     raise "Library 'PCells' not found" unless library
 
     kpcb = SXP.read(File.read(pcb_file).encode('UTF-8'))
@@ -91,7 +91,8 @@ module PCB_to_gds
         angle, mirror = rot_to_am(rot)
         
         fp_trans = Trans.new(angle, mirror, (x/dbu).to_i, (-y/dbu).to_i)
-        top_cell.insert(CellInstArray.new(pcell_id, fp_trans))
+        inst = top_cell.insert(CellInstArray.new(pcell_id, fp_trans))
+        inst.set_property 'name', ref     
 =begin        
       elsif blk[0] == :segment
         start = blk.assoc(:start)[1..2].map(&:to_f)
@@ -120,8 +121,9 @@ module PCB_to_gds
         end_ = blk.assoc(:end)[1..2].map(&:to_f) 
         width = blk.assoc(:width)[1].to_f
         layer = blk.assoc(:layer)[1]
+        net_name = blk.assoc(:net)[1]
         
-        raw_segments << { start: start, end: end_, width: width, layer: layer }
+        raw_segments << { start: start, end: end_, width: width, layer: layer, net: net_name }
       end
     end # ここで kpcb のループ終了
     
@@ -178,6 +180,11 @@ module PCB_to_gds
           break unless found
         end
         paths_points << current_path
+        net_name = current[:net]
+        x = (current[:start][0]/dbu).to_i
+        y = (current[:start][1]/dbu).to_i
+        text = Text.new(net_name, x, -y)
+        top_cell.shapes(target_layer).insert(text)
       end
 =begin     
       # 連結が完了した座標列から、KLayoutのPathを生成して流し込む

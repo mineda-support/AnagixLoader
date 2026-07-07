@@ -1,4 +1,4 @@
-# assign_footprintsのおかげで不要になった
+# assign_footprintsのおかげで不要になったというのはウソ！
 
 # coding: utf-8
 require 'yaml'
