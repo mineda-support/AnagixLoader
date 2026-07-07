@@ -1,5 +1,5 @@
 # $priority: 1
-# Mineda Common v1.35 June. 30th, 2026
+# Mineda Common v1.36 July 7th, 2026
 #   Force on-grid v0.1 July 39th 2022 copy right S. Moriyama (Anagix Corp.)
 #   LVS preprocessor(get_reference) v0.86 Dec. 18th, 2025 copyright by S. Moriyama (Anagix Corporation)
 #   * ConvertPCells and PCellDefaults moved from MinedaPCell v0.4 Nov. 22nd 2022
@@ -8,9 +8,9 @@
 #   PCellTest v0.2 August 22nd 2022 S. Moriyama
 #   DRC_helper::find_cells_to_exclude v0.1 Sep 23rd 2022 S. Moriyama
 #   MinedaInput v0.395 June 30th, 2025 S. Moriyama
-#   MinedaPCellCommon v0.35 June 29th 2024 S. Moriyama
+#   MinedaPCellCommon v0.36 July 7th, 2026 S. Moriyama
 #   Create Backannotation data v0.171 May 14th 2023 S. Moriyama
-#   MinedaAutoplace v0.41 June 30th 2026 S. Moriyama
+#   MinedaAutoplace v0.42 July 7th 2026 S. Moriyama
 #   ChangePCellParameters v0.1 July 29th 2023 S. Moriyama
 #   MinedaBridge v0.1 Sep. 17 2023 S. Moriyama
 #   MinedaUtility v0.1 Aug. 8, 2025 S. Moriyama
@@ -75,10 +75,11 @@ module MinedaPCellCommonModule
       s_expr += "#{@kicad})\n"
       app = RBA::Application.instance
       mw = app.main_window
-      lv = mw.current_view
-      filename = lv.active_cellview.filename
-      dir = File.dirname filename
-      if File.extname(dir) == '.pretty' # create files under footprint library
+      if lv = mw.current_view
+        filename = lv.active_cellview.filename
+        dir = File.dirname filename
+      end
+      if lv && File.extname(dir) == '.pretty' # create files under footprint library
         kicad_mod_path = File.join(dir, "#{footprint_name}.kicad_mod")
         File.open(kicad_mod_path, 'w'){|f| f.puts s_expr}
         puts "#{kicad_mod_path} created for l=#{l} w=#{w} m=#{m}"
@@ -2125,11 +2126,11 @@ class KiCadModTransformer
     content.sub!(/^(\s*\(footprint\s+)"[^"]+"/) do
       "#{$1}\"#{new_fp_name}\""
     end
+    content.sub!(/^(\s*\(fp_text value\s+)"[^"]+"/) do
+      "#{$1}\"#{new_fp_name}\""
+    end
     content.sub!(/^(\s*\(fp_text reference\s+)"REF\*\*"/) do
       "#{$1}\"#{name}\""
-    end
-    content.sub!(/^(\s*\(footprint\s+)"[^"]+"/) do
-      "#{$1}\"#{new_fp_name}\""
     end
     # 2. ミラー指示 (M0, M90, M180, M270) の場合、内部のすべてのX座標を反転させる
     if @mode.start_with?('M')
@@ -2164,9 +2165,9 @@ class KiCadModTransformer
     # フットプリント全体のベース回転は、すべての (at X Y ANGLE) に角度を加算することで実現します
     add_angle = case @mode
                 when 'R0', 'M0'     then 0
-                when 'R90', 'M90'   then 90
-                when 'R180', 'M180' then 180
-                when 'R270', 'M270' then 270
+                when 'R90', 'M45'   then 90
+                when 'R180', 'M90'  then 180
+                when 'R270', 'M135' then 270
                 else
                   warn "未知の変換指示です: #{@mode}"
                   return content
@@ -2196,10 +2197,12 @@ class MinedaAutoPlace
     unless lv = @mw.current_view
       raise "Shape Statistics: No view selected"
     end
+    @sch_file = QFileDialog::getOpenFileName(@mw, 'Schematic file', ENV['HOME'], 'schematic file(*.asc *.kicad_sch *.sch)')
+    raise 'Cancelled' if @sch_file.nil? || @sch_file == ''
+
     filename = lv.active_cellview.filename
-    @dir = File.dirname filename
-    @asc_file = QFileDialog::getOpenFileName(@mw, 'Schematic file', ENV['HOME'], 'schematic file(*.asc *.kicad_sch *.sch)')
-    raise 'Cancelled' if @asc_file.nil? || @asc_file == ''
+    @dir = opts[:pretty_dir] || File.dirname(filename)
+    puts "Execute autoplace at #{@dir}" 
     @cell = lv.active_cellview.cell
     technology = lv.active_cellview.technology
     @pcell_lib = opts[:pcell_lib] || 'PCells_' + technology
@@ -2339,8 +2342,8 @@ class MinedaAutoPlace
     cap_index = library_cell(@cap, @pcell_lib, layout)
 
     kicad_elements = {}
-    #each_element(@asc_file){|sym, name, l, w, m, x, y, rot, xmax, ymax|
-    get_elements(@asc_file).each{|sym, name, l, w, m, x, y, rot, xmax, ymax|
+    #each_element(@sch_file){|sym, name, l, w, m, x, y, rot, xmax, ymax|
+    get_elements(@sch_file).each{|sym, name, l, w, m, x, y, rot, xmax, ymax|
       instance = nil
      @cell.each_inst{|inst|
         if inst.property('name') == name
@@ -2376,13 +2379,13 @@ class MinedaAutoPlace
           when 'R270'
             inst.transform Trans.new(Trans::R270, xpos, ypos)
           when 'M0'
-            inst.transform Trans.new(Trans::M0, xpos, ypos)
-          when 'M90'
             inst.transform Trans.new(Trans::M90, xpos, ypos)
+          when 'M90'
+            inst.transform Trans.new(Trans::M45, xpos, ypos) # not sure
           when 'M180'
-            inst.transform Trans.new(Trans::M180, xpos, ypos)
+            inst.transform Trans.new(Trans::M0, xpos, ypos)
           when 'M270'
-            inst.transform Trans.new(Trans::M270, xpos, ypos)
+            inst.transform Trans.new(Trans::M135, xpos, ypos) # not sure
           end
         else
           puts "warning: instance #{name} does not have a valid symbol"
@@ -2403,7 +2406,8 @@ class MinedaAutoPlace
         inst.set_property 'name', name
         File.extname(@dir) == '.pretty' && Dir.chdir(@dir){
           kicad_cell_name = "#{inst.cell.name.sub(/\$.*$/,'')}.l#{l}w#{w}m#{m}"
-          if File.exist?(infile=kicad_cell_name + '.kicad_mod')
+          infile = kicad_cell_name + '.kicad_mod'
+          if File.exist?(infile)
             content = File.read(infile, encoding: 'utf-8')
             transformer = KiCadModTransformer.new(rot)
             kicad_cell_rot = kicad_cell_name + '_' + rot
@@ -2417,7 +2421,7 @@ class MinedaAutoPlace
       end
     }
     @mw.cm_zoom_fit
-    @asc_file =~ /(\S+)\.(\S+)/
+    @sch_file =~ /(\S+)\.(\S+)/
     File.extname(@dir) == '.pretty' && Dir.chdir(@dir){
       kicad_file = File.basename($1) + '.yaml'
       File.open(kicad_file, 'w'){|f| f.puts kicad_elements.to_yaml}
