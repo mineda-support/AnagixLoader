@@ -1,7 +1,7 @@
 # coding: cp932
-# MinedaPCell v1.095, July 4th, 2026 copy right S. Moriyama (Anagix Corporation)
+# MinedaPCell v1.096, July 4th, 2026 copy right S. Moriyama (Anagix Corporation)
 module MinedaPCell
-  version = 1.094
+  version = 1.096
   include MinedaPCellCommonModule
   # The PCell declaration for the Mineda MOSFET
   class MinedaMOS < MinedaPCellCommon
@@ -74,13 +74,14 @@ module MinedaPCell
         ldl = [ (ld_length*oo_layout_dbu).to_i, gl].min
         x = -ldl/2 -  dgl - xshift
         create_path(indices[:pol], x, vs-yshift+u1, x, vs-yshift+u1+sd_width, ldl, gate_ext, gate_ext)
+        @kicad && gate_shape_to_kicad(Box.new(x-ldl/2, vs-yshift+u1-gate_ext, x+ldl/2, vs-yshift+u1+sd_width+gate_ext))
         if dcont_for_dummy
           x = -ldl - dgl*2 - m1cnt_width/2 - xshift
           create_dcont(dcont_for_dummy.cell_index, x, vs-yshift+u1, x, vs-yshift+u1+sd_width, vs + vs_extra, params[:dcont_offset])
         end
       end
       (n+1).times{|i|
-        pin_num = (i % 2 == 0)? 1 : 3
+        pin_num = (i % 2 == 0)? 3 : 1
         x = offset + m1cnt_width/2 - xshift
         if !no_finger_conn || with_sdcont  || i == 0 ||  i == n
           create_path(indices[:m1], x, vs-yshift+u1+u1cut, x, vs-yshift+u1-u1cut+sd_width, m1cnt_width, 0, 0)
@@ -91,7 +92,9 @@ module MinedaPCell
         x = x + m1cnt_width/2 + gl/2 + dgl
         if i < n
           create_path(indices[:pol], x, vs-yshift+u1, x, vs-yshift+u1+sd_width, gl, gate_ext, gate_ext)
-          @kicad && gate_shape_to_kicad(Box.new(x-gl/2, vs-yshift+u1, x+gl/2, vs-yshift+u1+sd_width))
+          if @kicad
+            gate_shape_to_kicad(Box.new(x-gl/2, vs-yshift+u1-gate_ext, x+gl/2, vs-yshift+u1+sd_width+gate_ext))
+          end
           if indices[:gate_impl]
             gim = params[:gate_impl_margin] || vs/2
             create_path(indices[:gate_impl], x, vs-yshift+u1, x, vs-yshift+u1+sd_width, gl+gim*2, gate_ext+gim, gate_ext+gim)
@@ -104,7 +107,7 @@ module MinedaPCell
         rdl = [(rd_length*oo_layout_dbu).to_i, gl].min
         x = x - gl/2 + rdl/2
         create_path(indices[:pol], x, vs-yshift+u1, x, vs-yshift+u1+sd_width, rdl, gate_ext, gate_ext)
-        @kicad && gate_shape_to_kicad(Box.new(x-rdl/2, vs-yshift+u1, x+rdl/2, vs-yshift+u1+sd_width))
+        @kicad && gate_shape_to_kicad(Box.new(x-rdl/2, vs-yshift+u1-gate_ext, x+rdl/2, vs-yshift+u1+sd_width+gate_ext))
         if dcont_for_dummy
           x = x + m1cnt_width/2 + rdl/2 + dgl
           create_dcont(dcont_for_dummy.cell_index, x, vs-yshift+u1, x, vs-yshift+u1+sd_width, vs + vs_extra, params[:dcont_offset])
@@ -191,10 +194,14 @@ module MinedaPCell
               insert_cell indices[:via], x, y
               @kicad && via1_to_kicad_TH(2, Box.new(vs).move(x, y))
             end
-            y = y - pcont_size/2 + [pol_width, u1].max/2
-            x3 = x1+m1cnt_width+dgl+[pol_width, u1].max/2
+            pw2 = [pol_width, u1].max/2
+            y = y - pcont_size/2 + pw2
+            x3 = x1+m1cnt_width+dgl+pw2
             create_path2 indices[:pol], x, y, x3, y, x3, y2-vs + gate_ext - u1, [pol_width, u1].max, 0, 0
-            @kicad && gate_shape_to_kicad(Box.new(x, y-[pol_width, u1].max/2, x3, y+[pol_width, u1].max/2))
+            if @kicad
+              gate_shape_to_kicad(Box.new(x, y-pw2, x3, y+pw2))
+              gate_shape_to_kicad(Box.new(x3-pw2, y, x3+pw2, y2-vs + gate_ext - u1))
+            end
           end
         end
         offset = x1
@@ -215,14 +222,14 @@ module MinedaPCell
             if !no_finger_conn && (with_sdcont || n != 1)
               if with_via && with_sdcont
                 insert_cell indices[:via], x, y  
-                @kicad && via1_to_kicad_TH(1, Box.new(vs).move(x, y))
+                @kicad && via1_to_kicad_TH(3, Box.new(vs).move(x, y))
               end 
               create_path indices[:m1], x, y, x, y1+vs+2*u1, mw1, 0, 0
-              @kicad && ml1_to_kicad_Fcu(1, Box.new(x-mw1/2, y, x+mw1/2, y1+vs+2*u1))
+              @kicad && ml1_to_kicad_Fcu(3, Box.new(x-mw1/2, y, x+mw1/2, y1+vs+2*u1))
             end
             if top && !no_finger_conn
               create_path indices[:m1], top, y, x, y, mw1, mw1/2, mw1/2 
-              @kicad && ml1_to_kicad_Fcu(1, Box.new(top, y-mw1/2, x, y+mw1/2))
+              @kicad && ml1_to_kicad_Fcu(3, Box.new(top, y-mw1/2, x, y+mw1/2))
             end
             top = x
           else
@@ -230,25 +237,25 @@ module MinedaPCell
             if n == 1
               if with_via && with_sdcont
                 insert_cell indices[:via], x, y2-vs/2 + (defined?(wide_metal) &&wide_metal ? u1/2 : 0) + via_offset 
-                @kicad && via1_to_kicad_TH(3, Box.new(vs).move(x, y2-vs/2 + (defined?(wide_metal) &&wide_metal ? u1/2 : 0) + via_offset))
+                @kicad && via1_to_kicad_TH(1, Box.new(vs).move(x, y2-vs/2 + (defined?(wide_metal) &&wide_metal ? u1/2 : 0) + via_offset))
               end
               y = y2-vs/2
             else
               if with_via && with_sdcont && !no_finger_conn
                 insert_cell indices[:via], x, y2+u1-vs/2 + via_offset
-                @kicad && via1_to_kicad_TH(3, Box.new(vs).move(x, y2+u1-vs/2 + via_offset))
+                @kicad && via1_to_kicad_TH(1, Box.new(vs).move(x, y2+u1-vs/2 + via_offset))
               end
               y = y2+u1-vs/2
             end
             if !no_finger_conn && (with_sdcont || n != 1)
               create_path indices[:m1], x, y2-vs-2*u1 - wm_offset - via_offset, x, y, mw1, 0, 0 
-              @kicad && ml1_to_kicad_Fcu(3, Box.new(x-mw1/2, y2-vs-2*u1 - wm_offset - via_offset, x+mw1/2, y))
+              @kicad && ml1_to_kicad_Fcu(1, Box.new(x-mw1/2, y2-vs-2*u1 - wm_offset - via_offset, x+mw1/2, y))
             end
             if bottom
               y = y2+u1-vs/2
               unless no_finger_conn
                 create_path indices[:m1], bottom, y, x, y, mw1, mw1/2, mw1/2 
-                @kicad && ml1_to_kicad_Fcu(3, Box.new(bottom, y-mw1/2, x, y+mw1/2))
+                @kicad && ml1_to_kicad_Fcu(1, Box.new(bottom, y-mw1/2, x, y+mw1/2))
               end
             end
             bottom = x
@@ -522,10 +529,12 @@ module MinedaPCell
               insert_cell indices[:via], x, y 
               @kicad && via1_to_kicad_TH(2, Box.new(vs).move(x, y))
             end
-            y = y + pcont_size/2 - [pol_width, u1].max/2
-            x3 = x1+m1cnt_width+dgl+[pol_width, u1].max/2
+            pw2 = [pol_width, u1].max/2
+            y = y + pcont_size/2 - pw2
+            x3 = x1+m1cnt_width+dgl+pw2
             create_path2 indices[:pol], x, y, x3, y, x3, y1+vs - gate_ext + u1, [pol_width, u1].max, 0, 0
-            @kicad && gate_shape_to_kicad(Box.new(x, y-[pol_width, u1].max/2, x3, y+[pol_width, u1].max/2))
+            @kicad && gate_shape_to_kicad(Box.new(x, y-pw2, x3, y+pw2))
+            @kicad && gate_shape_to_kicad(Box.new(x3-pw2, y, x3+pw2, y1+vs - gate_ext + u1))
           end
         end
         offset = x1
@@ -545,16 +554,16 @@ module MinedaPCell
             if !no_finger_conn && (with_sdcont || n != 1)
               if with_via && with_sdcont
                 insert_cell indices[:via], x, y2-vs/2 + wm_offset + via_offset
-                @kicad && via1_to_kicad_TH(1, Box.new(vs).move(x, y2-vs/2 + wm_offset + via_offset))
+                @kicad && via1_to_kicad_TH(3, Box.new(vs).move(x, y2-vs/2 + wm_offset + via_offset))
               end
               create_path indices[:m1], x, y2-vs-2*u1, x, y2-vs/2 + wm_offset + via_offset, mw1, 0, 0
-              @kicad && ml1_to_kicad_Fcu(1, Box.new(x-mw1/2, y2-vs-2*u1, x+mw1/2, y2-vs/2 + wm_offset + via_offset))
+              @kicad && ml1_to_kicad_Fcu(3, Box.new(x-mw1/2, y2-vs-2*u1, x+mw1/2, y2-vs/2 + wm_offset + via_offset))
             end
             if top
               y = y2-vs/2 + wm_offset + via_offset
               unless no_finger_conn
                 create_path indices[:m1], top, y, x, y, mw1, mw1/2,mw1/2
-                @kicad && ml1_to_kicad_Fcu(1, Box.new(top, y-mw1/2, x, y+mw1/2))
+                @kicad && ml1_to_kicad_Fcu(3, Box.new(top, y-mw1/2, x, y+mw1/2))
               end
             end
             top = x
@@ -563,23 +572,23 @@ module MinedaPCell
             if n == 1
               if with_via && with_sdcont
                 insert_cell indices[:via], x, y1+vs/2 - (defined?(wide_metal) && wide_metal ? u1/2 : 0) - via_offset 
-                @kicad && via1_to_kicad_TH(3, Box.new(vs).move(x, y1+vs/2 - (defined?(wide_metal) && wide_metal ? u1/2 : 0) - via_offset))
+                @kicad && via1_to_kicad_TH(1, Box.new(vs).move(x, y1+vs/2 - (defined?(wide_metal) && wide_metal ? u1/2 : 0) - via_offset))
               end
               y = y1 + vs/2
             else
               if with_via && with_sdcont && !no_finger_conn
                 insert_cell indices[:via], x, y1-u1+vs/2 - via_offset
-                @kicad && via1_to_kicad_TH(3, Box.new(vs).move(x, y1-u1+vs/2 - via_offset))
+                @kicad && via1_to_kicad_TH(1, Box.new(vs).move(x, y1-u1+vs/2 - via_offset))
               end
               y = y1-u1+vs/2
             end
             if !no_finger_conn && (with_sdcont || n != 1)
               create_path indices[:m1], x, y, x, y1+vs+2*u1, mw1, 0, 0
-              @kicad && ml1_to_kicad_Fcu(3, Box.new(x-mw1/2, y, x+mw1/2, y1+vs+2*u1))
+              @kicad && ml1_to_kicad_Fcu(1, Box.new(x-mw1/2, y, x+mw1/2, y1+vs+2*u1))
             end
             if bottom && !no_finger_conn
               create_path indices[:m1], bottom, y1-u1+vs/2, x, y1 -u1+vs/2, mw1, mw1/2, mw1/2
-              @kicad && ml1_to_kicad_Fcu(3, Box.new(bottom, y1-u1+vs/2-mw1/2, x, y1 -u1+vs/2+mw1/2))            
+              @kicad && ml1_to_kicad_Fcu(1, Box.new(bottom, y1-u1+vs/2-mw1/2, x, y1 -u1+vs/2+mw1/2))            
             end
             bottom = x
           end
