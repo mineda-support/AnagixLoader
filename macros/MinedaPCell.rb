@@ -1,5 +1,5 @@
 # coding: cp932
-# MinedaPCell v1.096, July 4th, 2026 copy right S. Moriyama (Anagix Corporation)
+# MinedaPCell v1.097, July 8th, 2026 copy right S. Moriyama (Anagix Corporation)
 module MinedaPCell
   version = 1.096
   include MinedaPCellCommonModule
@@ -176,19 +176,17 @@ module MinedaPCell
           pol_width = [gl, vs/2].max if pol_width > gl            
           if n == 1 && !with_sdcont
             insert_cell indices[:pcont], x1+vs+dgl+gl/2, y
+            ml1_to_kicad_Fcu 2, Box.new(vs).move(x1+vs+dgl+gl/2, y)
             if with_via
               insert_cell indices[:via], x1+vs+dgl+gl/2, y
-              if @kicad
-                ml1_to_kicad_Fcu 2, Box.new(vs).move(x1+vs+dgl+gl/2, y)
-                ml2_to_kicad_Bcu 2, Box.new(vs).move(x1+vs+dgl+gl/2, y)
-                via1_to_kicad_TH Box.new(vs).move(x1+vs+dgl+gl/2, y)
-              end
+              @kicad && via1_to_kicad_TH(2, Box.new(vs).move(x1+vs+dgl+gl/2, y))
             end
             x3 = x1+vs+dgl+gl/2
             create_path indices[:pol], x3, y, x3, y2-vs + gate_ext - u1, vs, 0,0
             @kicad && gate_shape_to_kicad(Box.new(x3-vs/2, y, x3+vs/2, y2-vs + gate_ext - u1))
           else
             pcont_inst = insert_cell indices[:pcont], x, y
+            ml1_to_kicad_Fcu 2, Box.new(vs).move(x, y)
             pcont_size = params[:pcont_pol_size] || pcont_inst.bbox.width
             if with_via
               insert_cell indices[:via], x, y
@@ -275,6 +273,7 @@ module MinedaPCell
             y = y - u1/2 if defined?(wide_metal) && wide_metal
           end
           insert_cell indices[:psubcont], x, y, false, params[:psubcont_bbox] if indices[:psubcont]
+          @kicad && ml1_to_kicad_Fcu(4, Box.new(vs).move(x, y))
           if with_via
             insert_cell indices[:via], x, y
             @kicad && via1_to_kicad_TH(4, Box.new(vs).move(x, y))
@@ -607,7 +606,10 @@ module MinedaPCell
           end
           y = y + u1/2 if defined?(wide_metal) && wide_metal
           x = x + u1/2 if n > 1
-          insert_cell indices[:nsubcont], x, y if indices[:nsubcont]
+          if indices[:nsubcont]
+            insert_cell indices[:nsubcont], x, y 
+            @kicad && ml1_to_kicad_Fcu(4, Box.new(vs).move(x, y))
+          end
           if with_via
             insert_cell indices[:via], x, y
             @kicad && via1_to_kicad_TH(4, Box.new(vs).move(x, y))
