@@ -169,6 +169,77 @@ module PCB_to_gds
 EOF
   )
   end
+  
+  MAX_PATH_WIDTH = 5
+  def self.generate_net_rail_pad x1, y1, x2, y2, net_id, net_name, layer='F.Cu'
+        center_x = (x1 + x2) / 2.0
+        center_y = (y1 + y2) / 2.0
+        width  = (x2 - x1).abs
+        height = (y2 - y1).abs
+        segment = <<EOF
+        (footprint "Net_Rail_Pad" (layer "F.Cu") (at 0 0)
+            (pad "" smd rect 
+                (at #{center_x.round(4)} #{center_y.round(4)}) 
+                (size #{width.round(4)} #{height.round(4)})
+                (layers "#{layer}") (net #{net_id} "#{net_name}")
+            )
+        )        
+EOF
+    segment
+  end
+  
+DBU_TO_MM = 0.001 
+
+  def self.complex_path_to_kicad_pads path_shape, offset_x, offset_y, layer='F.Cu'
+    path = path_shape.path
+  
+    # Pathの太さ（幅）をmmに変換
+    width_mm = path.width * DBU_TO_MM
+  
+    # ネット名・ネット情報の取得
+    net_name = path_shape.property('name') || ""
+    net_id = (net_name == "" || net_name.nil?) ? 0 : 1
+    net_name_str = net_name.nil? ? "" : net_name.to_s
+
+# 1. Pathの全頂点を配列に格納 (ここではKLayoutの生の座標(mm)のまま保持)
+  points = []
+  path.each_point do |p|
+    points << [p.x * DBU_TO_MM, p.y * DBU_TO_MM]
+  end
+  
+  kicad_pads = "(footprint \"Net_Rail_Pad\" (layer \"#{layer}\") (at 0 0)"
+  
+  # 2. each_cons(2) で2点ずつ直接取り出す
+  points.each_cons(2) do |p1, p2|
+
+    # KLayoutの座標系のままで中心座標(at)を計算
+    center_x = (p1[0] + p2[0]) / 2.0
+    center_y = (p1[1] + p2[1]) / 2.0 
+
+    # 線分自体の長さを計算
+    length = Math.sqrt((p2[0] - p1[0])**2 + (p2[1] - p1[1])**2)
+
+    # 水平（H）か垂直（V）かでサイズを割り振る (KLayout座標のままなので素直に比較できます)
+    if (p1[1] - p2[1]).abs < 0.0001
+      size_w = length
+      size_h = width_mm
+    else
+      size_w = width_mm
+      size_h = length
+    end
+      # 3. KiCadの footprint / pad 形式で1セグメントずつ出力
+      kicad_pads << <<EOF
+      (pad "" smd rect
+            (at #{center_x + offset_x} #{-center_y + offset_y})
+            (size #{size_w} #{size_h})
+            (layers "#{layer}")
+            (net #{net_id} "#{net_name_str}")
+       )
+EOF
+    end
+    kicad_pads << ')'
+    kicad_pads
+  end
 
   mw = Application.instance.main_window
   view = mw.current_view
@@ -219,56 +290,69 @@ EOF
   library = Library.library_by_name(pcell_lib)
   raise "Library '#{pcell_lib}' not found" unless library
 
+  segments = ''
   kicad_elements = {}
   count = 0
   top_cell.each_inst{|inst|
     puts "#{inst.cell.name}(#{inst.property('name')}): #{inst.trans.to_s}"
-    next unless inst.is_pcell?
-    l=inst.pcell_parameter 'l'
-    w=inst.pcell_parameter 'w'
-    m=inst.pcell_parameter 'n'
-    rot = inst.trans.to_s.sub(/ .*$/, '').upcase
-    kicad_cell_name = "#{inst.cell.name.sub(/\$.*$/,'')}.l#{l}w#{w}m#{m}"
-    infile = File.join(pretty_dir, kicad_cell_name + '.kicad_mod')
-    if File.exist?(infile)
-      count = count + 1
-      name = inst.property('name') || inst.cell.name.sub(/\$.*$/,'')+count.to_s
-      content = File.read(infile, encoding: 'utf-8')
-      transformer = KiCadModTransformer.new(rot)
-      kicad_cell_rot = kicad_cell_name + '_' + rot
-      result = transformer.transform(content, kicad_cell_rot, name)
-      File.write(File.join(pretty_dir, kicad_cell_rot) + '.kicad_mod', result, encoding: 'utf-8')
-      kicad_elements[name] = [(inst.trans.disp.x*layout.dbu).round(4), (-inst.trans.disp.y*layout.dbu).round(4), kicad_cell_rot]
-    else
-      puts "#{infile} does not exist!"
+    if inst.is_pcell?
+      l=inst.pcell_parameter 'l'
+      w=inst.pcell_parameter 'w'
+      m=inst.pcell_parameter 'n'
+      rot = inst.trans.to_s.sub(/ .*$/, '').upcase
+      kicad_cell_name = "#{inst.cell.name.sub(/\$.*$/,'')}.l#{l}w#{w}m#{m||0}"
+      infile = File.join(pretty_dir, kicad_cell_name + '.kicad_mod')
+      if File.exist?(infile)
+        count = count + 1
+        name = inst.property('name') || inst.cell.name.sub(/\$.*$/,'')+count.to_s
+        content = File.read(infile, encoding: 'utf-8')
+        transformer = KiCadModTransformer.new(rot)
+        kicad_cell_rot = kicad_cell_name + '_' + rot
+        result = transformer.transform(content, kicad_cell_rot, name)
+        File.write(File.join(pretty_dir, kicad_cell_rot) + '.kicad_mod', result, encoding: 'utf-8')
+        kicad_elements[name] = [(inst.trans.disp.x*layout.dbu).round(4), (-inst.trans.disp.y*layout.dbu).round(4), kicad_cell_rot]
+      else
+        puts "#{infile} does not exist!"
+      end
     end
   }
   puts kicad_elements.inspect
   offset_x, offset_y = centerize kicad_elements
   footprints = generate_footprints kicad_elements, offset_x, offset_y, pretty_lib, pretty_dir
   
-  segments = ''
   layers.each_pair do |name, layer|
     top_cell.shapes(layer).each{|shape|
-      next unless shape.is_path?
-      op = nil
-      shape.each_point{|p|
-        unless op.nil?
-          segments << <<EOF
-	(segment
-		(start #{op.x/1000.0+offset_x} #{-op.y/1000.0+offset_y})
-		(end #{p.x/1000.0+offset_x} #{-p.y/1000.0+offset_y})
-		(width #{shape.path_width/1000.0})
-		(layer #{name})
-		
-		(uuid SecureRandom.uuid)
-	)
-EOF
-        end
-        op = p
-      }
+      if shape.is_path?
+        #if shape.path.width/1000.0 > MAX_PATH_WIDTH
+
+     pads = complex_path_to_kicad_pads(shape, offset_x, offset_y, name) 
+          segments << pads if pads
+        #end 
+      elsif shape.is_box?
+        x1 = shape.box.p1.x/1000.0+offset_x
+        y1 = -shape.box.p1.y/1000.0+offset_y
+        x2 = shape.box.p2.x/1000.0+offset_x
+        y2 = -shape.box.p2.y/1000.0+offset_y
+        segments << generate_net_rail_pad(x1, y1, x2, y2, 0, "", name)
+      end
     }
   end
+  top_cell.each_inst{|inst|
+    if inst.cell.name.sub(/\$.*$/, '') == 'Via'
+      # puts "Missing cell is : #{inst.cell.name}"
+       width = inst.cell.bbox.width/1000.0
+       segments << <<EOF
+      (via
+      	      (at #{(inst.trans.disp.x*layout.dbu+offset_x).round(4)} #{(-inst.trans.disp.y*layout.dbu+offset_y).round(4)})
+		(size #{width})
+		(drill #{width/2})
+		(layers "F.Cu" "B.Cu")
+		(net "")
+		(uuid "#{SecureRandom.uuid}")
+      )
+EOF
+    end
+  }
   write_pcb footprints, segments, pcb_file
   puts "KiCad PCB successfully generated: #{pcb_file}"
 end
