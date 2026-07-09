@@ -1,7 +1,7 @@
 # coding: cp932
-# MinedaPCell v1.097, July 8th, 2026 copy right S. Moriyama (Anagix Corporation)
+# MinedaPCell v1.098, July 8th, 2026 copy right S. Moriyama (Anagix Corporation)
 module MinedaPCell
-  version = 1.096
+  version = 1.098
   include MinedaPCellCommonModule
   # The PCell declaration for the Mineda MOSFET
   class MinedaMOS < MinedaPCellCommon
@@ -176,7 +176,7 @@ module MinedaPCell
           pol_width = [gl, vs/2].max if pol_width > gl            
           if n == 1 && !with_sdcont
             insert_cell indices[:pcont], x1+vs+dgl+gl/2, y
-            ml1_to_kicad_Fcu 2, Box.new(vs).move(x1+vs+dgl+gl/2, y)
+            @kicad && ml1_to_kicad_Fcu(2, Box.new(vs).move(x1+vs+dgl+gl/2, y))
             if with_via
               insert_cell indices[:via], x1+vs+dgl+gl/2, y
               @kicad && via1_to_kicad_TH(2, Box.new(vs).move(x1+vs+dgl+gl/2, y))
@@ -515,6 +515,7 @@ module MinedaPCell
           pol_width = [gl, vs/2].max if pol_width > gl
           if n == 1 && !with_sdcont
             insert_cell indices[:pcont], x1+vs+dgl+gl/2, y
+            @kicad && ml1_to_kicad_Fcu(2, Box.new(vs).move(x1+vs+dgl+gl/2, y))
             if with_via
               insert_cell indices[:via], x1+vs+dgl+gl/2, y 
               @kicad && via1_to_kicad_TH(2,Box.new(vs).move(x1+vs+dgl+gl/2, y))
@@ -523,6 +524,7 @@ module MinedaPCell
             create_path indices[:pol], x3, y, x3, y1+vs - gate_ext + u1, vs, 0,0
           else
             pcont_inst = insert_cell indices[:pcont], x, y
+            @kicad && ml1_to_kicad_Fcu(2, Box.new(vs).move(x, y))
             pcont_size = params[:pcont_pol_size] || pcont_inst.bbox.width
             if with_via
               insert_cell indices[:via], x, y 
@@ -972,6 +974,7 @@ module MinedaPCell
     def produce_impl indices, vs, u1, cs, ol, delta, pol_enclosure = 0, params={}, text=nil
      # cs: contact size, ol: POL overlap over cs
      # delta is used to adjust res end
+      @kicad = ''
       indices[:m1] = get_layer_index 'ML1'
       indices[:cnt] = get_layer_index 'CNT'
       oo_layout_dbu = 1.0/layout.dbu
@@ -989,6 +992,7 @@ module MinedaPCell
         create_box indices[:pol], -pol_enclosure, offset, (ol+cs+delta)*2 + length + pol_enclosure, width + offset
         x = ol + cs +delta + length
         create_box indices[:res], ol + cs + delta, offset, x, width + offset, text
+        @kicad && passive_shape_to_kicad(Box.new(ol + cs + delta, offset, x, width + offset))
         if diff_index = indices[:diff]
           # x1, y1, x2, y2 = boxes_bbox(indices[:pol])
           x1, y1, x2, y2 = [0, offset+pol_enclosure, (ol+cs+delta)*2 + length, width + offset-pol_enclosure]
@@ -1007,9 +1011,10 @@ module MinedaPCell
         lower_end = offset - (width < cs + ol*2? ml1_cnt : 0) + ml1_margin
         upper_end = width + offset +  (width < cs + ol*2? ml1_cnt : 0) - ml1_margin
         [[ol - ml1_cnt, lower_end, ol + cs + ml1_cnt,upper_end, cnt_margin],
-         [x - ml1_cnt, lower_end, x + cs + ml1_cnt, upper_end, cnt_margin]].each{|area|
+         [x - ml1_cnt, lower_end, x + cs + ml1_cnt, upper_end, cnt_margin]].each_with_index{|area, i|
           x1, y1, x2, y2 = fill_area(area, vs, indices[:m1]){|x, y|
             create_box indices[:cnt], x - cs/2, y - cs/2, x + cs/2, y + cs/2
+            @kicad && ml1_to_kicad_Fcu(i, Box.new(x - cs/2, y - cs/2, x + cs/2, y + cs/2))
           }
           create_box indices[:cnt_cvr], x1 + cnt_adjust, y1 + cnt_adjust, x2 - cnt_adjust, y2 - cnt_adjust
         }
@@ -1024,6 +1029,7 @@ module MinedaPCell
         end
         offset = offset + width + sseg
       end
+      generate_kicad_device l, w, n
     end
     def display_text_impl name='HR_poly'
       if ns > 1
