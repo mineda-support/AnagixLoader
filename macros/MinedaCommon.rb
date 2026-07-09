@@ -1,5 +1,5 @@
 # $priority: 1
-# Mineda Common v1.36 July 7th, 2026
+# Mineda Common v1.37 July 8th, 2026
 #   Force on-grid v0.1 July 39th 2022 copy right S. Moriyama (Anagix Corp.)
 #   LVS preprocessor(get_reference) v0.86 Dec. 18th, 2025 copyright by S. Moriyama (Anagix Corporation)
 #   * ConvertPCells and PCellDefaults moved from MinedaPCell v0.4 Nov. 22nd 2022
@@ -138,7 +138,7 @@ module MinedaPCellCommonModule
 
     # --- ④ POL (4/0) -> ゲート形状を完璧に描き出す ---
     #flat_cell.each_shape(layer_pol) do |shape|
-    def gate_shape_to_kicad bbox
+    def fill_solid_kicad_layer fill_layer, bbox
       #bbox = shape.bbox
       w = (bbox.width * layout.dbu).round(4)
       h = (bbox.height * layout.dbu).round(4)
@@ -153,8 +153,16 @@ module MinedaPCellCommonModule
       y1, y2 = (cy - h/2.0).round(4), (cy + h/2.0).round(4)
       
       #s_expr += 
-      @kicad += "  (fp_poly (pts (xy #{x1} #{y1}) (xy #{x2} #{y1}) (xy #{x2} #{y2}) (xy #{x1} #{y2})) (stroke (width 0.05) (type solid)) (fill solid) (layer \"F.Fab\"))\n"
+      @kicad += "  (fp_poly (pts (xy #{x1} #{y1}) (xy #{x2} #{y1}) (xy #{x2} #{y2}) (xy #{x1} #{y2})) (stroke (width 0.05) (type solid)) (fill solid) (layer \"#{fill_layer}\"))\n"
     end
+
+    def gate_shape_to_kicad bbox
+      fill_solid_kicad_layer 'F.Fab', bbox
+    end
+
+    def passive_shape_to_kicad bbox
+      fill_solid_kicad_layer 'B.Fab', bbox
+   end
 
     # --- ⑤ DIFF (20/0：拡散層) -> アクティブ領域をシルク破線で囲む ---
     #flat_cell.each_shape(layer_diff) do |shape|
@@ -2212,6 +2220,8 @@ class MinedaAutoPlace
     @xscale = opts[:xscale] || 100*2
     @yscale = opts[:yscale] || 100*3
     @wmax = opts[:wmax] || 200
+    @force = opts[:force] || {}
+    @params = opts[:params] || {}
   end
   def library_cell name, libname, layout
     if cell = layout.cell(name)
@@ -2345,7 +2355,11 @@ class MinedaAutoPlace
     #each_element(@sch_file){|sym, name, l, w, m, x, y, rot, xmax, ymax|
     get_elements(@sch_file).each{|sym, name, l, w, m, x, y, rot, xmax, ymax|
       instance = nil
-     @cell.each_inst{|inst|
+      force_ = {}
+      if @params
+        params_ = @params[name] || {}   
+      end
+      @cell.each_inst{|inst|
         if inst.property('name') == name
           instance = inst
           break
@@ -2355,14 +2369,20 @@ class MinedaAutoPlace
         puts "#{name}(#{sym}): l=#{l} w=#{w} m=#{m ? m : 1} @ (#{x}, #{y}), #{rot}"
         if sym =~ /NMOS|nmos/ #  'MinedaLIB\\NMOS_MIN'
           index = nch_index
+          force_ = @force['Nch'] || {}
         elsif sym =~ /PMOS|pmos/
           index = pch_index
+          force_ = @force['Pch'] || {}
         elsif sym =~ /RES|res/
           index = res_index
-          l = nil
+          l = (params_['l'] || params_[:l])
+          w = (params_['w'] || params_[:w])
+          m = (params_['n'] || params_[:n])
         elsif sym =~ /CAP|cap/
           index = cap_index
-          l = nil
+          l = (params_['l'] || params_[:l])
+          w = (params_['w'] || params_[:w])
+          m = (params_['n'] || params_[:n])
         end
         if index
           mos = instantiate index, 0, 0
@@ -2398,11 +2418,11 @@ class MinedaAutoPlace
         next if old_l == l && old_w == w && old_n == m
         puts "Change #{name} to l=#{l}, w=#{w}, n=#{m}"
       end
-      if l && inst
-        w, m = adjust w, m, @wmax
+      if inst
+        w, m = adjust(w, m, @wmax) if m
         inst.change_pcell_parameter 'l', l
         inst.change_pcell_parameter 'w', w
-        inst.change_pcell_parameter 'n', m
+        inst.change_pcell_parameter 'n', m if m
         inst.set_property 'name', name
         File.extname(@dir) == '.pretty' && Dir.chdir(@dir){
           kicad_cell_name = "#{inst.cell.name.sub(/\$.*$/,'')}.l#{l}w#{w}m#{m}"
@@ -2417,6 +2437,9 @@ class MinedaAutoPlace
             File.write(kicad_cell_rot + '.kicad_mod', result, encoding: 'utf-8')
             kicad_elements[name] = [(x*layout.dbu).round(4), (y*layout.dbu).round(4), kicad_cell_rot]
           end
+        }
+        force_.each_pair{|p, v|
+          inst.change_pcell_parameter p.to_s, v
         }
       end
     }
