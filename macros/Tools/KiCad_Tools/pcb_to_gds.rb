@@ -70,6 +70,7 @@ module PCB_to_gds
     raw_segments = []
     kpcb[1..-1].each do |blk|
       if blk[0] == :footprint
+=begin      
         blk[1] =~ /^(\S+):(\S+)\.l(\S+)w(\S+)m(\S+)_(\S+)/
         lib, sym, l, w, m, rot = [$1, $2, $3.to_f, $4.to_f, $5.to_i, $6]
         
@@ -79,20 +80,45 @@ module PCB_to_gds
         pcell_id = layout.add_pcell_variant(library, decl.id, { "w" => w, "l" => l, "n" => m })
         at = blk.assoc(:at)
         ref = nil
-        
-        blk[4..-1].each do |item|
-          if item[0] == :property && item[1] == 'Reference'
-            ref = item[2]
-            break
+=end
+        fp_name = blk[1].to_s # 念のためStringに変換       
+        # 正規表現にマッチするか確認
+        if fp_name =~ /^(\S+):(\S+)\.l(\S+)w(\S+)m(\S+)_(\S+)/
+          # マッチした場合のみ変数を抽出
+          lib, sym, l, w, m, rot = [$1, $2, $3.to_f, $4.to_f, $5.to_i, $6]
+          
+          decl = library.layout.pcell_declaration(sym)
+          next unless decl # PCellが見つからない場合のスキップ処理
+          
+          pcell_id = layout.add_pcell_variant(library, decl.id, { "w" => w, "l" => l, "n" => m })
+          at = blk.assoc(:at)
+          ref = nil
+          blk[4..-1].each do |item|
+            if item[0] == :property && item[1] == 'Reference'
+              ref = item[2]
+              break
+            end
           end
+          x, y = [at[1], at[2]].map(&:to_f)
+          angle, mirror = rot_to_am(rot)
+        
+          fp_trans = Trans.new(angle, mirror, (x/dbu).to_i, (-y/dbu).to_i)
+          inst = top_cell.insert(CellInstArray.new(pcell_id, fp_trans))
+          inst.set_property 'name', ref    
+        else
+          puts "need to insert path or pad for fp_name=#{fp_name}"
+          at = blk.assoc(:pad).assoc(:at)
+          size = blk.assoc(:pad).assoc(:size)
+          x, y = [at[1], at[2]].map(&:to_f)
+          width, height = [size[1], size[2]].map(&:to_f)
+          target_layer = layers[blk.assoc(:pad).assoc(:layers)[1]]
+          x1 = x - width/2
+          x2 = x + width/2
+          y1 = y - height/2
+          y2 = y + height/2
+          box = Box.new((x1/dbu).to_i, (-y1/dbu).to_i, (x2/dbu).to_i, (-y2/dbu).to_i)
+          top_cell.shapes(target_layer).insert(box)
         end 
-        
-        x, y = [at[1], at[2]].map(&:to_f)
-        angle, mirror = rot_to_am(rot)
-        
-        fp_trans = Trans.new(angle, mirror, (x/dbu).to_i, (-y/dbu).to_i)
-        inst = top_cell.insert(CellInstArray.new(pcell_id, fp_trans))
-        inst.set_property 'name', ref     
 =begin        
       elsif blk[0] == :segment
         start = blk.assoc(:start)[1..2].map(&:to_f)
@@ -121,7 +147,7 @@ module PCB_to_gds
         end_ = blk.assoc(:end)[1..2].map(&:to_f) 
         width = blk.assoc(:width)[1].to_f
         layer = blk.assoc(:layer)[1]
-        net_name = blk.assoc(:net)[1]
+        net_name = blk.assoc(:net) ? blk.assoc(:net)[1] : ""
         
         raw_segments << { start: start, end: end_, width: width, layer: layer, net: net_name }
       end
