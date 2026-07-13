@@ -1,5 +1,7 @@
+# $description: KLayout to KiCad conversion
+# $show-in-menu
 # coding: utf-8
-module PCB_to_gds
+module GDStoPCB
   include RBA
   include MinedaCommon
   include MinedaPCellCommonModule
@@ -294,13 +296,16 @@ EOF
   kicad_elements = {}
   count = 0
   top_cell.each_inst{|inst|
+  #top_cell.begin_instances_rec.each{|iter|
+  #  inst = iter.inst_cell
     puts "#{inst.cell.name}(#{inst.property('name')}): #{inst.trans.to_s}"
     if inst.is_pcell?
       l=inst.pcell_parameter 'l'
       w=inst.pcell_parameter 'w'
       m=inst.pcell_parameter 'n'
+      next unless l && w
       rot = inst.trans.to_s.sub(/ .*$/, '').upcase
-      kicad_cell_name = "#{inst.cell.name.sub(/\$.*$/,'')}.l#{l}w#{w}m#{m||0}"
+      kicad_cell_name = "#{inst.cell.name.sub(/\$.*$/,'')}.l#{l.round(4)}w#{w.round(4)}m#{m||0}"
       infile = File.join(pretty_dir, kicad_cell_name + '.kicad_mod')
       if File.exist?(infile)
         count = count + 1
@@ -313,6 +318,11 @@ EOF
         kicad_elements[name] = [(inst.trans.disp.x*layout.dbu).round(4), (-inst.trans.disp.y*layout.dbu).round(4), kicad_cell_rot]
       else
         puts "#{infile} does not exist!"
+      end
+    else
+      puts "Cell: #{inst.cell.name}"
+      if inst.cell.name == 'csio2'
+        puts 'csio2'
       end
     end
   }
