@@ -1,5 +1,6 @@
+# coding: utf-8
 # $priority: 1
-# Mineda Common v1.37 July 8th, 2026
+# Mineda Common v1.38 July 13th, 2026
 #   Force on-grid v0.1 July 39th 2022 copy right S. Moriyama (Anagix Corp.)
 #   LVS preprocessor(get_reference) v0.86 Dec. 18th, 2025 copyright by S. Moriyama (Anagix Corporation)
 #   * ConvertPCells and PCellDefaults moved from MinedaPCell v0.4 Nov. 22nd 2022
@@ -10,7 +11,7 @@
 #   MinedaInput v0.395 June 30th, 2025 S. Moriyama
 #   MinedaPCellCommon v0.36 July 7th, 2026 S. Moriyama
 #   Create Backannotation data v0.171 May 14th 2023 S. Moriyama
-#   MinedaAutoplace v0.42 July 7th 2026 S. Moriyama
+#   MinedaAutoplace v0.43 July 13th 2026 S. Moriyama
 #   ChangePCellParameters v0.1 July 29th 2023 S. Moriyama
 #   MinedaBridge v0.1 Sep. 17 2023 S. Moriyama
 #   MinedaUtility v0.1 Aug. 8, 2025 S. Moriyama
@@ -61,7 +62,7 @@ module MinedaPCellCommonModule
     def generate_kicad_device l=0, w=0, m=0
       return unless @kicad
       #footprint_name=cell.name
-      footprint_name = "#{cell.name.sub(/\$.*$/,'')}.l#{l}w#{w}m#{m}"
+      footprint_name = "#{cell.name.sub(/\$.*$/,'')}.l#{l.round(4)}w#{w.round(4)}m#{m}"
       # S式（S-expression）テキストの構築
       # ※ KiCad v6 / v7 / v8 形式に準拠
       s_expr =  "(footprint \"#{footprint_name}\"\n"
@@ -190,6 +191,15 @@ module MinedaPCellCommonModule
     
     def pdiff_to_kicad_Bsilk bbox
       @kicad += active_to_kicad_silk bbox, 'B.SilkS'
+    end
+    
+    def kicad_fp_poly(points, layer)
+      result = "  (fp_poly (pts \n    "
+      points.each{|x, y|
+        result << "(xy #{(x*layout.dbu).round(4)} #{(-y*layout.dbu).round(4)}) "
+      }
+      result << "\n  ) (stroke (width 0.05) (type dash)) (fill none) (layer \"#{layer}\"))\n"
+      @kicad += result
     end
         
     def set_alias args={}
@@ -2425,7 +2435,7 @@ class MinedaAutoPlace
         inst.change_pcell_parameter 'n', m if m
         inst.set_property 'name', name
         File.extname(@dir) == '.pretty' && Dir.chdir(@dir){
-          kicad_cell_name = "#{inst.cell.name.sub(/\$.*$/,'')}.l#{l}w#{w}m#{m}"
+          kicad_cell_name = "#{inst.cell.name.sub(/\$.*$/,'')}.l#{l.round(4)}w#{w.round(4)}m#{m}"
           infile = kicad_cell_name + '.kicad_mod'
           if File.exist?(infile)
             content = File.read(infile, encoding: 'utf-8')
