@@ -1,7 +1,7 @@
 # coding: cp932
-# MinedaPCell v1.098, July 8th, 2026 copy right S. Moriyama (Anagix Corporation)
+# MinedaPCell v1.099, July 15th, 2026 copy right S. Moriyama (Anagix Corporation)
 module MinedaPCell
-  version = 1.098
+  version = 1.099
   include MinedaPCellCommonModule
   # The PCell declaration for the Mineda MOSFET
   class MinedaMOS < MinedaPCellCommon
@@ -1029,7 +1029,7 @@ module MinedaPCell
         end
         offset = offset + width + sseg
       end
-      generate_kicad_device l, w, n
+      generate_kicad_device l, w, ns
     end
     def display_text_impl name='HR_poly'
       if ns > 1
