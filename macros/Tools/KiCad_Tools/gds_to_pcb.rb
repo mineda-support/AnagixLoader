@@ -1,9 +1,80 @@
 # $description: KLayout to KiCad conversion
 # $show-in-menu
 # coding: utf-8
+class KiCadModTransformer
+  def initialize(mode)
+    @mode = mode.upcase
+  end
+
+  def transform(content, new_fp_name, name)
+    # 1. 内部のフットプリント名を新しい名前に書き換える
+    content.sub!(/^(\s*\(footprint\s+)"[^"]+"/) do
+      "#{$1}\"#{new_fp_name}\""
+    end
+    content.sub!(/^(\s*\(fp_text value\s+)"[^"]+"/) do
+      "#{$1}\"#{new_fp_name}\""
+    end
+    content.sub!(/^(\s*\(fp_text reference\s+)"REF\*\*"/) do
+      "#{$1}\"#{name}\""
+    end
+    # 2. ミラー指示 (M0, M90, M180, M270) の場合、内部のすべてのX座標を反転させる
+    if @mode.start_with?('M')
+      # (at X Y [ANGLE]) の X 座標を反転
+      content.gsub!(/\(at\s+([\d.-]+)\s+([\d.-]+)(?:\s+([\d.-]+))?\)/) do
+        x = -$1.to_f
+        y = $2.to_f
+        angle = $3 ? $3.to_f : 0.0
+        # 左右反転すると、個々のパーツが持つ自身の回転角（アングル）も逆回転(符号反転)になります
+        angle = (-angle) % 360
+        angle_str = angle == 0.0 ? "" : " #{angle.round(4)}"
+        "(at #{x.round(4)} #{y.round(4)}#{angle_str})"
+      end
+
+      # 直線やグラフィックの座標 (pts (xy X1 Y1) (xy X2 Y2)) などの X 座標を反転
+      content.gsub!(/\(xy\s+([\d.-]+)\s+([\d.-]+)\)/) do
+        x = -$1.to_f
+        y = $2.to_f
+        "(xy #{x.round(4)} #{y.round(4)})"
+      end
+
+      # レイヤーを表面(F.〇〇)から裏面(B.〇〇)へ切り替え
+      content.gsub!(/\b(F\.[a-zA-Z0-9_]+)\b/) do |layer|
+        layer.start_with?('F.') ? layer.sub(/^F\./, 'B.') : layer
+      end
+      content.gsub!(/\b(B\.[a-zA-Z0-9_]+)\b/) do |layer|
+        layer.start_with?('B.') ? layer.sub(/^B\./, 'F.') : layer
+      end
+    end
+
+    # 3. 指定された角度 (R90や M90 など) に応じて全体の回転処理を行う
+    # フットプリント全体のベース回転は、すべての (at X Y ANGLE) に角度を加算することで実現します
+    add_angle = case @mode
+                when 'R0', 'M0'     then 0
+                when 'R90', 'M45'   then 90
+                when 'R180', 'M90'  then 180
+                when 'R270', 'M135' then 270
+                else
+                  warn "未知の変換指示です: #{@mode}"
+                  return content
+                end
+
+    if add_angle > 0
+      content.gsub!(/\(at\s+([\d.-]+)\s+([\d.-]+)(?:\s+([\d.-]+))?\)/) do
+        x = $1.to_f
+        y = $2.to_f
+        orig_angle = $3 ? $3.to_f : 0.0
+        new_angle = (orig_angle + add_angle) % 360
+        angle_str = new_angle == 0.0 ? "" : " #{new_angle.round(4)}"
+        "(at #{x} #{y}#{angle_str})"
+      end
+    end
+
+    content
+  end
+end
 module GDStoPCB
   include RBA
-  include MinedaCommon
+  #include MinedaCommon
   include MinedaPCellCommonModule
   require 'securerandom'
   
@@ -242,7 +313,47 @@ EOF
     kicad_pads << ')'
     kicad_pads
   end
-
+  
+  def self.convert_to_kicad_pcb cell, pretty_dir, layout, trans = Trans::R0
+    kicad_elements = {}
+    count = 0
+    cell.each_inst{|inst|
+    #top_cell.begin_instances_rec.each{|iter|
+    #  inst = iter.inst_cell
+      puts "#{inst.cell.name}(#{inst.property('name')}): #{(trans*inst.trans).to_s}"
+      if inst.is_pcell?
+        l=inst.pcell_parameter 'l'
+        w=inst.pcell_parameter 'w'
+        m=inst.pcell_parameter 'n'
+        next unless l && w
+        rot = (trans*inst.trans).to_s.sub(/ .*$/, '').upcase
+        kicad_cell_name = "#{inst.cell.name.sub(/\$.*$/,'')}.l#{l.round(4)}w#{w.round(4)}m#{m||0}"
+        infile = File.join(pretty_dir, kicad_cell_name + '.kicad_mod')
+        if File.exist?(infile)
+          count = count + 1
+          name = inst.property('name') || inst.cell.name.sub(/\$.*$/,'')+count.to_s
+          content = File.read(infile, encoding: 'utf-8')
+          transformer = KiCadModTransformer.new(rot)
+          kicad_cell_rot = kicad_cell_name + '_' + rot
+          result = transformer.transform(content, kicad_cell_rot, name)
+          File.write(File.join(pretty_dir, kicad_cell_rot) + '.kicad_mod', result, encoding: 'utf-8')
+          kicad_elements[name] = [((trans*inst.trans).disp.x*layout.dbu).round(4), (-(trans*inst.trans).disp.y*layout.dbu).round(4), kicad_cell_rot]
+        else
+          puts "#{infile} does not exist!"
+        end
+      else
+        puts "Cell: #{inst.cell.name}"
+        if inst.cell.name == 'csio2'
+          puts 'csio2'
+        end
+        k_e = convert_to_kicad_pcb inst.cell, pretty_dir, layout, trans*inst.trans
+        kicad_elements.merge! k_e
+        
+      end
+    }
+    kicad_elements
+  end
+  
   mw = Application.instance.main_window
   view = mw.current_view
   if view
@@ -292,44 +403,12 @@ EOF
   library = Library.library_by_name(pcell_lib)
   raise "Library '#{pcell_lib}' not found" unless library
 
-  segments = ''
-  kicad_elements = {}
-  count = 0
-  top_cell.each_inst{|inst|
-  #top_cell.begin_instances_rec.each{|iter|
-  #  inst = iter.inst_cell
-    puts "#{inst.cell.name}(#{inst.property('name')}): #{inst.trans.to_s}"
-    if inst.is_pcell?
-      l=inst.pcell_parameter 'l'
-      w=inst.pcell_parameter 'w'
-      m=inst.pcell_parameter 'n'
-      next unless l && w
-      rot = inst.trans.to_s.sub(/ .*$/, '').upcase
-      kicad_cell_name = "#{inst.cell.name.sub(/\$.*$/,'')}.l#{l.round(4)}w#{w.round(4)}m#{m||0}"
-      infile = File.join(pretty_dir, kicad_cell_name + '.kicad_mod')
-      if File.exist?(infile)
-        count = count + 1
-        name = inst.property('name') || inst.cell.name.sub(/\$.*$/,'')+count.to_s
-        content = File.read(infile, encoding: 'utf-8')
-        transformer = KiCadModTransformer.new(rot)
-        kicad_cell_rot = kicad_cell_name + '_' + rot
-        result = transformer.transform(content, kicad_cell_rot, name)
-        File.write(File.join(pretty_dir, kicad_cell_rot) + '.kicad_mod', result, encoding: 'utf-8')
-        kicad_elements[name] = [(inst.trans.disp.x*layout.dbu).round(4), (-inst.trans.disp.y*layout.dbu).round(4), kicad_cell_rot]
-      else
-        puts "#{infile} does not exist!"
-      end
-    else
-      puts "Cell: #{inst.cell.name}"
-      if inst.cell.name == 'csio2'
-        puts 'csio2'
-      end
-    end
-  }
+  kicad_elements = convert_to_kicad_pcb top_cell, pretty_dir, layout
+
   puts kicad_elements.inspect
   offset_x, offset_y = centerize kicad_elements
   footprints = generate_footprints kicad_elements, offset_x, offset_y, pretty_lib, pretty_dir
-  
+  segments = ''  
   layers.each_pair do |name, layer|
     top_cell.shapes(layer).each{|shape|
       if shape.is_path?
