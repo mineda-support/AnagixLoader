@@ -1,6 +1,7 @@
 # $description: KLayout to KiCad conversion
 # $show-in-menu
 # coding: utf-8
+module GDStoPCB
 class KiCadModTransformer
   def initialize(mode)
     @mode = mode.upcase
@@ -72,7 +73,8 @@ class KiCadModTransformer
     content
   end
 end
-module GDStoPCB
+
+class KiCadGenerator
   include RBA
   #include MinedaCommon
   include MinedaPCellCommonModule
@@ -80,9 +82,16 @@ module GDStoPCB
   
   TARGET_CENTER_X = 150.0  # A4枠(297x210)のほぼ中央
   TARGET_CENTER_Y = 100.0  # A4枠(297x210)のほぼ中央
-  SCALE = 1 # 200.0  
+  SCALE = 1 # 200.0 
   
-  def self.centerize placement_data
+  def initialize layout, pretty_dir, layers
+    @layout = layout
+    @pretty_dir = pretty_dir
+    @layers = layers
+    @offset_x = 0.0
+    @offset_y = 0.0
+  
+  def centerize placement_data
     # 1. 元データの中心（重心）を計算する
     sum_x = 0.0
     sum_y = 0.0
@@ -99,8 +108,10 @@ module GDStoPCB
     [offset_x, offset_y]
   end
   
-  def self.generate_footprints placement_data, offset_x, offset_y, lib_name, pretty_dir
+  def generate_footprints placement_data, offset_x, offset_y, lib_name
     # フットプリント（footprint）セクションの生成
+    @offset_x = offset_x
+    @offset_y = offset_y
     footprints_sexpr = ""
 
     placement_data.each_pair do |ref, item|
@@ -112,12 +123,12 @@ module GDStoPCB
 
       # KiCadの座標系（通常はmm）。
       # 必要に応じてGDSの単位（μm等）からmmへのスケール変換（例: x * 0.001）をここで行ってください。
-      pos_x = ((x * SCALE) + offset_x).round(4)
-      pos_y = ((y * SCALE) + offset_y).round(4)
+      pos_x = ((x * SCALE) + @offset_x).round(4)
+      pos_y = ((y * SCALE) + @offset_y).round(4)
 
       uuid = SecureRandom.uuid
   
-      fp_body = get_footprint_body(fp_name, ref, pretty_dir)
+      fp_body = get_footprint_body(fp_name, ref)
 
       footprints_sexpr << "  (footprint \"#{lib_name}:#{fp_name}\" (at #{pos_x} #{pos_y}) (layer \"F.Cu\")\n"
       footprints_sexpr << "    (tstamp \"#{uuid}\")\n"
@@ -137,8 +148,8 @@ module GDStoPCB
   end
   
     # フットプリントファイル(.kicad_mod)から中身（形状部分）を抽出する関数
-  def self.get_footprint_body(fp_name, ref, pretty_dir)
-    mod_path = File.join(pretty_dir, "#{fp_name}.kicad_mod")
+  def get_footprint_body(fp_name, ref)
+    mod_path = File.join(@pretty_dir, "#{fp_name}.kicad_mod")
     return "" unless File.exist?(mod_path)
 
     lines = File.read(mod_path)
@@ -148,7 +159,7 @@ module GDStoPCB
     body_lines ? body_lines.join("\n"): ""
   end
 
-  def self.write_pcb footprints, segments, pcb_file
+  def write_pcb footprints, segments, pcb_file
     File.write(pcb_file, <<EOF
 (kicad_pcb
 	(version 20260206)
@@ -243,8 +254,8 @@ EOF
   )
   end
   
-  MAX_PATH_WIDTH = 5
-  def self.generate_net_rail_pad x1, y1, x2, y2, net_id, net_name, layer='F.Cu'
+  #MAX_PATH_WIDTH = 5
+  def generate_net_rail_pad x1, y1, x2, y2, net_id, net_name, layer='F.Cu'
         center_x = (x1 + x2) / 2.0
         center_y = (y1 + y2) / 2.0
         width  = (x2 - x1).abs
@@ -252,7 +263,7 @@ EOF
         segment = <<EOF
         (footprint "Net_Rail_Pad" (layer "F.Cu") (at 0 0)
             (pad "" smd rect 
-                (at #{center_x.round(4)} #{center_y.round(4)}) 
+                (at #{(center_x+@offset_x).round(4)} #{(-center_y+@offset_y).round(4)}) 
                 (size #{width.round(4)} #{height.round(4)})
                 (layers "#{layer}") (net #{net_id} "#{net_name}")
             )
@@ -260,14 +271,31 @@ EOF
 EOF
     segment
   end
-  
-DBU_TO_MM = 0.001 
 
-  def self.complex_path_to_kicad_pads path_shape, offset_x, offset_y, layer='F.Cu'
-    path = path_shape.path
+  def generate_kicad_box inst, box, layer='F.Cu', trans
+    name = inst.cell.name
+    x = trans*inst.trans.disp.x
+    y = trans*inst.trans.disp.y
+    segment = <<EOF
+        (footprint "#{name}" (layer "#{layer}") (at 0 0)
+            (pad "" smd rect 
+                (at #{(x*@layout.dbu+@offset_x).round(4)} #{(-y*@layout.dbu+@offset_y).round(4)}) 
+                (size #{(box.width*@layout.dbu).round(4)} #{(box.height*@layout.dbu).round(4)})
+                (layers "#{layer}") (net 0 "")
+            )
+        )        
+EOF
+    if trans*box.center.x*@layout.dbu+@offset_x < 50 && (-(trans*box.center.y)*@layout.dbu)+@offset_y > 210 
+      puts
+    end
+    segment
+  end
+    
+  def complex_path_to_kicad_pads path_shape, layer='F.Cu', trans
+    path = trans*path_shape.path
   
     # Pathの太さ（幅）をmmに変換
-    width_mm = path.width * DBU_TO_MM
+    width_mm = path.width * @layout.dbu
   
     # ネット名・ネット情報の取得
     net_name = path_shape.property('name') || ""
@@ -275,48 +303,52 @@ DBU_TO_MM = 0.001
     net_name_str = net_name.nil? ? "" : net_name.to_s
 
 # 1. Pathの全頂点を配列に格納 (ここではKLayoutの生の座標(mm)のまま保持)
-  points = []
-  path.each_point do |p|
-    points << [p.x * DBU_TO_MM, p.y * DBU_TO_MM]
-  end
+    points = []
+    path.each_point do |p|
+      points << [p.x, p.y]
+    end
   
-  kicad_pads = "(footprint \"Net_Rail_Pad\" (layer \"#{layer}\") (at 0 0)"
+    kicad_pads = "(footprint \"Net_Rail_Pad\" (layer \"#{layer}\") (at 0 0)"
   
   # 2. each_cons(2) で2点ずつ直接取り出す
-  points.each_cons(2) do |p1, p2|
+    points.each_cons(2) do |p1, p2|
 
-    # KLayoutの座標系のままで中心座標(at)を計算
-    center_x = (p1[0] + p2[0]) / 2.0
-    center_y = (p1[1] + p2[1]) / 2.0 
+      # KLayoutの座標系のままで中心座標(at)を計算
+      center_x = (p1[0] + p2[0]) / 2.0
+      center_y = (p1[1] + p2[1]) / 2.0 
 
-    # 線分自体の長さを計算
-    length = Math.sqrt((p2[0] - p1[0])**2 + (p2[1] - p1[1])**2)
+      # 線分自体の長さを計算
+      length = Math.sqrt((p2[0] - p1[0])**2 + (p2[1] - p1[1])**2) * @layout.dbu
 
-    # 水平（H）か垂直（V）かでサイズを割り振る (KLayout座標のままなので素直に比較できます)
-    if (p1[1] - p2[1]).abs < 0.0001
-      size_w = length
-      size_h = width_mm
-    else
-      size_w = width_mm
-      size_h = length
-    end
+      # 水平（H）か垂直（V）かでサイズを割り振る (KLayout座標のままなので素直に比較できます)
+      if (p1[1] - p2[1]).abs < 0.0001
+        size_w = length
+        size_h = width_mm
+      else
+        size_w = width_mm
+        size_h = length
+      end
       # 3. KiCadの footprint / pad 形式で1セグメントずつ出力
       kicad_pads << <<EOF
       (pad "" smd rect
-            (at #{center_x + offset_x} #{-center_y + offset_y})
+            (at #{(center_x*@layout.dbu + @offset_x).round(4)} #{(-center_y*@layout.dbu + @offset_y).round(4)})
             (size #{size_w} #{size_h})
             (layers "#{layer}")
             (net #{net_id} "#{net_name_str}")
        )
 EOF
+      if (-center_y * @layout.dbu + @offset_y) > 220
+        puts
+      end
     end
     kicad_pads << ')'
     kicad_pads
   end
   
-  def self.convert_to_kicad_pcb cell, pretty_dir, layout, trans = Trans::R0
+  def convert_pcells_to_kicad_mods cell, trans = Trans::R0
     kicad_elements = {}
     count = 0
+    segments = ''
     cell.each_inst{|inst|
     #top_cell.begin_instances_rec.each{|iter|
     #  inst = iter.inst_cell
@@ -328,7 +360,7 @@ EOF
         next unless l && w
         rot = (trans*inst.trans).to_s.sub(/ .*$/, '').upcase
         kicad_cell_name = "#{inst.cell.name.sub(/\$.*$/,'')}.l#{l.round(4)}w#{w.round(4)}m#{m||0}"
-        infile = File.join(pretty_dir, kicad_cell_name + '.kicad_mod')
+        infile = File.join(@pretty_dir, kicad_cell_name + '.kicad_mod')
         if File.exist?(infile)
           count = count + 1
           name = inst.property('name') || inst.cell.name.sub(/\$.*$/,'')+count.to_s
@@ -336,23 +368,78 @@ EOF
           transformer = KiCadModTransformer.new(rot)
           kicad_cell_rot = kicad_cell_name + '_' + rot
           result = transformer.transform(content, kicad_cell_rot, name)
-          File.write(File.join(pretty_dir, kicad_cell_rot) + '.kicad_mod', result, encoding: 'utf-8')
-          kicad_elements[name] = [((trans*inst.trans).disp.x*layout.dbu).round(4), (-(trans*inst.trans).disp.y*layout.dbu).round(4), kicad_cell_rot]
+          File.write(File.join(@pretty_dir, kicad_cell_rot) + '.kicad_mod', result, encoding: 'utf-8')
+          kicad_elements[name] = [((trans*inst.trans).disp.x*@layout.dbu).round(4), (-(trans*inst.trans).disp.y*@layout.dbu).round(4), kicad_cell_rot]
         else
           puts "#{infile} does not exist!"
         end
-      else
-        puts "Cell: #{inst.cell.name}"
-        if inst.cell.name == 'csio2'
-          puts 'csio2'
-        end
-        k_e = convert_to_kicad_pcb inst.cell, pretty_dir, layout, trans*inst.trans
+     else
+        k_e = convert_pcells_to_kicad_mods inst.cell, trans*inst.trans
         kicad_elements.merge! k_e
-        
       end
     }
     kicad_elements
   end
+  
+  def convert_paths_and_cells_to_kicad_segments cell, trans = Trans::R0
+    segments = ''
+    cell.each_inst{|inst|
+      if inst.is_pcell?
+        next
+      elsif inst.cell.name.sub(/\$.*$/, '') == 'Via'
+        # puts "Missing cell is : #{inst.cell.name}"
+        if inst.is_regular_array?
+          puts
+        else
+          puts
+        end
+        width = inst.cell.bbox.width*@layout.dbu
+        inst.cell_inst.each_trans{|trans|
+          segments << <<EOF + "\n"
+      (via
+     	    (at #{(trans.disp.x*@layout.dbu+@offset_x).round(4)} #{(-(trans.disp.y)*@layout.dbu+@offset_y).round(4)})
+		(size #{width})
+		(drill #{width/2})
+		(layers "F.Cu" "B.Cu")
+		(net "")
+		(uuid "#{SecureRandom.uuid}")
+      )
+EOF
+        }
+      elsif inst.cell.is_library_cell?
+        puts "Cell: #{inst.cell.name}"
+        if inst.is_regular_array?
+          puts
+        end
+        inst.cell.shapes(@layers['F.Cu']).each{|shape|
+          segments << generate_kicad_box(inst, shape.bbox, 'F.Cu',trans)
+        }
+     else
+        seg = convert_paths_and_cells_to_kicad_segments inst.cell, trans*inst.trans
+        segments << seg
+      end 
+    }  
+ 
+    @layers.each_pair do |name, layer|
+      cell.shapes(layer).each{|shape|
+        if shape.is_path?
+          #if shape.path.width*@layout.dbu > MAX_PATH_WIDTH
+
+          pads = complex_path_to_kicad_pads(shape, name, trans) 
+          segments << pads if pads
+          #end 
+        elsif shape.is_box?
+          x1 = trans*shape.box.p1.x*@layout.dbu+@offset_x
+          y1 = -(trans*shape.box.p1.y)*@layout.dbu+@offset_y
+          x2 = trans*shape.box.p2.x*@layout.dbu+@offset_x
+          y2 = -(trans*shape.box.p2.y)*@layout.dbu+@offset_y
+          segments << generate_net_rail_pad(x1, y1, x2, y2, 0, "", name)
+        end
+      }
+    end
+    segments
+  end
+end
   
   mw = Application.instance.main_window
   view = mw.current_view
@@ -386,7 +473,6 @@ EOF
   
   filename = view.active_cellview.filename 
   pcb_file = File.join(File.dirname(filename), File.basename(filename).sub(File.extname(filename), '') + '.kicad_pcb')
-  dbu = layout.dbu
   mpc = MinedaPCellCommon.new
   mpc.set_technology(view ? view.active_cellview.technology : "")
   mpc.set_layer_index
@@ -402,46 +488,14 @@ EOF
   pcell_lib = ('PCells_' + view.active_cellview.technology).sub('PCells_OpenRule1um', 'PCells')
   library = Library.library_by_name(pcell_lib)
   raise "Library '#{pcell_lib}' not found" unless library
-
-  kicad_elements = convert_to_kicad_pcb top_cell, pretty_dir, layout
+  kc = KiCadGenerator.new layout, pretty_dir, layers
+  kicad_elements, segments = kc.convert_pcells_to_kicad_mods top_cell
 
   puts kicad_elements.inspect
-  offset_x, offset_y = centerize kicad_elements
-  footprints = generate_footprints kicad_elements, offset_x, offset_y, pretty_lib, pretty_dir
-  segments = ''  
-  layers.each_pair do |name, layer|
-    top_cell.shapes(layer).each{|shape|
-      if shape.is_path?
-        #if shape.path.width/1000.0 > MAX_PATH_WIDTH
-
-     pads = complex_path_to_kicad_pads(shape, offset_x, offset_y, name) 
-          segments << pads if pads
-        #end 
-      elsif shape.is_box?
-        x1 = shape.box.p1.x/1000.0+offset_x
-        y1 = -shape.box.p1.y/1000.0+offset_y
-        x2 = shape.box.p2.x/1000.0+offset_x
-        y2 = -shape.box.p2.y/1000.0+offset_y
-        segments << generate_net_rail_pad(x1, y1, x2, y2, 0, "", name)
-      end
-    }
-  end
-  top_cell.each_inst{|inst|
-    if inst.cell.name.sub(/\$.*$/, '') == 'Via'
-      # puts "Missing cell is : #{inst.cell.name}"
-       width = inst.cell.bbox.width/1000.0
-       segments << <<EOF
-      (via
-      	      (at #{(inst.trans.disp.x*layout.dbu+offset_x).round(4)} #{(-inst.trans.disp.y*layout.dbu+offset_y).round(4)})
-		(size #{width})
-		(drill #{width/2})
-		(layers "F.Cu" "B.Cu")
-		(net "")
-		(uuid "#{SecureRandom.uuid}")
-      )
-EOF
-    end
-  }
-  write_pcb footprints, segments, pcb_file
+  offset_x, offset_y = kc.centerize kicad_elements
+  footprints = kc.generate_footprints kicad_elements, offset_x, offset_y, pcell_lib
+  segments = kc.convert_paths_and_cells_to_kicad_segments top_cell
+  kc.write_pcb footprints, segments, pcb_file
   puts "KiCad PCB successfully generated: #{pcb_file}"
+  end
 end
