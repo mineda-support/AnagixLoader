@@ -1,6 +1,5 @@
 # parse_kicad_to_klayout.rb
 require 'strscan'
-
 # 重複定義警告(warning)を完全に排除
 Object.send(:remove_const, :CELL_WIDTH) if defined?(CELL_WIDTH)
 Object.send(:remove_const, :CELL_HEIGHT) if defined?(CELL_HEIGHT)
@@ -8,32 +7,25 @@ Object.send(:remove_const, :NCH_BASE_X) if defined?(NCH_BASE_X)
 Object.send(:remove_const, :NCH_BASE_Y) if defined?(NCH_BASE_Y)
 Object.send(:remove_const, :PCH_BASE_X) if defined?(PCH_BASE_X)
 Object.send(:remove_const, :PCH_BASE_Y) if defined?(PCH_BASE_Y)
-
 # --- 設定パラメータ ---
 HOME_DIR = ENV['HOMEPATH'] || ENV['HOME']
 KICAD_PCB_PATH = File.join(HOME_DIR, "Seafile/KiCad4LSI/Inverter/Inverter.kicad_pcb")
 OUTPUT_RB_PATH = File.join(HOME_DIR, "KLayout/salt/AnagixLoader/macros/Tools/KiCad_Tools/MyGDS_generator.rb")
-
 # --- フットプリントの外形寸法 (単位: mm) ---
 CELL_WIDTH  = 5.791
 CELL_HEIGHT = 20.0
-
 NCH_BASE_X = CELL_WIDTH / 2.0
 NCH_BASE_Y = 5.0
-
 PCH_BASE_X = CELL_WIDTH / 2.0
 PCH_BASE_Y = 15.0
-
 # --- S式をRubyの配列に変換するパーサ ---
 def parse_sxp(text)
   scanner = StringScanner.new(text)
   stack = [[]]
-
-  until scanner.eos?
+until scanner.eos?
     scanner.skip(/\s+/)
     next if scanner.eos?
-
-    if scanner.scan(/\(/)
+if scanner.scan(/\(/)
       new_list = []
       stack.last << new_list
       stack << new_list
@@ -55,7 +47,6 @@ def parse_sxp(text)
   end
   stack.first.first
 end
-
 def find_node(tree, key)
   return nil unless tree.is_a?(Array)
   tree.each do |node|
@@ -65,7 +56,6 @@ def find_node(tree, key)
   end
   nil
 end
-
 # 【バグ完全修正】無限ループや重複抽出を100%防ぐための、配列の最上位のみを走査する安全なコレクター
 def collect_nodes_by_key(tree, key, dark = [])
   return dark unless tree.is_a?(Array)
@@ -79,18 +69,15 @@ def collect_nodes_by_key(tree, key, dark = [])
   end
   dark
 end
-
 # --- メインの解析処理 ---
 def process_kicad_pcb_sxp(file_path)
   content = File.read(file_path)
   pcb_tree = parse_sxp(content)
-
-  footprints = []
+footprints = []
   segments = []
   vias = []
   zones = []
-
-  # 1. フットプリントの解析 (ゴーストデータの重複混入を完全に防止)
+# 1. フットプリントの解析 (ゴーストデータの重複混入を完全に防止)
   collect_nodes_by_key(pcb_tree, "footprint").each do |fp|
     # fp.at(1) には必ずライブラリ名かフットプリント名のみが入る
     fp_lib_str = fp.at(1).to_s
@@ -112,8 +99,7 @@ def process_kicad_pcb_sxp(file_path)
       end
     end
   end
-
-  # 2. 配線（segment）の解析
+# 2. 配線（segment）の解析
   collect_nodes_by_key(pcb_tree, "segment").each do |seg|
     start_node = find_node(seg, "start")
     end_node   = find_node(seg, "end")
@@ -123,8 +109,7 @@ def process_kicad_pcb_sxp(file_path)
       segments << { start_x: start_node.at(1).to_f, start_y: start_node.at(2).to_f, end_x: end_node.at(1).to_f, end_y: end_node.at(2).to_f, width: width_node.at(1).to_f, layer: layer_node.at(1).to_s }
     end
   end
-
-  # 3. 経由孔（via）の解析
+# 3. 経由孔（via）の解析
   collect_nodes_by_key(pcb_tree, "via").each do |via|
     at_node   = find_node(via, "at")
     size_node = find_node(via, "size")
@@ -132,8 +117,7 @@ def process_kicad_pcb_sxp(file_path)
       vias << { x: at_node.at(1).to_f, y: at_node.at(2).to_f, size: size_node.at(1).to_f }
     end
   end
-
-  # 4. 塗りつぶしゾーン（電源レール）の解析
+# 4. 塗りつぶしゾーン（電源レール）の解析
   collect_nodes_by_key(pcb_tree, "zone").each do |zone|
     layer_node = find_node(zone, "layer")
     polygon_node = find_node(zone, "polygon")
@@ -146,12 +130,9 @@ def process_kicad_pcb_sxp(file_path)
     end
     zones << { layer: layer_node.at(1).to_s, pts: pts } if layer_node && pts.any?
   end
-
-  { footprints: footprints, segments: segments, vias: vias, zones: zones }
+{ footprints: footprints, segments: segments, vias: vias, zones: zones }
 end
-
 data = process_kicad_pcb_sxp(KICAD_PCB_PATH)
-
 File.open(OUTPUT_RB_PATH, "w") do |f|
   f.puts "# KLayout Macro: Generated via SXP Parser (RBA Version)"
   f.puts "module MyLayoutGenerator"
@@ -178,8 +159,7 @@ File.open(OUTPUT_RB_PATH, "w") do |f|
   f.puts "  pch_decl = library.layout.pcell_declaration(\"Pch\")"
   f.puts "  pch_pcell_id = layout.add_pcell_variant(library, pch_decl.id, { \"w\" => 10.0, \"l\" => 0.5, \"m\" => 1 })"
   f.puts "  nch_pcell_id = layout.add_pcell_variant(library, nch_decl.id, { \"w\" => 5.0, \"l\" => 0.5, \"m\" => 1 })"
-
-  # デバイス配置 (画像の実測ピクセルから逆算した、ズレを完全に相殺する絶対正解補正)
+# デバイス配置 (画像の実測ピクセルから逆算した、ズレを完全に相殺する絶対正解補正)
   data[:footprints].each do |fp|
     f.puts "\n  # --- #{fp[:ref]} (#{fp[:fp_name]}) ---"
     f.puts "  base_x = #{fp[:x]} / dbu"
@@ -213,8 +193,7 @@ File.open(OUTPUT_RB_PATH, "w") do |f|
     f.puts "  top_cell.insert(CellInstArray.new(nch_pcell_id, fp_trans * n_local))"
     f.puts "  top_cell.insert(CellInstArray.new(pch_pcell_id, fp_trans * p_local))"
   end
-
-  if data[:segments].any?
+if data[:segments].any?
     f.puts "\n  # --- 配線描画 ---"
     data[:segments].each_with_index do |seg, index|
       f.puts "  if layers[\"#{seg[:layer]}\"]"
@@ -225,8 +204,7 @@ File.open(OUTPUT_RB_PATH, "w") do |f|
       f.puts "  end"
     end
   end
-
-  if data[:vias].any?
+if data[:vias].any?
     f.puts "\n  # --- ビア描画 ---"
     data[:vias].each_with_index do |via, index|
       f.puts "  if layers[\"Via\"]"
@@ -238,8 +216,7 @@ File.open(OUTPUT_RB_PATH, "w") do |f|
       f.puts "  end"
     end
   end
-
-  if data[:zones].any?
+if data[:zones].any?
     f.puts "\n  # --- 電源レール(Zone)描画 ---"
     data[:zones].each_with_index do |zone, index|
       f.puts "  if layers[\"#{zone[:layer]}\"]"
@@ -252,8 +229,7 @@ File.open(OUTPUT_RB_PATH, "w") do |f|
       f.puts "  end"
     end
   end
-
-  f.puts "  output_path = \"c:/tmp/ring_oscillator_output.gds\""
+f.puts "  output_path = \"c:/tmp/ring_oscillator_output.gds\""
   f.puts "  layout.write(output_path)"
   f.puts "  puts \"GDS successfully generated: \#{output_path}\""
   f.puts "  if view"
