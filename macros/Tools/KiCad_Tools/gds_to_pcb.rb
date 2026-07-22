@@ -218,24 +218,6 @@ EOF
   )
   end
   
-  #MAX_PATH_WIDTH = 5
-  def generate_net_rail_pad x1, y1, x2, y2, net_id, net_name, layer='F.Cu'
-        center_x = (x1 + x2) / 2.0
-        center_y = (y1 + y2) / 2.0
-        width  = (x2 - x1).abs
-        height = (y2 - y1).abs
-        segment = <<EOF
-        (footprint "Net_Rail_Pad" (layer "F.Cu") (at 0 0)
-            (pad "" smd rect 
-                (at #{(center_x+@offset_x).round(4)} #{(-center_y+@offset_y).round(4)}) 
-                (size #{width.round(4)} #{height.round(4)})
-                (layers "#{layer}") (net #{net_id} "#{net_name}")
-            )
-        )        
-EOF
-    segment
-  end
-
   def generate_kicad_box inst, box, layer='F.Cu', trans
     name = inst.cell.name
     x = trans*inst.trans.disp.x
@@ -249,20 +231,31 @@ EOF
             )
         )        
 EOF
-    if trans*box.center.x*@layout.dbu+@offset_x < 50 && (-(trans*box.center.y)*@layout.dbu)+@offset_y > 210 
-      puts
-    end
     segment
   end
-    
-  def complex_path_to_kicad_pads path_shape, layer='F.Cu', trans
-    path = trans*path_shape.path
-  
+      
+  #MAX_PATH_WIDTH = 5
+  def generate_net_rail_pad_for_BOX box, layer_name='F.Cu'
+    x = box.center.x*@layout.dbu
+    y = -box.center.y*@layout.dbu
+    segment = <<EOF
+(footprint "Net_Rail_Pad_for_BOX" (layer "#{layer_name}") (at 0 0)
+    (pad "" smd rect 
+        (at #{(x+@offset_x).round(4)} #{(y+@offset_y).round(4)}) 
+        (size #{(box.width*@layout.dbu).round(4)} #{(box.height*@layout.dbu).round(4)})
+        (layers "#{layer_name}") (net 0 "")
+     )
+)        
+EOF
+    segment
+  end
+
+  def complex_path_to_kicad_pads path, net_name, layer='F.Cu'
     # Pathの太さ（幅）をmmに変換
     width_mm = path.width * @layout.dbu
   
     # ネット名・ネット情報の取得
-    net_name = path_shape.property('name') || ""
+    net_name ||= ""
     net_id = (net_name == "" || net_name.nil?) ? 0 : 1
     net_name_str = net_name.nil? ? "" : net_name.to_s
 
@@ -272,7 +265,7 @@ EOF
       points << [p.x, p.y]
     end
   
-    kicad_pads = "(footprint \"Net_Rail_Pad\" (layer \"#{layer}\") (at 0 0)"
+    kicad_pads = "(footprint \"Net_Rail_Pad\" (layer \"#{layer}\") (at 0 0)\n"
   
   # 2. each_cons(2) で2点ずつ直接取り出す
     points.each_cons(2) do |p1, p2|
@@ -301,11 +294,8 @@ EOF
             (net #{net_id} "#{net_name_str}")
        )
 EOF
-      if (-center_y * @layout.dbu + @offset_y) > 220
-        puts
-      end
     end
-    kicad_pads << ')'
+    kicad_pads << ")\n"
     kicad_pads
   end
   
@@ -387,7 +377,7 @@ EOF
           puts
         end
         inst.cell.shapes(@layers['F.Cu']).each{|shape|
-          segments << generate_kicad_box(inst, shape.bbox, 'F.Cu',trans)
+          segments << generate_kicad_box(inst, shape.bbox, 'F.Cu', trans)
         }
      else
         seg = convert_paths_and_cells_to_kicad_segments inst.cell, trans*inst.trans
@@ -395,20 +385,16 @@ EOF
       end 
     }  
  
-    @layers.each_pair do |name, layer|
+    @layers.each_pair do |pcb_layer_name, layer|@off
       cell.shapes(layer).each{|shape|
         if shape.is_path?
           #if shape.path.width*@layout.dbu > MAX_PATH_WIDTH
 
-          pads = complex_path_to_kicad_pads(shape, name, trans) 
+          pads = complex_path_to_kicad_pads(trans*shape.path, shape.property('name'), pcb_layer_name) 
           segments << pads if pads
           #end 
         elsif shape.is_box?
-          x1 = trans*shape.box.p1.x*@layout.dbu+@offset_x
-          y1 = -(trans*shape.box.p1.y)*@layout.dbu+@offset_y
-          x2 = trans*shape.box.p2.x*@layout.dbu+@offset_x
-          y2 = -(trans*shape.box.p2.y)*@layout.dbu+@offset_y
-          segments << generate_net_rail_pad(x1, y1, x2, y2, 0, "", name)
+          segments << generate_net_rail_pad_for_BOX(trans*shape.box, pcb_layer_name)
         end
       }
     end
