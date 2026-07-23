@@ -1,7 +1,7 @@
 # coding: cp932
-# MinedaPCell v1.099, July 15th, 2026 copy right S. Moriyama (Anagix Corporation)
+# MinedaPCell v1.1, July 21st, 2026 copy right S. Moriyama (Anagix Corporation)
 module MinedaPCell
-  version = 1.099
+  version = 1.1
   include MinedaPCellCommonModule
   # The PCell declaration for the Mineda MOSFET
   class MinedaMOS < MinedaPCellCommon
@@ -286,7 +286,8 @@ module MinedaPCell
         #create_box indices[:narea], x1-u1, y1+vs+u1/2, offset-gl+u1, y2-vs-u1/2
         area_ext = params[:area_ext] || 0
         narea_bw = params[:narea_bw] || u1 + u1/4
-        create_box indices[:narea], x1-narea_bw, y1+vs+u1-narea_bw, offset-gl+narea_bw, y2-vs-u1+narea_bw+area_ext
+        narea_cut = params[:narea_cut]? dgl : 0
+        create_box indices[:narea], x1-narea_bw+narea_cut, y1+vs+u1-narea_bw, offset-gl+narea_bw-narea_cut, y2-vs-u1+narea_bw+area_ext
         @kicad && ndiff_to_kicad_Fsilk(Box.new(x1-narea_bw, y1+vs+u1-narea_bw, offset-gl+narea_bw, y2-vs-u1+narea_bw+area_ext))
         # create_box indices[:lvhvt], x1-narea_bw, y1+vs+u1-narea_bw, offset-gl+narea_bw, y2-vs-u1+narea_bw if indices[:lvhvt]
         create_box indices[:nhd], x1-narea_bw, y1+vs+u1-narea_bw, offset-gl+narea_bw, y2-vs-u1+narea_bw if indices[:nhd] # special for PTS06
@@ -630,7 +631,8 @@ module MinedaPCell
           @kicad && pdiff_to_kicad_Bsilk(Box.new(x1-parea_bw_side, y1+vs+u1-parea_bw-area_ext, offset-gl+parea_bw_side, y2-vs-u1+parea_bw_upper))
         else
           parea_bw = params[:parea_bw] || u1 + u1/4
-          create_box indices[:parea], x1-parea_bw, y1+vs+u1-parea_bw-area_ext, offset-gl+parea_bw, y2-vs-u1+parea_bw
+          parea_cut = params[:parea_cut]? dgl : 0
+          create_box indices[:parea], x1-parea_bw+parea_cut, y1+vs+u1-parea_bw-area_ext, offset-gl+parea_bw-parea_cut, y2-vs-u1+parea_bw
           @kicad && pdiff_to_kicad_Bsilk(Box.new(x1-parea_bw, y1+vs+u1-parea_bw-area_ext, offset-gl+parea_bw, y2-vs-u1+parea_bw))
         end
         # create_box indices[:lvhvt], x1-parea_bw, y1+vs+u1-parea_bw, offset-gl+parea_bw, y2-vs-u1+parea_bw if indices[:lvhvt]
@@ -1341,7 +1343,11 @@ module MinedaPCell
           if lay = layout.find_layer(get_layer_index(off_layer, false), 0)
             cell_on_gap.clear(lay)
           end
+          if @layer_index.nil? || @layer_index[off_layer].nil?
+          puts "at 1345: off_layer = #{off_layer}"
+          else
           off_layers << @layer_index[off_layer].first
+          end
         }
         cell_on_gap_index = cell_on_gap.cell_index
       else
@@ -1433,7 +1439,8 @@ module MinedaPCell
       #"Guard line\r\n(length=#{l.round(3)}um, width=#{w.round(3)}um)"
       "#{self.name}\r\n(width=#{w.round(3)}um,length=#{l.round(3)}um)"
     end
-    def produce_impl index, sq_size, fillers, fill_margin=nil, off_layers_on_gap=[]
+    def produce_impl index, sq_size, fillers, fill_margin=nil, off_layers_on_gap=[], kicad_layer='F.CrtYd'
+      @kicad = ''
       oo_layout_dbu = 1.0/layout.dbu
       bw = (sq_size*oo_layout_dbu).to_i
       fm = fill_margin.nil? ? nil : (fill_margin*oo_layout_dbu).to_i
@@ -1464,7 +1471,11 @@ module MinedaPCell
           if lay = layout.find_layer(get_layer_index(off_layer, false), 0)
             cell_on_gap.clear(lay)
           end
+          if @layer_index.nil? || @layer_index[off_layer].nil?
+          puts "at 1472: off_layer = #{off_layer}"
+          else
           off_layers << @layer_index[off_layer].first
+          end          
         }
         cell_on_gap_index = cell_on_gap.cell_index
       else
@@ -1474,10 +1485,13 @@ module MinedaPCell
       end
       if fillers.class == Array && defined?(wire_width) && wire_width > 0.0
         ml1_index = fillers.shift # first of fillers MUST BE a metal wire_width
+        ww = (wire_width*oo_layout_dbu).to_i
         if x1 > 0
-          create_path ml1_index, 0, 0, x1, 0, (wire_width*oo_layout_dbu).to_i, 0, 0
+          create_path ml1_index, 0, 0, x1, 0, ww, 0, 0
+          @kicad && fill_solid_kicad_layer('F.Cu', Box.new(0, -wire_width/2, x1, wire_width/2))
         end
-        create_path ml1_index, x2, 0, length, 0, (wire_width*oo_layout_dbu).to_i, 0, 0
+        create_path ml1_index, x2, 0, length, 0, ww, 0, 0
+        @kicad && fill_solid_kicad_layer('F.Cu', Box.new(x2, -wire_width/2, length, wire_width/2))
         fillers.each{|filler|
           if off_layers.include? layout.get_info(filler).layer
             #produce_impl_loop filler, width, length, bw, x2, x2, bw+(fm || 0)*2, wm_sink
@@ -1491,8 +1505,10 @@ module MinedaPCell
         fill_area(area, bw, fillers, fm){|x, y|
           if x1 - bw/2 < x && x < x2 + bw/2 && x1 != x2
             insert_cell cell_on_gap_index, x, y if cell_on_gap_index 
+            @kicad && fill_solid_kicad_layer(kicad_layer, Box.new(sq_size*1000).move(x, y)) if cell_on_gap_index 
           else
             insert_cell index, x, y if index
+            @kicad && fill_solid_kicad_layer(kicad_layer, Box.new(sq_size*1000).move(x, y)) if index
           end
         }
         cell_on_gap.delete if cell_on_gap
@@ -1501,6 +1517,7 @@ module MinedaPCell
         lay_index = layout.cell(index).layout.layer(lay_ind, 0)
         cell.shapes(lay_index).insert(region_shapes.merge)
       }
+      generate_kicad_device l, sq_size, 0  
     end
   end
   

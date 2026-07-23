@@ -163,7 +163,7 @@ module MinedaPCellCommonModule
 
     def passive_shape_to_kicad bbox
       fill_solid_kicad_layer 'B.Fab', bbox
-   end
+    end
 
     # --- ⑤ DIFF (20/0：拡散層) -> アクティブ領域をシルク破線で囲む ---
     #flat_cell.each_shape(layer_diff) do |shape|
@@ -450,7 +450,7 @@ module MinedaPCellCommonModule
             create_box filler, x1, y1, x2, y2
           end
         end
-      end
+     end
      return_box
     end
     
