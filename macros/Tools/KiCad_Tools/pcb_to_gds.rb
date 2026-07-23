@@ -6,17 +6,20 @@ module PCB_to_gds
   include MinedaPCellCommonModule
 
   # 1. モジュール関数として定義する（self. をつける）
-  def self.rot_to_am(rotation)
-    case rotation
-    when 'R0'   then [0, false]
-    when 'R90'  then [1, false]
-    when 'R180' then [2, false]
-    when 'R270' then [3, false]
-    when 'M0'   then [0, true]
-    when 'M45'  then [1, true]
-    when 'M90'  then [2, true]
-    when 'M135' then [3, true]
-    else             [0, false]
+  def self.rot_to_am(rotation, mir)
+    if mir
+      case rotation.to_i
+      when 0
+        [2, true]
+      when 90
+        [3, true]
+      when 180
+        [0, true]
+      when 270
+        [1, true]
+      end
+    else
+      [rotation.to_i/90, false]
     end
   end
   
@@ -24,6 +27,12 @@ module PCB_to_gds
   def self.run
     mw = Application.instance.main_window
     view = mw.current_view.active_cellview
+    
+    puts "Technology: #{view.technology}"
+    unless view.cell.is_empty?
+      raise "Pease open new empty layout and run again"
+      exit
+    end
     
     if view
       pcb_file = QFileDialog::getOpenFileName(mw, 'KiCad PCB file', File.dirname(view.filename), 'pcb(*.kicad_pcb)')
@@ -58,6 +67,7 @@ module PCB_to_gds
       layers["F.Cu"] = layout.layer(mpc.get_layer_index('ML1', false), 0)
       layers["B.Cu"] = layout.layer(mpc.get_layer_index('ML2', false), 0)
       layers["Via"]  = layout.layer(mpc.get_layer_index('VIA1', false), 0)
+      via_index = mpc.library_cell('Via', 'IP62_Basic_MDP', layout)
     rescue => e
       puts "Layer setup error: #{e.message}"
       return
@@ -70,22 +80,12 @@ module PCB_to_gds
     raw_segments = []
     kpcb[1..-1].each do |blk|
       if blk[0] == :footprint
-=begin      
-        blk[1] =~ /^(\S+):(\S+)\.l(\S+)w(\S+)m(\S+)_(\S+)/
-        lib, sym, l, w, m, rot = [$1, $2, $3.to_f, $4.to_f, $5.to_i, $6]
-        
-        decl = library.layout.pcell_declaration(sym)
-        next unless decl # PCellが見つからない場合のスキップ処理
-        
-        pcell_id = layout.add_pcell_variant(library, decl.id, { "w" => w, "l" => l, "n" => m })
-        at = blk.assoc(:at)
-        ref = nil
-=end
         fp_name = blk[1].to_s # 念のためStringに変換       
         # 正規表現にマッチするか確認
-        if fp_name =~ /^(\S+):(\S+)\.l(\S+)w(\S+)m(\S+)_(\S+)/
+        if fp_name =~ /^(\S+):(\S+)\.l(\S+)w(\S+)m(\S+)_(\S+)/ || 
+           fp_name =~ /^(\S+):(\S+)\.l(\S+)w(\S+)m(\S+)$/
           # マッチした場合のみ変数を抽出
-          lib, sym, l, w, m, rot = [$1, $2, $3.to_f, $4.to_f, $5.to_i, $6]
+          lib, sym, l, w, m, mir = [$1, $2, $3.to_f, $4.to_f, $5.to_i, $6]
           
           decl = library.layout.pcell_declaration(sym)
           next unless decl # PCellが見つからない場合のスキップ処理
@@ -99,47 +99,41 @@ module PCB_to_gds
               break
             end
           end
-          x, y = [at[1], at[2]].map(&:to_f)
-          angle, mirror = rot_to_am(rot)
-        
+          x, y, rot = [at[1], at[2], at[3]].map(&:to_f)
+          angle, mirror = rot_to_am(rot, mir)
+
           fp_trans = Trans.new(angle, mirror, (x/dbu).to_i, (-y/dbu).to_i)
           inst = top_cell.insert(CellInstArray.new(pcell_id, fp_trans))
           inst.set_property 'name', ref    
         else
-          puts "need to insert path or pad for fp_name=#{fp_name}"
-          at = blk.assoc(:pad).assoc(:at)
-          size = blk.assoc(:pad).assoc(:size)
-          x, y = [at[1], at[2]].map(&:to_f)
-          width, height = [size[1], size[2]].map(&:to_f)
-          target_layer = layers[blk.assoc(:pad).assoc(:layers)[1]]
-          x1 = x - width/2
-          x2 = x + width/2
-          y1 = y - height/2
-          y2 = y + height/2
-          box = Box.new((x1/dbu).to_i, (-y1/dbu).to_i, (x2/dbu).to_i, (-y2/dbu).to_i)
-          top_cell.shapes(target_layer).insert(box)
+          if blk.assoc(:pad).nil? # nned to check!
+            puts "need to insert path or pad for fp_name=#{fp_name}"
+            next
+          end        
+          blk[4..-1].each do |item|
+            at = item.assoc(:at)
+            size = item.assoc(:size)
+            x, y = [at[1], at[2]].map(&:to_f)
+            target_layer = layers[item.assoc(:layers)[1]]
+            if item[0] == :pad
+              width, height = [size[1], size[2]].map(&:to_f)
+              x1 = x - width/2
+              x2 = x + width/2
+              y1 = y - height/2
+              y2 = y + height/2
+              box = Box.new((x1/dbu).to_i, (-y1/dbu).to_i, (x2/dbu).to_i, (-y2/dbu).to_i)
+              top_cell.shapes(target_layer).insert(box)
+            #elsif item[0] == :via # not used?
+            #  mpc.insert_cell via_index, x/dbu, -y/dbu
+            end
+          end
         end 
-=begin        
-      elsif blk[0] == :segment
-        start = blk.assoc(:start)[1..2].map(&:to_f)
-        end_ = blk.assoc(:end)[1..2].map(&:to_f) 
-        width = blk.assoc(:width)[1].to_f # to_f に修正（DBU計算のため）
-        layer = blk.assoc(:layer)[1]
-        
-        # 【重要】レイヤーの存在チェック（nil落ち対策）
-        target_layer = layers[layer]
-        if target_layer
-          p1 = Point.new((start[0]/dbu).to_i, (-start[1]/dbu).to_i)
-          p2 = Point.new((end_[0]/dbu).to_i, (-end_[1]/dbu).to_i)
-          path = Path.new([p1, p2], (width/dbu).to_i)     
-          top_cell.shapes(target_layer).insert(path)
-        else
-          # 未定義レイヤー（Edge.Cutsなど）は安全に無視する
-          puts "Skipping unsupported layer: #{layer}"
-        end
-      end
-    end
-=end    
+      elsif blk[0] == :via
+        at = blk.assoc(:at)
+        x, y = [at[1], at[2]].map(&:to_f) 
+        #mpc.insert_cell via_index, x/dbu, -y/dbu
+        via = CellInstArray.new(via_index, Trans.new((x/dbu).to_i, -(y/dbu).to_i))
+        top_cell.insert(via)
       elsif blk[0] == :segment
         # 直接 shapes に入れず、一旦メモリ上の配列にストックする
         # (あらかじめループの前に `raw_segments = []` などの初期化を入れておいてください)
@@ -304,3 +298,4 @@ end
 
 # スクリプト実行
 PCB_to_gds.run
+puts "Finished"
