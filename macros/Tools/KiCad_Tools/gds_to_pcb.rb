@@ -309,8 +309,8 @@ EOF
       puts "#{inst.cell.name}(#{inst.property('name')}): #{(trans*inst.trans).to_s}"
       if inst.is_pcell?
         l=inst.pcell_parameter 'l'
-        w=inst.pcell_parameter 'w'
-        m=inst.pcell_parameter 'n'
+        w=inst.pcell_parameter('w') || 2.0
+        m=inst.pcell_parameter('n') || 0
         next unless l && w
         rot = (trans*inst.trans).to_s.sub(/ .*$/, '').upcase
         kicad_cell_name = "#{inst.cell.name.sub(/\$.*$/,'')}.l#{l.round(4)}w#{w.round(4)}m#{m||0}"
@@ -338,6 +338,7 @@ EOF
         else
           puts "#{infile} does not exist!"
         end
+      #elsif 
       else
         k_e = convert_pcells_to_kicad_mods inst.cell, trans*inst.trans
         kicad_elements.merge! k_e
@@ -353,11 +354,6 @@ EOF
         next
       elsif inst.cell.name.sub(/\$.*$/, '') == 'Via'
         # puts "Missing cell is : #{inst.cell.name}"
-        if inst.is_regular_array?
-          puts
-        else
-          puts
-        end
         width = inst.cell.bbox.width*@layout.dbu
         inst.cell_inst.each_trans{|trans|
           segments << <<EOF + "\n"
@@ -373,9 +369,6 @@ EOF
         }
       elsif inst.cell.is_library_cell?
         puts "Cell: #{inst.cell.name}"
-        if inst.is_regular_array?
-          puts
-        end
         inst.cell.shapes(@layers['F.Cu']).each{|shape|
           segments << generate_kicad_box(inst, shape.bbox, 'F.Cu', trans)
         }
