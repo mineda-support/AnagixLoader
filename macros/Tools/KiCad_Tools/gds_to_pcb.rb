@@ -234,6 +234,24 @@ EOF
     segment
   end
       
+  def generate_contact name, box, layer_name='F.Cu'
+    x = box.center.x*@layout.dbu+@offset_x
+    y = -box.center.y*@layout.dbu+@offset_y
+    width = box.width*@layout.dbu
+    height = box.height*@layout.dbu
+    x1, y1 = [x - width/2, y - height/2]
+    x2, y2 = [x + width/2, y + height/2]
+    segment = <<EOF
+(footprint "#{name}" (layer "#{layer_name}") (at 0 0)
+     (fp_poly (pts (xy #{x1.round(4)} #{y1.round(4)}) (xy #{x1.round(4)} #{y2.round(4)})
+                   (xy #{x2.round(4)} #{y2.round(4)}) (xy #{x2.round(4)} #{y1.round(4)}))
+         (stroke (width 0.05) (type solid)) (fill none) (layer \"#{layer_name}\")
+     )
+)        
+EOF
+    segment
+  end
+        
   #MAX_PATH_WIDTH = 5
   def generate_net_rail_pad_for_BOX box, layer_name='F.Cu'
     x = box.center.x*@layout.dbu
@@ -268,8 +286,10 @@ EOF
     kicad_pads = "(footprint \"Net_Rail_Pad\" (layer \"#{layer}\") (at 0 0)\n"
   
   # 2. each_cons(2) で2点ずつ直接取り出す
+    pp = nil
+    puts "points = #{points}"
     points.each_cons(2) do |p1, p2|
-
+      puts "p1, p2, pp = #{[p1, p2, pp]}"
       # KLayoutの座標系のままで中心座標(at)を計算
       center_x = (p1[0] + p2[0]) / 2.0
       center_y = (p1[1] + p2[1]) / 2.0 
@@ -281,9 +301,25 @@ EOF
       if (p1[1] - p2[1]).abs < 0.0001
         size_w = length
         size_h = width_mm
+        if p1 == pp
+          size_w = size_w + width_mm/1
+          if p1[0] > p2[0]
+            center_x = center_x + width_mm/2
+          else
+            center_x = center_x - width_mm/2
+          end
+        end
       else
         size_w = width_mm
         size_h = length
+        if p1 == pp
+          size_h = size_h + width_mm/1
+          if p1[1] > p2[1]
+            center_y = center_y + width_mm/2
+          else
+            center_y = center_y - width_mm/2
+          end
+        end
       end
       # 3. KiCadの footprint / pad 形式で1セグメントずつ出力
       kicad_pads << <<EOF
@@ -294,6 +330,7 @@ EOF
             (net #{net_id} "#{net_name_str}")
        )
 EOF
+      pp = p2
     end
     kicad_pads << ")\n"
     kicad_pads
@@ -332,13 +369,18 @@ EOF
                 else
                   warn "未知の変換指示です: #{rot}"
                   0
-                end         
-          kicad_elements[name] = [((trans*inst.trans).disp.x*@layout.dbu).round(4), (-(trans*inst.trans).disp.y*@layout.dbu).round(4), 
+                end 
+          #kicad_elements[name] = [((trans*inst.trans).disp.x*@layout.dbu).round(4), (-(trans*inst.trans).disp.y*@layout.dbu).round(4), 
+          #                        kicad_cell_name, angle]
+          inst.cell_inst.each_trans{|trans2|
+            kicad_elements[name] = [((trans*trans2).disp.x*@layout.dbu).round(4), (-((trans*trans2).disp.y)*@layout.dbu).round(4), 
                                   kicad_cell_name, angle]
+          }
         else
           puts "#{infile} does not exist!"
         end
-      #elsif 
+      elsif inst.is_regular_array?
+
       else
         k_e = convert_pcells_to_kicad_mods inst.cell, trans*inst.trans
         kicad_elements.merge! k_e
@@ -357,21 +399,24 @@ EOF
         width = inst.cell.bbox.width*@layout.dbu
         inst.cell_inst.each_trans{|trans|
           segments << <<EOF + "\n"
-      (via
-     	    (at #{(trans.disp.x*@layout.dbu+@offset_x).round(4)} #{(-(trans.disp.y)*@layout.dbu+@offset_y).round(4)})
-		(size #{width})
-		(drill #{width/2})
-		(layers "F.Cu" "B.Cu")
-		(net "")
-		(uuid "#{SecureRandom.uuid}")
-      )
+(via
+   (at #{(trans.disp.x*@layout.dbu+@offset_x).round(4)} #{(-(trans.disp.y)*@layout.dbu+@offset_y).round(4)})
+       (size #{width}) (drill #{width/2})	 (layers "F.Cu" "B.Cu") (net "")
+      	(uuid "#{SecureRandom.uuid}")
+)
 EOF
         }
       elsif inst.cell.is_library_cell?
         puts "Cell: #{inst.cell.name}"
+        if ['pcont', 'psubcont', 'nsubcont'].include?(inst.cell.name.sub(/\$.*$/, ''))
+          inst.cell_inst.each_trans{|trans|
+            segments << generate_contact(inst.cell.name, trans*inst.cell.bbox, 'F.Fab')
+          }
+        else
         inst.cell.shapes(@layers['F.Cu']).each{|shape|
           segments << generate_kicad_box(inst, shape.bbox, 'F.Cu', trans)
         }
+        end
      else
         seg = convert_paths_and_cells_to_kicad_segments inst.cell, trans*inst.trans
         segments << seg
