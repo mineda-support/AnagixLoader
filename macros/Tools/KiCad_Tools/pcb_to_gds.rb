@@ -1,3 +1,5 @@
+# $description: KiCad to KLayout conversion
+# $show-in-menu
 # coding: utf-8
 require 'sxp'
 
@@ -117,12 +119,24 @@ module PCB_to_gds
             target_layer = layers[item.assoc(:layers)[1]]
             if item[0] == :pad
               width, height = [size[1], size[2]].map(&:to_f)
+=begin
               x1 = x - width/2
               x2 = x + width/2
               y1 = y - height/2
               y2 = y + height/2
               box = Box.new((x1/dbu).to_i, (-y1/dbu).to_i, (x2/dbu).to_i, (-y2/dbu).to_i)
               top_cell.shapes(target_layer).insert(box)
+=end
+              if width > height
+                x1 = x - width/2
+                x2 = x + width/2
+                path = Path.new([Point.new((x1/dbu).to_i, (-y/dbu).to_i), Point.new((x2/dbu).to_i,(-y/dbu).to_i)], height/dbu)
+              else
+                y1 = y - height/2
+                y2 = y + height/2
+                path = Path.new([Point.new((x/dbu).to_i, (-y1/dbu).to_i), Point.new((x/dbu).to_i, (-y2/dbu).to_i)], width/dbu)
+              end
+              top_cell.shapes(target_layer).insert(path)
             #elsif item[0] == :via # not used?
             #  mpc.insert_cell via_index, x/dbu, -y/dbu
             end
