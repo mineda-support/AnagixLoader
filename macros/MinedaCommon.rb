@@ -1,6 +1,6 @@
 # coding: utf-8
 # $priority: 1
-# Mineda Common v1.38 July 13th, 2026
+# Mineda Common v1.39 July 26th, 2026
 #   Force on-grid v0.1 July 39th 2022 copy right S. Moriyama (Anagix Corp.)
 #   LVS preprocessor(get_reference) v0.86 Dec. 18th, 2025 copyright by S. Moriyama (Anagix Corporation)
 #   * ConvertPCells and PCellDefaults moved from MinedaPCell v0.4 Nov. 22nd 2022
@@ -9,7 +9,7 @@
 #   PCellTest v0.2 August 22nd 2022 S. Moriyama
 #   DRC_helper::find_cells_to_exclude v0.1 Sep 23rd 2022 S. Moriyama
 #   MinedaInput v0.395 June 30th, 2025 S. Moriyama
-#   MinedaPCellCommon v0.36 July 7th, 2026 S. Moriyama
+#   MinedaPCellCommon v0.37 July 26th, 2026 S. Moriyama
 #   Create Backannotation data v0.171 May 14th 2023 S. Moriyama
 #   MinedaAutoplace v0.43 July 13th 2026 S. Moriyama
 #   ChangePCellParameters v0.1 July 29th 2023 S. Moriyama
@@ -139,7 +139,7 @@ module MinedaPCellCommonModule
 
     # --- ④ POL (4/0) -> ゲート形状を完璧に描き出す ---
     #flat_cell.each_shape(layer_pol) do |shape|
-    def fill_solid_kicad_layer fill_layer, bbox
+    def draw_kicad_poly fill_layer, bbox, type
       #bbox = shape.bbox
       w = (bbox.width * layout.dbu).round(4)
       h = (bbox.height * layout.dbu).round(4)
@@ -154,7 +154,15 @@ module MinedaPCellCommonModule
       y1, y2 = (cy - h/2.0).round(4), (cy + h/2.0).round(4)
       
       #s_expr += 
-      @kicad += "  (fp_poly (pts (xy #{x1} #{y1}) (xy #{x2} #{y1}) (xy #{x2} #{y2}) (xy #{x1} #{y2})) (stroke (width 0.05) (type solid)) (fill solid) (layer \"#{fill_layer}\"))\n"
+      @kicad += "  (fp_poly (pts (xy #{x1} #{y1}) (xy #{x2} #{y1}) (xy #{x2} #{y2}) (xy #{x1} #{y2})) (stroke (width 0.05) #{type} (layer \"#{fill_layer}\"))\n"
+    end
+
+    def fill_none_kicad_layer fill_layer, bbox
+      draw_kicad_poly fill_layer, bbox, '(type solid)) (fill none)'
+   end
+
+    def fill_solid_kicad_layer fill_layer, bbox 
+      draw_kicad_poly fill_layer, bbox, '(type solid)) (fill solid)'
     end
 
     def gate_shape_to_kicad bbox
@@ -167,38 +175,25 @@ module MinedaPCellCommonModule
 
     # --- ⑤ DIFF (20/0：拡散層) -> アクティブ領域をシルク破線で囲む ---
     #flat_cell.each_shape(layer_diff) do |shape|
-    def active_to_kicad_silk bbox, silk
-      #bbox = shape.bbox
-      w = (bbox.width * layout.dbu).round(4)
-      h = (bbox.height * layout.dbu).round(4)
-      #next if w > 15.0 || h > 15.0
-      
-      cx = (bbox.center.x * layout.dbu).round(4)
-      cy = -(bbox.center.y * layout.dbu).round(4)
-      
-      x1, x2 = (cx - w/2.0).round(4), (cx + w/2.0).round(4)
-      y1, y2 = (cy - h/2.0).round(4), (cy + h/2.0).round(4)
-      
-      #silk = (pcell_name == 'Nch') ? 'F.SilkS' : 'B.SilkS'
-      #s_expr += 
-      "  (fp_poly (pts (xy #{x1} #{y1}) (xy #{x2} #{y1}) (xy #{x2} #{y2}) (xy #{x1} #{y2})) (stroke (width 0.05) (type dash)) (fill none) (layer \"#{silk}\"))\n"
+    def active_to_kicad_silk bbox, fill_layer
+      draw_kicad_poly fill_layer, bbox, '(type dash)) (fill none)'
     end
     private :active_to_kicad_silk
     
     def ndiff_to_kicad_Fsilk bbox
-      @kicad += active_to_kicad_silk bbox, 'F.SilkS'
+      active_to_kicad_silk bbox, 'F.SilkS'
     end
     
     def pdiff_to_kicad_Bsilk bbox
-      @kicad += active_to_kicad_silk bbox, 'B.SilkS'
+      active_to_kicad_silk bbox, 'B.SilkS'
     end
     
-    def kicad_fp_poly(points, layer)
+    def kicad_fp_poly(points, layer, type='(type dash)) (fill none)')
       result = "  (fp_poly (pts \n    "
       points.each{|x, y|
         result << "(xy #{(x*layout.dbu).round(4)} #{(-y*layout.dbu).round(4)}) "
       }
-      result << "\n  ) (stroke (width 0.05) (type dash)) (fill none) (layer \"#{layer}\"))\n"
+      result << "\n  ) (stroke (width 0.05) #{type} (layer \"#{layer}\"))\n"
       @kicad += result
     end
         
