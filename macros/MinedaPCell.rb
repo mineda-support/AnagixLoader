@@ -1,7 +1,7 @@
 # coding: cp932
-# MinedaPCell v1.1, July 21st, 2026 copy right S. Moriyama (Anagix Corporation)
+# MinedaPCell v1.11, July 26th, 2026 copy right S. Moriyama (Anagix Corporation)
 module MinedaPCell
-  version = 1.1
+  version = 1.11
   include MinedaPCellCommonModule
   # The PCell declaration for the Mineda MOSFET
   class MinedaMOS < MinedaPCellCommon
@@ -1312,7 +1312,8 @@ module MinedaPCell
     def display_text_impl
       "#{self.name}\r\n(width=#{w.round(3)}um,length=#{l.round(3)}um)"
     end
-    def produce_impl index, sq_size, fillers, fill_margin=nil, off_layers_on_gap=[]
+    def produce_impl index, sq_size, fillers, fill_margin=nil, off_layers_on_gap=[], kicad_layer='F.CrtYd'
+      @kicad = ''
       oo_layout_dbu = 1.0/layout.dbu
       bw = (sq_size*oo_layout_dbu).to_i
       fm = fill_margin.nil? ? nil : (fill_margin*oo_layout_dbu).to_i
@@ -1352,14 +1353,14 @@ module MinedaPCell
         cell_on_gap_index = cell_on_gap.cell_index
       else
         cell_on_gap_index = nil
-        produce_impl_loop fillers, width, length, bw, x1, x2, bw+(fm || 0)*2, wm_sink
+        produce_impl_loop fillers, width, length, bw, x1, x2, bw+(fm || 0)*2, wm_sink, 'F.Cu'
       end
       if fillers.class == Array && defined?(wire_width) && wire_width > 0.0
         ml1_index = fillers.shift # first of fillers MUST BE a metal (with wire_width)
-        produce_impl_loop ml1_index, width, length, bw, x1, x2, (wire_width*oo_layout_dbu).to_i, wm_sink
+        produce_impl_loop ml1_index, width, length, bw, x1, x2, (wire_width*oo_layout_dbu).to_i, wm_sink, 'F.Cu'
         fillers.each{|filler|
           if off_layers.include? layout.get_info(filler).layer
-            produce_impl_loop filler, width, length, bw, x2, x2, bw+(fm || 0)*2, wm_sink
+            produce_impl_loop filler, width, length, bw, x2, x2, bw+(fm || 0)*2, wm_sink, 'F.Cu'
           end
         }
       end
@@ -1368,8 +1369,10 @@ module MinedaPCell
         fill_area(area, bw, fillers, fm){|x, y|
           if x1 - bw/2 < x && x < x2 + bw/2 && x1 != x2
             insert_cell cell_on_gap_index, x, y if cell_on_gap_index 
+            @kicad && fill_none_kicad_layer(kicad_layer, Box.new(sq_size*1000).move(x, y)) if cell_on_gap_index 
           else
             insert_cell index, x, y if index
+            @kicad && fill_none_kicad_layer(kicad_layer, Box.new(sq_size*1000).move(x, y)) if index
           end
         }
         [[width, -bw, width+bw, length],
@@ -1377,6 +1380,7 @@ module MinedaPCell
          [-bw, 0, 0, length+ (wm_sink == 0 ? bw: 0)]].each{|area|
           fill_area(area, bw, fillers, fm){|x, y|
             insert_cell index, x, y if index
+            @kicad && fill_none_kicad_layer(kicad_layer, Box.new(sq_size*1000).move(x, y)) if index
           }
         }
         cell_on_gap.delete if cell_on_gap
@@ -1385,14 +1389,18 @@ module MinedaPCell
         lay_index = layout.cell(index).layout.layer(lay_ind, 0)
          cell.shapes(lay_index).insert(region_shapes.merge)
       }
+      generate_kicad_device l, w, 0  
     end
-    def produce_impl_loop ml1_index, width, length, bw, x1, x2, ww, wm_sink=0
+    def produce_impl_loop ml1_index, width, length, bw, x1, x2, ww, wm_sink=0, kicad_layer='F.Cu'
       points = ((x1 > -bw/2) ? [[x2, -bw/2], [width+bw/2, -bw/2], [width+bw/2, length+bw/2+wm_sink],
                   [-bw/2, length+bw/2+wm_sink], [-bw/2,  -bw/2], [x1, -bw/2]] :
                   [[x2, -bw/2], [width+bw/2, -bw/2], [width+bw/2, length+bw/2+wm_sink],
                   [-bw/2, length+bw/2+wm_sink], [-bw/2, 0]]).map{|x, y| Point::new(x, y)}
       cell.shapes(ml1_index).insert(Path::new(points, ww, 0, 0))
-    end   
+      points.each{|x, y|
+        @kicad && fill_none_kicad_layer(kicad_layer, Box.new(sq_size*1000).move(x, y))
+      }
+    end
   end
   
   class MinedaFillLine < MinedaPCellCommon
@@ -1505,10 +1513,10 @@ module MinedaPCell
         fill_area(area, bw, fillers, fm){|x, y|
           if x1 - bw/2 < x && x < x2 + bw/2 && x1 != x2
             insert_cell cell_on_gap_index, x, y if cell_on_gap_index 
-            @kicad && fill_solid_kicad_layer(kicad_layer, Box.new(sq_size*1000).move(x, y)) if cell_on_gap_index 
+            @kicad && fill_none_kicad_layer(kicad_layer, Box.new(sq_size*1000).move(x, y)) if cell_on_gap_index 
           else
             insert_cell index, x, y if index
-            @kicad && fill_solid_kicad_layer(kicad_layer, Box.new(sq_size*1000).move(x, y)) if index
+            @kicad && fill_none_kicad_layer(kicad_layer, Box.new(sq_size*1000).move(x, y)) if index
           end
         }
         cell_on_gap.delete if cell_on_gap
