@@ -108,7 +108,7 @@ module PCB_to_gds
           inst = top_cell.insert(CellInstArray.new(pcell_id, fp_trans))
           inst.set_property 'name', ref    
         else
-          if blk.assoc(:pad).nil? # nned to check!
+          if blk.assoc(:pad).nil? # need to check!
             puts "need to insert path or pad for fp_name=#{fp_name}"
             next
           end        
@@ -155,9 +155,18 @@ module PCB_to_gds
         end_ = blk.assoc(:end)[1..2].map(&:to_f) 
         width = blk.assoc(:width)[1].to_f
         layer = blk.assoc(:layer)[1]
-        net_name = blk.assoc(:net) ? blk.assoc(:net)[1] : ""
-        
+        net_name = blk.assoc(:net) ? blk.assoc(:net)[1] : ""      
         raw_segments << { start: start, end: end_, width: width, layer: layer, net: net_name }
+      elsif blk[0] == :zone
+        target_layer = layers[blk.assoc(:layer)[1]]
+        blk[8..-1].each{|item|
+          if item[0] == :polygon || item[0] == :filled_polygon
+            pts = item.assoc(:pts)
+            polygon = Polygon.new(pts[1..-1].map{|xy| Point.new((xy[1]/dbu).to_i, (-xy[2]/dbu).to_i)})
+            target_layer = layers[item.assoc(:layer)[1]] if item.assoc(:layer)
+            top_cell.shapes(target_layer).insert(polygon)
+          end
+        }
       end
     end # ここで kpcb のループ終了
     
