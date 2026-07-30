@@ -1785,7 +1785,7 @@ class MinedaLVS
       cv = mw.current_view.active_cellview
       raise "You are running #{target_technology} version of 'get_reference' against #{cv.technology} layout" unless cv.technology == target_technology
       raise 'Please save the layout first' if cv.nil? || cv.filename.nil? || cv.filename == ''
-      top_cell=cv.cell.name
+      top_cell = cv.cell.name
       cell = cv.cell
       netlist = QFileDialog::getOpenFileName(mw, 'Netlist file', File.dirname(cv.filename), 'netlist(*.net *.cir *.spc *.spice *.spi *.sp *.cdl)')
     else

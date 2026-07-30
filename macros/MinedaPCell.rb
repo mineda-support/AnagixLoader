@@ -1,7 +1,7 @@
 # coding: cp932
-# MinedaPCell v1.11, July 26th, 2026 copy right S. Moriyama (Anagix Corporation)
+# MinedaPCell v1.111, July 29th, 2026 copy right S. Moriyama (Anagix Corporation)
 module MinedaPCell
-  version = 1.11
+  version = 1.111
   include MinedaPCellCommonModule
   # The PCell declaration for the Mineda MOSFET
   class MinedaMOS < MinedaPCellCommon
@@ -1108,7 +1108,7 @@ module MinedaPCell
 
     def display_text_impl
       # Provide a descriptive text for the cell
-      "Diff Capacitor\r\n(L=#{l.round(3)}um,W=#{w.round(3)}um,C=#{cval.to_s})"
+      "Diff Capacitor\r\n(L=#{l.round(3)}um,W=#{w.round(3)}um,C=#{"%.3e" % cval})"
     end
 
     def produce_impl indices, vs, u1, area_index=nil, well_index=nil, params={}, label=nil
@@ -1165,7 +1165,7 @@ module MinedaPCell
 
     def display_text_impl
       # Provide a descriptive text for the cell
-      "Poly Capacitor\r\n(L=#{l.round(3)}um,W=#{w.round(3)}um,C=#{cval.to_s})"
+      "Poly Capacitor\r\n(L=#{l.round(3)}um,W=#{w.round(3)}um,C=#{"%.3e" % cval})"
     end
     
     def coerce_parameters_impl value
@@ -1230,7 +1230,7 @@ module MinedaPCell
   class MinedaFinger_cap < MinedaCapacitor
     # include MinedaPCell
     def display_text_impl
-      "Finger capacitor\r\n(L=#{fl.round(3)}um,W=#{(fw*nf + fg*(nf-1)).round(3)}um, C=#{cval.to_s}"
+      "Finger capacitor\r\n(L=#{fl.round(3)}um,W=#{(fw*nf + fg*(nf-1)).round(3)}um, C=#{"%.3e" % cval})"
     end
     def draw_fingers index, fl, fw, fg, nf, flag
       pitch = (fw + fg)*2
