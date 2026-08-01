@@ -1,6 +1,6 @@
 # coding: utf-8
 # $priority: 1
-# Mineda Common v1.39 July 26th, 2026
+# Mineda Common v1.40 Aug. 1st, 2026
 #   Force on-grid v0.1 July 39th 2022 copy right S. Moriyama (Anagix Corp.)
 #   LVS preprocessor(get_reference) v0.86 Dec. 18th, 2025 copyright by S. Moriyama (Anagix Corporation)
 #   * ConvertPCells and PCellDefaults moved from MinedaPCell v0.4 Nov. 22nd 2022
@@ -11,7 +11,7 @@
 #   MinedaInput v0.395 June 30th, 2025 S. Moriyama
 #   MinedaPCellCommon v0.37 July 26th, 2026 S. Moriyama
 #   Create Backannotation data v0.171 May 14th 2023 S. Moriyama
-#   MinedaAutoplace v0.43 July 13th 2026 S. Moriyama
+#   MinedaAutoplace v0.44 Aug. 1st 2026 S. Moriyama
 #   ChangePCellParameters v0.1 July 29th 2023 S. Moriyama
 #   MinedaBridge v0.1 Sep. 17 2023 S. Moriyama
 #   MinedaUtility v0.1 Aug. 8, 2025 S. Moriyama
@@ -2362,7 +2362,7 @@ class MinedaAutoPlace
       instance = nil
       force_ = {}
       if @params
-        params_ = @params[name] || {}   
+        params_ = @params[name] || @params[name.to_sym] || {}   
       end
       @cell.each_inst{|inst|
         if inst.property('name') == name
@@ -2389,7 +2389,7 @@ class MinedaAutoPlace
           w = (params_['w'] || params_[:w])
           m = (params_['n'] || params_[:n])
         end
-        if index
+        if index && l && w
           mos = instantiate index, 0, 0
           inst = @cell.insert(mos)
           xpos = x*@xscale/@grid.to_i*@grid
@@ -2413,7 +2413,7 @@ class MinedaAutoPlace
             inst.transform Trans.new(Trans::M135, xpos, ypos) # not sure
           end
         else
-          puts "warning: instance #{name} does not have a valid symbol"
+          puts "warning: instance #{name}(l=#{l} w=#{w}) does not have a valid symbol"
         end
       else
         inst = instance
@@ -2429,6 +2429,7 @@ class MinedaAutoPlace
         inst.change_pcell_parameter 'w', w
         inst.change_pcell_parameter 'n', m if m
         inst.set_property 'name', name
+        inst.set_property 1, name # to save in GDS format
         File.extname(@dir) == '.pretty' && Dir.chdir(@dir){
           kicad_cell_name = "#{inst.cell.name.sub(/\$.*$/,'')}.l#{l.round(4)}w#{w.round(4)}m#{m}"
           infile = kicad_cell_name + '.kicad_mod'
@@ -2439,6 +2440,7 @@ class MinedaAutoPlace
             result = transformer.transform(content, kicad_cell_rot, name)
             
             inst.set_property 'kicad_footprint', kicad_cell_rot
+            inst.set_property 2, kicad_cell_rot
             File.write(kicad_cell_rot + '.kicad_mod', result, encoding: 'utf-8')
             kicad_elements[name] = [(x*layout.dbu).round(4), (y*layout.dbu).round(4), kicad_cell_rot]
           end
