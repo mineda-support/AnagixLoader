@@ -451,11 +451,12 @@ EOF
       elsif inst.cell.name.sub(/\$.*$/, '') == 'Via'
         # puts "Missing cell is : #{inst.cell.name}"
         width = inst.cell.bbox.width*@layout.dbu
+        drill_width = inst.cell.each_shape(@layers['Via']).first.bbox.width*@layout.dbu
         inst.cell_inst.each_trans{|trans|
           segments << <<EOF + "\n"
 (via
    (at #{(trans.disp.x*@layout.dbu+@offset_x).round(2)} #{(-(trans.disp.y)*@layout.dbu+@offset_y).round(2)})
-       (size #{width}) (drill #{width/2})	 (layers "F.Cu" "B.Cu") (net "#{inst.property('net') || inst.property(1)}")
+       (size #{width}) (drill #{drill_width}) (layers "F.Cu" "B.Cu") (net "#{inst.property('net') || inst.property(1)}")
       	(uuid "#{SecureRandom.uuid}")
 )
 EOF
