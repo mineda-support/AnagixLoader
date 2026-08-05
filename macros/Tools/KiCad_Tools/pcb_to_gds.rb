@@ -92,7 +92,12 @@ module PCB_to_gds
           decl = library.layout.pcell_declaration(sym)
           next unless decl # PCellが見つからない場合のスキップ処理
           
-          pcell_id = layout.add_pcell_variant(library, decl.id, { "w" => w, "l" => l, "n" => m })
+          if sym == 'Pch'
+            pcell_id = layout.add_pcell_variant(library, decl.id, { "w" => w, "l" => l, "n" => m,
+                                                                    'use_nwell' => true, 'with_nsubcont' => true })
+          else
+            pcell_id = layout.add_pcell_variant(library, decl.id, { "w" => w, "l" => l, "n" => m })
+          end
           at = blk.assoc(:at)
           ref = nil
           blk[4..-1].each do |item|
@@ -106,7 +111,8 @@ module PCB_to_gds
 
           fp_trans = Trans.new(angle, mirror, (x/dbu).to_i, (-y/dbu).to_i)
           inst = top_cell.insert(CellInstArray.new(pcell_id, fp_trans))
-          inst.set_property 'name', ref    
+          inst.set_property 'name', ref 
+          inst.set_property '1', ref   
         else
           if blk.assoc(:pad).nil? # need to check!
             puts "need to insert path or pad for fp_name=#{fp_name}"
@@ -147,7 +153,10 @@ module PCB_to_gds
         x, y = [at[1], at[2]].map(&:to_f) 
         #mpc.insert_cell via_index, x/dbu, -y/dbu
         via = CellInstArray.new(via_index, Trans.new((x/dbu).to_i, -(y/dbu).to_i))
-        top_cell.insert(via)
+        inst = top_cell.insert(via)
+        net_name = blk.assoc(:net)[1] || ""
+        inst.set_property('net', net_name)
+        inst.set_property(1, net_name)
       elsif blk[0] == :segment
         # 直接 shapes に入れず、一旦メモリ上の配列にストックする
         # (あらかじめループの前に `raw_segments = []` などの初期化を入れておいてください)
@@ -159,12 +168,15 @@ module PCB_to_gds
         raw_segments << { start: start, end: end_, width: width, layer: layer, net: net_name }
       elsif blk[0] == :zone
         target_layer = layers[blk.assoc(:layer)[1]]
+        net_name = blk.assoc(:net) ? blk.assoc(:net)[1] : ""      
         blk[8..-1].each{|item|
-          if item[0] == :polygon || item[0] == :filled_polygon
+          if item[0] == :filled_polygon || item[0] == :polygon # zone needs to store both polygon and filled_polygon
             pts = item.assoc(:pts)
             polygon = Polygon.new(pts[1..-1].map{|xy| Point.new((xy[1]/dbu).to_i, (-xy[2]/dbu).to_i)})
             target_layer = layers[item.assoc(:layer)[1]] if item.assoc(:layer)
-            top_cell.shapes(target_layer).insert(polygon)
+            pol = top_cell.shapes(target_layer).insert(polygon)
+            pol.set_property('net', net_name)
+            pol.set_property(1, net_name)
           end
         }
       end
@@ -310,8 +322,9 @@ module PCB_to_gds
         
         # 修正された直角座標列（manhattan_pts）を使ってPathを生成
         path = Path.new(manhattan_pts, (width/dbu).to_i)
-        top_cell.shapes(target_layer).insert(path)
-      end
+        p = top_cell.shapes(target_layer).insert(path)
+        p.set_property('net', net_name)
+        p.set_property(1, net_name)      end
     end
     if mw.current_view
       mw.current_view.zoom_fit
