@@ -41,14 +41,14 @@ class KiCadGenerator
         angle = $3 ? $3.to_f : 0.0
         # 左右反転すると、個々のパーツが持つ自身の回転角（アングル）も逆回転(符号反転)になります
         angle = (-angle) % 360
-        angle_str = angle == 0.0 ? "" : " #{angle.round(4)}"
-        "(at #{x.round(4)} #{y.round(4)}#{angle_str})"
+        angle_str = angle == 0.0 ? "" : " #{angle.round(2)}"
+        "(at #{x.round(2)} #{y.round(2)}#{angle_str})"
       end
       # 直線やグラフィックの座標 (pts (xy X1 Y1) (xy X2 Y2)) などの X 座標を反転
       content.gsub!(/\(xy\s+([\d.-]+)\s+([\d.-]+)\)/) do
         x = -$1.to_f
         y = $2.to_f
-        "(xy #{x.round(4)} #{y.round(4)})"
+        "(xy #{x.round(2)} #{y.round(2)})"
       end
       File.write(mx_file, content)
       puts "#{File.join @pretty_dir, mx_file} created"
@@ -87,8 +87,8 @@ class KiCadGenerator
       angle = item[4]
       # KiCadの座標系（通常はmm）。
       # 必要に応じてGDSの単位（μm等）からmmへのスケール変換（例: x * 0.001）をここで行ってください。
-      pos_x = ((x * SCALE) + @offset_x).round(4)
-      pos_y = ((y * SCALE) + @offset_y).round(4)
+      pos_x = ((x * SCALE) + @offset_x).round(2)
+      pos_y = ((y * SCALE) + @offset_y).round(2)
 
       uuid = SecureRandom.uuid
   
@@ -225,8 +225,8 @@ EOF
     segment = <<EOF
         (footprint "#{name}" (layer "#{layer}") (at 0 0)
             (pad "" smd rect 
-                (at #{(x*@layout.dbu+@offset_x).round(4)} #{(-y*@layout.dbu+@offset_y).round(4)}) 
-                (size #{(box.width*@layout.dbu).round(4)} #{(box.height*@layout.dbu).round(4)})
+                (at #{(x*@layout.dbu+@offset_x).round(2)} #{(-y*@layout.dbu+@offset_y).round(2)}) 
+                (size #{(box.width*@layout.dbu).round(2)} #{(box.height*@layout.dbu).round(2)})
                 (layers "#{layer}") (net 0 "")
             )
         )        
@@ -243,8 +243,8 @@ EOF
     x2, y2 = [x + width/2, y + height/2]
     segment = <<EOF
 (footprint "#{name}" (layer "#{layer_name}") (at 0 0)
-     (fp_poly (pts (xy #{x1.round(4)} #{y1.round(4)}) (xy #{x1.round(4)} #{y2.round(4)})
-                   (xy #{x2.round(4)} #{y2.round(4)}) (xy #{x2.round(4)} #{y1.round(4)}))
+     (fp_poly (pts (xy #{x1.round(2)} #{y1.round(2)}) (xy #{x1.round(2)} #{y2.round(2)})
+                   (xy #{x2.round(2)} #{y2.round(2)}) (xy #{x2.round(2)} #{y1.round(2)}))
          (stroke (width 0.05) (type solid)) (fill none) (layer \"#{layer_name}\")
      )
 )        
@@ -259,15 +259,55 @@ EOF
     segment = <<EOF
 (footprint "Net_Rail_Pad_for_BOX" (layer "#{layer_name}") (at 0 0)
     (pad "" smd rect 
-        (at #{(x+@offset_x).round(4)} #{(y+@offset_y).round(4)}) 
-        (size #{(box.width*@layout.dbu).round(4)} #{(box.height*@layout.dbu).round(4)})
+        (at #{(x+@offset_x).round(2)} #{(y+@offset_y).round(2)}) 
+        (size #{(box.width*@layout.dbu).round(2)} #{(box.height*@layout.dbu).round(2)})
         (layers "#{layer_name}") (net 0 "")
      )
 )        
 EOF
     segment
   end
-
+  
+  def polygon_points polygon
+    points = ''
+    polygon.each_point_hull{|e|
+      points << " (xy #{(e.x*@layout.dbu+@offset_x).round(2)} #{(-e.y*@layout.dbu+@offset_y).round(2)})"
+    }
+    points
+  end
+  private :polygon_points
+  
+  def generate_zone polygon, filled_polygon, net_name, layer_name='F.Cu'
+    segment = <<EOF
+(zone
+    (net "#{net_name}") (layer "#{layer_name}")
+    (uuid #{SecureRandom.uuid})
+    (hatch edge 0.5)
+    (connect_pads yes
+    (clearance 0.5)
+    )
+    (min_thickness 0.25)
+    (fill yes
+        (thermal_gap 0.5)
+        (thermal_bridge_width 0.5)
+        (island_removal_mode 0)
+    )
+    (polygon
+        (pts
+	  #{polygon_points polygon}
+        )
+    )
+    (filled_polygon
+        (layer "#{layer_name}")
+        (pts
+	  #{polygon_points filled_polygon}
+        )
+    )
+)
+EOF
+    segment
+  end
+  
   def complex_path_to_kicad_pads path, net_name, layer='F.Cu'
     # Pathの太さ（幅）をmmに変換
     width_mm = path.width * @layout.dbu
@@ -283,13 +323,15 @@ EOF
       points << [p.x, p.y]
     end
   
-    kicad_pads = "(footprint \"Net_Rail_Pad\" (layer \"#{layer}\") (at 0 0)\n"
+    #kicad_pads = "(footprint \"Net_Rail_Pad\" (layer \"#{layer}\") (at 0 0)\n"
+    kicad_pads = ""
   
   # 2. each_cons(2) で2点ずつ直接取り出す
     pp = nil
-    puts "points = #{points}"
+    # puts "points = #{points}"
     points.each_cons(2) do |p1, p2|
-      puts "p1, p2, pp = #{[p1, p2, pp]}"
+      # puts "p1, p2, pp = #{[p1, p2, pp]}"
+=begin
       # KLayoutの座標系のままで中心座標(at)を計算
       center_x = (p1[0] + p2[0]) / 2.0
       center_y = (p1[1] + p2[1]) / 2.0 
@@ -322,17 +364,29 @@ EOF
         end
       end
       # 3. KiCadの footprint / pad 形式で1セグメントずつ出力
+
       kicad_pads << <<EOF
       (pad "" smd rect
-            (at #{(center_x*@layout.dbu + @offset_x).round(4)} #{(-center_y*@layout.dbu + @offset_y).round(4)})
+            (at #{(center_x*@layout.dbu + @offset_x).round(2)} #{(-center_y*@layout.dbu + @offset_y).round(2)})
             (size #{size_w} #{size_h})
             (layers "#{layer}")
             (net #{net_id} "#{net_name_str}")
        )
 EOF
+=end
+      kicad_pads << <<EOF
+      (segment
+          (start #{(p1[0]*@layout.dbu + @offset_x).round(2)} #{(-p1[1]*@layout.dbu + @offset_y).round(2)})
+          (end #{(p2[0]*@layout.dbu + @offset_x).round(2)} #{(-p2[1]*@layout.dbu + @offset_y).round(2)})
+          (width #{width_mm})
+          (layer "#{layer}")
+          (net "#{net_name_str}")
+          (uuid #{SecureRandom.uuid})
+       )
+EOF
       pp = p2
     end
-    kicad_pads << ")\n"
+    #kicad_pads << ")\n"
     kicad_pads
   end
   
@@ -343,20 +397,20 @@ EOF
     cell.each_inst{|inst|
     #top_cell.begin_instances_rec.each{|iter|
     #  inst = iter.inst_cell
-      puts "#{inst.cell.name}(#{inst.property('name')}): #{(trans*inst.trans).to_s}"
+      puts "#{inst.cell.name}(#{inst.property('name') || inst.property(1)}): #{(trans*inst.trans).to_s}"
       if inst.is_pcell?
         l=inst.pcell_parameter 'l'
         w=inst.pcell_parameter('w') || 2.0
         m=inst.pcell_parameter('n') || 0
         next unless l && w
         rot = (trans*inst.trans).to_s.sub(/ .*$/, '').upcase
-        kicad_cell_name = "#{inst.cell.name.sub(/\$.*$/,'')}.l#{l.round(4)}w#{w.round(4)}m#{m||0}"
+        kicad_cell_name = "#{inst.cell.name.sub(/\$.*$/,'')}.l#{l.round(2)}w#{w.round(2)}m#{m||0}"
         kicad_cell_name << '_MX' if rot.start_with? 'M'
 
         infile = File.join(@pretty_dir, kicad_cell_name) + '.kicad_mod'
         if File.exist?(infile)
           count = count + 1
-          name = inst.property('name') || inst.cell.name.sub(/\$.*$/,'')+count.to_s        
+          name = inst.property('name') || inst.property(1) || inst.cell.name.sub(/\$.*$/,'')+count.to_s        
           angle = case rot
                 when 'R0'     then 0
                 when 'R90'    then 90
@@ -370,10 +424,10 @@ EOF
                   warn "未知の変換指示です: #{rot}"
                   0
                 end 
-          #kicad_elements[name] = [((trans*inst.trans).disp.x*@layout.dbu).round(4), (-(trans*inst.trans).disp.y*@layout.dbu).round(4), 
+          #kicad_elements[name] = [((trans*inst.trans).disp.x*@layout.dbu).round(2), (-(trans*inst.trans).disp.y*@layout.dbu).round(2), 
           #                        kicad_cell_name, angle]
           inst.cell_inst.each_trans{|trans2|
-            kicad_elements[name] = [((trans*trans2).disp.x*@layout.dbu).round(4), (-((trans*trans2).disp.y)*@layout.dbu).round(4), 
+            kicad_elements[name] = [((trans*trans2).disp.x*@layout.dbu).round(2), (-((trans*trans2).disp.y)*@layout.dbu).round(2), 
                                   kicad_cell_name, angle]
           }
         else
@@ -400,8 +454,8 @@ EOF
         inst.cell_inst.each_trans{|trans|
           segments << <<EOF + "\n"
 (via
-   (at #{(trans.disp.x*@layout.dbu+@offset_x).round(4)} #{(-(trans.disp.y)*@layout.dbu+@offset_y).round(4)})
-       (size #{width}) (drill #{width/2})	 (layers "F.Cu" "B.Cu") (net "")
+   (at #{(trans.disp.x*@layout.dbu+@offset_x).round(2)} #{(-(trans.disp.y)*@layout.dbu+@offset_y).round(2)})
+       (size #{width}) (drill #{width/2})	 (layers "F.Cu" "B.Cu") (net "#{inst.property('net') || inst.property(1)}")
       	(uuid "#{SecureRandom.uuid}")
 )
 EOF
@@ -423,16 +477,24 @@ EOF
       end 
     }  
  
-    @layers.each_pair do |pcb_layer_name, layer|@off
+    @layers.each_pair do |pcb_layer_name, layer|@offset_x
+      polygon = {}
       cell.shapes(layer).each{|shape|
         if shape.is_path?
           #if shape.path.width*@layout.dbu > MAX_PATH_WIDTH
 
-          pads = complex_path_to_kicad_pads(trans*shape.path, shape.property('name'), pcb_layer_name) 
+          pads = complex_path_to_kicad_pads(trans*shape.path, shape.property('net'), pcb_layer_name) 
           segments << pads if pads
           #end 
         elsif shape.is_box?
           segments << generate_net_rail_pad_for_BOX(trans*shape.box, pcb_layer_name)
+        elsif shape.is_polygon?
+          net_name = shape.property('net') || shape.property(1)
+          if polygon[net_name] # shape.polygon is filled_polygon in zone
+            segments << generate_zone(polygon[net_name], trans*shape.polygon, net_name, pcb_layer_name)
+          else # trick to save polygon
+            polygon[net_name] =  trans*shape.polygon
+          end
         end
       }
     end
