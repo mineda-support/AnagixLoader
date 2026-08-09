@@ -481,16 +481,19 @@ EOF
     @layers.each_pair do |pcb_layer_name, layer|@offset_x
       polygon = {}
       cell.shapes(layer).each{|shape|
+        net_name = shape.property('net') || shape.property(1)
         if shape.is_path?
           #if shape.path.width*@layout.dbu > MAX_PATH_WIDTH
-
           pads = complex_path_to_kicad_pads(trans*shape.path, shape.property('net'), pcb_layer_name) 
           segments << pads if pads
           #end 
         elsif shape.is_box?
-          segments << generate_net_rail_pad_for_BOX(trans*shape.box, pcb_layer_name)
+          if polygon[net_name] # polygon with 4 points could be converted to box when saved and reload
+            segments << generate_zone(polygon[net_name], trans*shape.polygon, net_name, pcb_layer_name)
+          else
+            segments << generate_net_rail_pad_for_BOX(trans*shape.box, pcb_layer_name)
+          end
         elsif shape.is_polygon?
-          net_name = shape.property('net') || shape.property(1)
           if polygon[net_name] # shape.polygon is filled_polygon in zone
             segments << generate_zone(polygon[net_name], trans*shape.polygon, net_name, pcb_layer_name)
           else # trick to save polygon
@@ -558,6 +561,8 @@ EOF
 
   puts kicad_elements.inspect
   offset_x, offset_y = kc.centerize kicad_elements
+  offset_x = 0.0 if offset_x.abs < 30.0
+  offset_y = 0.0 if offset_y.abs < 30.0
   footprints = kc.generate_footprints kicad_elements, offset_x, offset_y, pcell_lib
   segments = kc.convert_paths_and_cells_to_kicad_segments top_cell
   kc.write_pcb footprints, segments, pcb_file
