@@ -604,12 +604,17 @@ module MinedaCommon
       if File.exist? reference
         yield
         create_ba_data lvs_data
+ #       annotate_lvs_properties(lvs_data)
       # 4b* output
       else
         create_ba_table l2n_data, is_deep
       end
     end
-    
+          
+    def gds_to_pcb(lvs_data, ml1, ml2)
+      KiCadConverter::gds_to_pcb(lvs_data, ml1, ml2)
+    end
+
     def make_symlink output
       # Netlist vs. netlist
       slink = "#{@lvs_work}/#{File.basename output}.txt"
@@ -952,10 +957,10 @@ module MinedaCommon
     end
     
     def do_sweep new_sweep, params = {}, &block
-      sweep = new_sweep.dup
+      sweep = new_sweep.dup 
       #puts "sweep=#{sweep}, params = #{params}"
       if sweep && sweep.size > 0
-        new_sweep = sweep.delete('sweep')
+       new_sweep = sweep.delete('sweep')
         longest = nil
         sweep.each_key{|k|
           longest = k if longest.nil? || sweep[k].length > sweep[longest].length
