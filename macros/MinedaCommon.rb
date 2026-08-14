@@ -960,7 +960,7 @@ module MinedaCommon
       sweep = new_sweep.dup 
       #puts "sweep=#{sweep}, params = #{params}"
       if sweep && sweep.size > 0
-       new_sweep = sweep.delete('sweep')
+        new_sweep = sweep.delete('sweep')
         longest = nil
         sweep.each_key{|k|
           longest = k if longest.nil? || sweep[k].length > sweep[longest].length

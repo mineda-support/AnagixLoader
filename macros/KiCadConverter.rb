@@ -19,19 +19,17 @@ class KiCadGenerator
     if @lvs_data = lvs_data
       cross_ref = lvs_data.xref
       netlist = @lvs_data.netlist
-      @dev_to_sch_name_map = {}
+      @sch_to_dev_map = {}
 
       netlist.each_circuit do |circuit|
         cross_ref.each_device_pair(circuit) do |pair|
           dev_layout = pair.first
           dev_ref = pair.second
           next unless dev_layout && dev_ref
-
-          name_layout = dev_layout.expanded_name.empty? ? dev_layout.name : dev_layout.expanded_name
+          center = RBA::ICplxTrans::new(dev_layout.trans, @layout.dbu).disp
           prefix = find_prefix dev_layout.device_class.class.name
           name_ref = prefix + (dev_ref.expanded_name.empty? ? dev_ref.name : dev_ref.expanded_name)
-          @dev_to_sch_name_map[name_layout] = name_ref unless name_layout.empty?
-          @dev_to_sch_name_map[dev_layout.name] = name_ref unless dev_layout.name.empty?
+          @sch_to_dev_map[name_ref] = center 
         end
       end
     end
@@ -426,6 +424,20 @@ EOF
     kicad_pads
   end
   
+  def find_dev_name box
+    puts "== x:#{[box.left,box.right]} y:#{[box.bottom,box.top]} =================="
+    @sch_to_dev_map.each{|dev_name, point|
+      #puts "#{dev_name}@[#{point.x}, #{point.y}]:#{point.x < box.left|| box.right < point.x}|#{point.y < box.bottom || box.top < point.y}"
+      next if point.x < box.left|| box.right < point.x
+      next if point.y < box.bottom || box.top < point.y
+      puts "#{dev_name}@[#{point.x}, #{point.y}]:#{point.x < box.left|| box.right < point.x}|#{point.y < box.bottom || box.top < point.y}"
+      puts "===========> #{dev_name}"
+      return dev_name
+    }
+    puts 'fail!!! =================================='
+    nil
+  end  
+  
   def convert_pcells_to_kicad_mods cell, trans = Trans::R0
     kicad_elements = {}
     count = 0
@@ -447,7 +459,7 @@ EOF
         if File.exist?(infile)
           count = count + 1
           if @lvs_data
-            name = @dev_to_sch_name_map[inst.cell.name.sub(/^\S*\$/,'$')]   # inst.cell.basic_name  
+            name = find_dev_name trans*inst.bbox         
           else
             name = inst.property('name') || inst.property(1) || inst.cell.name.sub(/\$.*$/,'')+count.to_s        
           end
@@ -489,14 +501,18 @@ EOF
       if inst.is_pcell?
         next
       elsif inst.cell.name.sub(/\$.*$/, '') == 'Via'
-        # puts "Missing cell is : #{inst.cell.name}"
+        if @lvs_data
+          
+        else
+          net_name = inst.property('net') || inst.property(1)
+        end
         width = inst.cell.bbox.width*@layout.dbu
         drill_width = inst.cell.each_shape(@layers['Via']).first.bbox.width*@layout.dbu
         inst.cell_inst.each_trans{|trans|
           segments << <<EOF + "\n"
 (via
    (at #{(trans.disp.x*@layout.dbu+@offset_x).round(2)} #{(-(trans.disp.y)*@layout.dbu+@offset_y).round(2)})
-       (size #{width}) (drill #{drill_width}) (layers "F.Cu" "B.Cu") (net "#{inst.property('net') || inst.property(1)}")
+       (size #{width}) (drill #{drill_width}) (layers "F.Cu" "B.Cu") (net "#{net_name}")
       	(uuid "#{SecureRandom.uuid}")
 )
 EOF
@@ -518,22 +534,38 @@ EOF
       end 
     }  
  
-    @layers.each_pair do |pcb_layer_name, layer|@offset_x
+    @layers.each_pair do |pcb_layer_name, layer|
       polygon = {}
       cell.shapes(layer).each{|shape|
-        net_name = shape.property('net') || shape.property(1)
         if shape.is_path?
-          #if shape.path.width*@layout.dbu > MAX_PATH_WIDTH
-          pads = complex_path_to_kicad_pads(trans*shape.path, shape.property('net'), pcb_layer_name) 
+          if @lvs_data
+            probe_point = shape.path.polygon.point_hull(0)
+            net_name = @lvs_data.probe_net(@ml1.data, probe_point) || @lvs_data.probe_net(@ml2.data, probe_point)
+          else
+            net_name = shape.property('net') || shape.property(1)
+          end
+            pads = complex_path_to_kicad_pads(trans*shape.path, net_name, pcb_layer_name) 
           segments << pads if pads
           #end 
         elsif shape.is_box?
+          if @lvs_data
+            probe_point = shape.box.center
+            net_name = @lvs_data.probe_net(@ml1.data, probe_point) || @lvs_data.probe_net(@ml2.data, probe_point)
+          else
+            net_name = shape.property('net') || shape.property(1)
+          end
           if polygon[net_name] # polygon with 4 points could be converted to box when saved and reload
             segments << generate_zone(polygon[net_name], trans*shape.polygon, net_name, pcb_layer_name)
           else
             segments << generate_net_rail_pad_for_BOX(trans*shape.box, pcb_layer_name)
           end
         elsif shape.is_polygon?
+          if @lvs_data
+            probe_point = shape.polygon.point_hull(0)
+            net_name = @lvs_data.probe_net(@ml1.data, probe_point) || @lvs_data.probe_net(@ml2.data, probe_point)
+          else
+            net_name = shape.property('net') || shape.property(1)
+          end
           if polygon[net_name] # shape.polygon is filled_polygon in zone
             segments << generate_zone(polygon[net_name], trans*shape.polygon, net_name, pcb_layer_name)
           else # trick to save polygon
