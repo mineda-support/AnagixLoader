@@ -304,7 +304,7 @@ EOF
   
   def polygon_points polygon
     points = ''
-    polygon.each_point_hull{|e|
+    polygon && polygon.each_point_hull{|e|
       points << " (xy #{(e.x*@layout.dbu+@offset_x).round(2)} #{(-e.y*@layout.dbu+@offset_y).round(2)})"
     }
     points
@@ -312,6 +312,7 @@ EOF
   private :polygon_points
   
   def generate_zone polygon, filled_polygon, net_name, layer_name='F.Cu'
+    polygon ||= filled_polygon
     segment = <<EOF
 (zone
     (net "#{net_name}") (layer "#{layer_name}")
@@ -544,8 +545,13 @@ EOF
           else
             net_name = shape.property('net') || shape.property(1)
           end
+          if shape.path.width > 10.0
+            segments << generate_zone(polygon[net_name], trans*shape.polygon, net_name, pcb_layer_name)
+          else
+            puts "Shape width for #{net_name} is: #{shape.path.width}"
             pads = complex_path_to_kicad_pads(trans*shape.path, net_name, pcb_layer_name) 
-          segments << pads if pads
+            segments << pads if pads
+          end
           #end 
         elsif shape.is_box?
           if @lvs_data
