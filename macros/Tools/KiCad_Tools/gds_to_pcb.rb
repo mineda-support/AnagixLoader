@@ -1,5 +1,5 @@
 # $description: KLayout to KiCad conversion
 # $show-in-menu
-include KiCadGenerator
+include MinedaCommon
 
-KiCadGenerator::gds_to_pcb
+MinedaInput.new::gds_to_pcb

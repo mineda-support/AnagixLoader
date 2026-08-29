@@ -1,3 +1,4 @@
+# $autorun
 # coding: utf-8
 module KiCadConverter
 class KiCadGenerator
@@ -10,7 +11,7 @@ class KiCadGenerator
   TARGET_CENTER_Y = 100.0  # A4枠(297x210)のほぼ中央
   SCALE = 1 # 200.0 
   
-  def initialize layout, pretty_dir, layers, lvs_data, ml1, ml2
+  def initialize layout, pretty_dir, layers, lvs_data, ml1, ml2, rsf=1.0
     @layout = layout
     @pretty_dir = pretty_dir
     @layers = layers
@@ -35,6 +36,7 @@ class KiCadGenerator
     end
     @ml1 = ml1
     @ml2 = ml2
+    @rsf = rsf
   end
   
   def find_prefix device_class_name
@@ -106,6 +108,23 @@ class KiCadGenerator
     [offset_x, offset_y]
   end
   
+  def rot_to_am(rotation, mir)
+    if mir
+      case rotation.to_i
+      when 0
+        [2, true]
+      when 90
+        [3, true]
+      when 180
+        [0, true]
+      when 270
+        [1, true]
+      end
+    else
+      [rotation.to_i/90, false]
+    end
+  end
+  
   def generate_footprints placement_data, offset_x, offset_y, lib_name
     # フットプリント（footprint）セクションの生成
     @offset_x = offset_x
@@ -118,7 +137,8 @@ class KiCadGenerator
       x = item[1].to_f     # X座標
       y = item[2].to_f     # Y座標
       fp_name = item[3]    # フットプリント名 (e.g., Pch.M0l2.0w6.0m1)
-      angle = item[4]
+      rot = item[4]
+      angle, mirror = rot_to_am(rot.to_f, false)
       # KiCadの座標系（通常はmm）。
       # 必要に応じてGDSの単位（μm等）からmmへのスケール変換（例: x * 0.001）をここで行ってください。
       pos_x = ((x * SCALE) + @offset_x).round(2)
@@ -126,9 +146,9 @@ class KiCadGenerator
 
       uuid = SecureRandom.uuid
   
-      fp_body = get_footprint_body(fp_name, ref)
+      fp_body = get_footprint_body(fp_name, ref, Trans.new(angle, false, ((x/@rsf)/@layout.dbu).to_i, (-(y/@rsf)/@layout.dbu).to_i))
 
-      footprints_sexpr << "  (footprint \"#{lib_name}:#{fp_name}\" (at #{pos_x} #{pos_y} #{angle}) (layer \"F.Cu\")\n"
+      footprints_sexpr << "  (footprint \"#{lib_name}:#{fp_name}\" (at #{pos_x} #{pos_y} #{rot}) (layer \"F.Cu\")\n"
       footprints_sexpr << "    (tstamp \"#{uuid}\")\n"
       footprints_sexpr << "    (at #{pos_x} #{pos_y})\n"
       footprints_sexpr << "    (descr \"Generated from KLayout PCell\")\n"
@@ -146,7 +166,7 @@ class KiCadGenerator
   end
   
     # フットプリントファイル(.kicad_mod)から中身（形状部分）を抽出する関数
-  def get_footprint_body(fp_name, ref)
+  def get_footprint_body(fp_name, ref, trans)
     mod_path = File.join(@pretty_dir, "#{fp_name}.kicad_mod")
     return "" unless File.exist?(mod_path)
 
@@ -154,6 +174,16 @@ class KiCadGenerator
     lines.sub!(/fp_text reference \"\S+\"/, "fp_text reference \"#{ref}\"")
     # 最初の行 (footprint ...) と最後の行 ) を除いた、中身の行だけを結合する
     body_lines = lines.split("\n")[1...-1]
+    @lvs_data && body_lines.each{|line|
+      if line =~ /\(pad .*\(at (\S+) (\S+)\)/
+        pos_x = ($1.to_f / @layout.dbu).to_i
+        pos_y = (-$2.to_f / @layout.dbu).to_i
+        point = trans*Point.new(pos_x, pos_y)
+        if net_name = @lvs_data.probe_net(@ml1.data, point)
+          line.sub! /\)\) *$/, ") (net \"#{net_name}\"))"
+        end
+      end
+    }
     body_lines ? body_lines.join("\n"): ""
   end
 
@@ -287,7 +317,7 @@ EOF
   end
         
   #MAX_PATH_WIDTH = 5
-  def generate_net_rail_pad_for_BOX box, layer_name='F.Cu'
+  def generate_net_rail_pad_for_BOX box, layer_name='F.Cu', net_name=''
     x = box.center.x*@layout.dbu
     y = -box.center.y*@layout.dbu
     segment = <<EOF
@@ -295,7 +325,7 @@ EOF
     (pad "" smd rect 
         (at #{(x+@offset_x).round(2)} #{(y+@offset_y).round(2)}) 
         (size #{(box.width*@layout.dbu).round(2)} #{(box.height*@layout.dbu).round(2)})
-        (layers "#{layer_name}") (net 0 "")
+        (layers "#{layer_name}") (net "#{net_name}")
      )
 )        
 EOF
@@ -429,9 +459,11 @@ EOF
     puts "== x:#{[box.left,box.right]} y:#{[box.bottom,box.top]} =================="
     @sch_to_dev_map.each{|dev_name, point|
       #puts "#{dev_name}@[#{point.x}, #{point.y}]:#{point.x < box.left|| box.right < point.x}|#{point.y < box.bottom || box.top < point.y}"
-      next if point.x < box.left|| box.right < point.x
-      next if point.y < box.bottom || box.top < point.y
-      puts "#{dev_name}@[#{point.x}, #{point.y}]:#{point.x < box.left|| box.right < point.x}|#{point.y < box.bottom || box.top < point.y}"
+      point_x = point.x*@rsf
+      point_y = point.y*@rsf
+      next if point_x < box.left|| box.right < point_x
+      next if point_y < box.bottom || box.top < point_y
+      puts "#{dev_name}@[#{point_x}, #{point_y}]:#{point_x < box.left|| box.right < point_x}|#{point_y < box.bottom || box.top < point_y}"
       puts "===========> #{dev_name}"
       return dev_name
     }
@@ -453,7 +485,7 @@ EOF
         m=inst.pcell_parameter('n') || 0
         next unless l && w
         rot = (trans*inst.trans).to_s.sub(/ .*$/, '').upcase
-        kicad_cell_name = "#{inst.cell.name.sub(/\$.*$/,'')}.l#{l.round(2)}w#{w.round(2)}m#{m||0}"
+        kicad_cell_name = "#{inst.cell.library.class.name.sub(/::.*$/,'')}\##{inst.cell.name.sub(/\$.*$/,'')}.l#{l.round(2)}w#{w.round(2)}m#{m||0}"
         kicad_cell_name << '_MX' if rot.start_with? 'M'
 
         infile = File.join(@pretty_dir, kicad_cell_name) + '.kicad_mod'
@@ -503,7 +535,9 @@ EOF
         next
       elsif inst.cell.name.sub(/\$.*$/, '') == 'Via'
         if @lvs_data
-          
+          probe_point = inst.bbox.center
+          net_name = @lvs_data.probe_net(@ml1.data, probe_point) 
+          # puts "#{net_name}@#{probe_point/1000}"
         else
           net_name = inst.property('net') || inst.property(1)
         end
@@ -540,8 +574,20 @@ EOF
       cell.shapes(layer).each{|shape|
         if shape.is_path?
           if @lvs_data
-            probe_point = shape.path.polygon.point_hull(0)
-            net_name = @lvs_data.probe_net(@ml1.data, probe_point) || @lvs_data.probe_net(@ml2.data, probe_point)
+            #probe_point = shape.path.polygon.point_hull(1)/@rsf
+            points = shape.path.each_point.to_a
+            if points.size >= 2
+              p0 = points[0]
+              p1 = points[1]
+              # 1番目のセグメントの中点を計算（骨格線の中心点）
+              mid_x = ((p0.x + p1.x) / 2.0).round
+              mid_y = ((p0.y + p1.y) / 2.0).round
+              probe_point = RBA::Point.new(mid_x, mid_y)/@rsf
+            else
+              # 頂点が1つしかない場合はその点
+              probe_point = points[0]/@rsf
+            end
+            net_name = @lvs_data.probe_net(@layers['F.Cu'] == layer ? @ml1.data : @ml2.data, probe_point) 
           else
             net_name = shape.property('net') || shape.property(1)
           end
@@ -555,20 +601,20 @@ EOF
           #end 
         elsif shape.is_box?
           if @lvs_data
-            probe_point = shape.box.center
-            net_name = @lvs_data.probe_net(@ml1.data, probe_point) || @lvs_data.probe_net(@ml2.data, probe_point)
+            probe_point = shape.box.center/@rsf
+            net_name = @lvs_data.probe_net(@layers['F.Cu'] == layer ? @ml1.data : @ml2.data, probe_point) 
           else
             net_name = shape.property('net') || shape.property(1)
           end
           if polygon[net_name] # polygon with 4 points could be converted to box when saved and reload
             segments << generate_zone(polygon[net_name], trans*shape.polygon, net_name, pcb_layer_name)
           else
-            segments << generate_net_rail_pad_for_BOX(trans*shape.box, pcb_layer_name)
+            segments << generate_net_rail_pad_for_BOX(trans*shape.box, pcb_layer_name, net_name)
           end
         elsif shape.is_polygon?
           if @lvs_data
-            probe_point = shape.polygon.point_hull(0)
-            net_name = @lvs_data.probe_net(@ml1.data, probe_point) || @lvs_data.probe_net(@ml2.data, probe_point)
+            probe_point = get_probe_point_for_polygon(shape.polygon)/@rsf
+            net_name = @lvs_data.probe_net(@layers['F.Cu'] == layer ? @ml1.data : @ml2.data, probe_point) 
           else
             net_name = shape.property('net') || shape.property(1)
           end
@@ -582,8 +628,66 @@ EOF
     end
     segments
   end
+  
+  # Polygon 内の安全なプローブ点を取得する関数
+  def get_probe_point_for_polygon(poly)
+    return nil if poly.nil? || poly.num_points == 0
 
-def annotate_lvs_properties(lvs_data) # created with gemini help but no longer used
+    margin = 5 # ズラす距離 (DBU単位)
+    n = poly.num_points
+
+    # 1. 各頂点において「内角の二等分線方向」へずらして inside? 判定
+    (0...n).each do |i|
+      p_prev = poly.point((i - 1) % n)
+      p_curr = poly.point(i)
+      p_next = poly.point((i + 1) % n)
+
+      # 隣り合う2辺の単位ベクトルを計算
+      v1_x = p_curr.x - p_prev.x
+      v1_y = p_curr.y - p_prev.y
+      len1 = Math.hypot(v1_x, v1_y)
+
+      v2_x = p_next.x - p_curr.x
+      v2_y = p_next.y - p_curr.y
+      len2 = Math.hypot(v2_x, v2_y)
+
+      next if len1 == 0 || len2 == 0
+
+      # 頂点から内側に向かう方向ベクトル（辺の垂線方向の合成）
+      # 反時計回り(CCW)のポリゴンを前提とした内向き法線ベクトル
+      nx = -(v1_y / len1) - (v2_y / len2)
+      ny =  (v1_x / len1) + (v2_x / len2)
+      norm_len = Math.hypot(nx, ny)
+
+      if norm_len > 0
+        # 二等分線方向に margin (5 DBU) 進めた候補点
+        cand_x = (p_curr.x + (nx / norm_len) * margin).round
+        cand_y = (p_curr.y + (ny / norm_len) * margin).round
+        candidate = RBA::Point.new(cand_x, cand_y)
+
+        return candidate if poly.inside?(candidate)
+      end
+    end
+
+    # 2. 上記で全滅した場合（特殊形状）、最初の頂点から 8 方向へ順にスキャン
+    v0 = poly.point(0)
+    offsets = [
+      [margin, margin],   [-margin, margin], 
+      [margin, -margin],  [-margin, -margin],
+      [margin, 0],        [-margin, 0], 
+      [0, margin],        [0, -margin]
+    ]
+
+    offsets.each do |ox, oy|
+      candidate = RBA::Point.new(v0.x + ox, v0.y + oy)
+      return candidate if poly.inside?(candidate)
+    end
+
+    # 3. それでも見つからない場合のフォールバック（BBox中心）
+    poly.bbox.center
+  end
+
+  def annotate_lvs_properties(lvs_data) # created with gemini help but no longer used
       cross_ref = lvs_data.xref
       netlist = lvs_data.netlist
 
@@ -816,7 +920,7 @@ def extract_lvs_data_with_nets(lvsdb) # created by gemini but no longer used
   end
 end
 
-  def self::gds_to_pcb(lvs_data=nil, ml1=nil, ml2=nil)
+  def self::gds_to_pcb(lvs_data=nil, ml1=nil, ml2=nil, rsf=1.0)
     include RBA
     include MinedaPCellCommonModule
     mw = Application.instance.main_window
@@ -865,7 +969,7 @@ end
     pcell_lib = ('PCells_' + view.active_cellview.technology).sub('PCells_OpenRule1um', 'PCells')
     library = Library.library_by_name(pcell_lib)
     raise "Library '#{pcell_lib}' not found" unless library
-    kc = KiCadGenerator.new layout, pretty_dir, layers, lvs_data, ml1, ml2
+    kc = KiCadGenerator.new layout, pretty_dir, layers, lvs_data, ml1, ml2, rsf
   
     Dir.chdir(pretty_dir){
       kc.generate_MX_footprints
