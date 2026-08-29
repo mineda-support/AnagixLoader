@@ -1,6 +1,6 @@
 # coding: utf-8
 # $priority: 1
-# Mineda Common v1.40 Aug. 1st, 2026
+# Mineda Common v1.41 Aug. 29th, 2026
 #   Force on-grid v0.1 July 39th 2022 copy right S. Moriyama (Anagix Corp.)
 #   LVS preprocessor(get_reference) v0.86 Dec. 18th, 2025 copyright by S. Moriyama (Anagix Corporation)
 #   * ConvertPCells and PCellDefaults moved from MinedaPCell v0.4 Nov. 22nd 2022
@@ -8,7 +8,7 @@
 #   ConvertLibraryCells (ConvertPCells) v0.681 Dec. 25th 2025  copy right S. Moriyama
 #   PCellTest v0.2 August 22nd 2022 S. Moriyama
 #   DRC_helper::find_cells_to_exclude v0.1 Sep 23rd 2022 S. Moriyama
-#   MinedaInput v0.395 June 30th, 2025 S. Moriyama
+#   MinedaInput v0.4 Aug. 29th, 2026 S. Moriyama
 #   MinedaPCellCommon v0.37 July 26th, 2026 S. Moriyama
 #   Create Backannotation data v0.171 May 14th 2023 S. Moriyama
 #   MinedaAutoplace v0.44 Aug. 1st 2026 S. Moriyama
@@ -62,7 +62,7 @@ module MinedaPCellCommonModule
     def generate_kicad_device l=0, w=0, m=0
       return unless @kicad
       #footprint_name=cell.name
-      footprint_name = "#{cell.name.sub(/\$.*$/,'')}.l#{l.round(4)}w#{w.round(4)}m#{m}"
+      footprint_name = "#{self.class.name.sub('::', '#')}.l#{l.round(4)}w#{w.round(4)}m#{m}"
       # S式（S-expression）テキストの構築
       # ※ KiCad v6 / v7 / v8 形式に準拠
       s_expr =  "(footprint \"#{footprint_name}\"\n"
@@ -603,6 +603,9 @@ module MinedaCommon
     def lvs reference, output, lvs_data, l2n_data, is_deep = false
       if File.exist? reference
         yield
+        #ml1 = input(*index('ML1'))
+        #ml2 = input(*index('ML2'))
+        #gds_to_pcb lvs_data, ml1, ml2
         create_ba_data lvs_data
  #       annotate_lvs_properties(lvs_data)
       # 4b* output
@@ -610,9 +613,97 @@ module MinedaCommon
         create_ba_table l2n_data, is_deep
       end
     end
-          
-    def gds_to_pcb(lvs_data, ml1, ml2)
-      KiCadConverter::gds_to_pcb(lvs_data, ml1, ml2)
+    
+    def load_pcell tech_name = "IP62", pcell_file = 'pcell_v0.2.lym' # not used for now
+      tech = RBA::Technology::technology_by_name(tech_name)
+      if tech.nil?
+        puts "エラー: テクノロジー '#{tech_name}' が見つかりません。"
+      else
+        # IP62テクノロジーの定義ファイル(.tech)があるディレクトリを取得
+        tech_base_path = tech.base_path
+
+        # pcell_v0.2.lym への絶対パスを組み立て
+        lym_path = File.join(tech_base_path, "macros", pcell_file)
+
+        if File.exist?(lym_path)
+          # .lym (XML形式) の場合はスクリプト本文を動的実行、純粋な.rbの場合は load を実行
+          if lym_path.end_with?(".lym")
+          # XMLから <text> タグ内の Ruby コードを抽出して eval で強制実行
+            require 'rexml/document'
+            doc = REXML::Document.new(File.read(lym_path))
+            script_text = doc.elements["klayout-macro/text"].text
+      
+            # IP62 モジュールのコンテキストで評価・実行
+            eval(script_text, TOPLEVEL_BINDING, lym_path)
+            puts "PCell (lym) を正常に実行しました: #{lym_path}"
+          else
+            load lym_path
+            puts "PCell (rb) を正常に実行しました: #{lym_path}"
+          end
+        else
+          puts "エラー: PCellファイルが見つかりません: #{lym_path}"
+        end
+      end
+    end
+    
+    def reload_pcell
+ # coding: cp932
+      require 'rexml/document'   
+      view = RBA::LayoutView::current
+      if view.nil? || view.active_cellview.nil? || !view.active_cellview.is_valid?
+        puts "エラー: 有効なセルビューが開かれていません。"
+        return
+      end
+      
+      layout = view.active_cellview.layout
+      reloaded_files = []
+      
+      # レイアウト内で使用されているすべてのセルを走査
+      layout.each_cell do |cell|
+        next unless cell.is_pcell_variant?
+      
+        # PCell 宣言オブジェクト（RBA::PCellDeclaration）を取得
+        pcell_decl = layout.pcell_declaration(cell.pcell_id)
+        next if pcell_decl.nil?
+      
+        # Ruby クラスの initialize メソッドから定義元ファイルパスを取得
+        pcell_class = pcell_decl.class
+        next unless pcell_class.instance_methods(false).include?(:initialize)
+      
+        loc = pcell_class.instance_method(:initialize).source_location
+        next if loc.nil?
+      
+        source_file = loc[0]
+      
+        # 重複ロードを防止
+        next if reloaded_files.include?(source_file) || !File.exist?(source_file)
+      
+        begin
+          if source_file.end_with?(".lym")
+            doc = REXML::Document.new(File.read(source_file))
+            script_text = doc.elements["klayout-macro/text"].text
+            eval(script_text, TOPLEVEL_BINDING, source_file)
+          else
+            load source_file
+          end
+      
+          reloaded_files << source_file
+          puts "リロード成功: #{pcell_class.name} (#{source_file})"
+        rescue => e
+          puts "エラー (#{pcell_class.name}): #{e.message}"
+        end
+      end
+      
+      if reloaded_files.empty?
+        puts "現在のレイアウト内にリロード対象の PCell は見つかりませんでした。"
+      else
+        puts "計 #{reloaded_files.size} 件の PCell 定義ファイルを更新しました。"
+      end
+    end
+    
+    def gds_to_pcb(lvs_data=nil, ml1=nil, ml2=nil, rsf=1.0)
+      reload_pcell
+      KiCadConverter::gds_to_pcb(lvs_data, ml1, ml2, rsf)
     end
 
     def make_symlink output
@@ -1067,7 +1158,7 @@ module MinedaCommon
         else
           if inst.pcell_declaration.class.vs
             if pd.class.vs.nil? || pd.class.u1.nil?
-              raise "vs/u1 are not set for #{pcell_lib}; please use use self.class.set_vs/set_u1"
+              raise "vs/u1 are not set for #{pcell_lib}; please use self.class.set_vs/set_u1"
             end
             vso = inst.pcell_declaration.class.vs * pcell_factor
             u1o = inst.pcell_declaration.class.u1 * pcell_factor
