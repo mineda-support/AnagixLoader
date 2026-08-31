@@ -1,7 +1,7 @@
 # coding: cp932
-# MinedaPCell v1.111, July 29th, 2026 copy right S. Moriyama (Anagix Corporation)
+# MinedaPCell v1.112, August 31st, 2026 copy right S. Moriyama (Anagix Corporation)
 module MinedaPCell
-  version = 1.111
+  version = 1.112
   include MinedaPCellCommonModule
   # The PCell declaration for the Mineda MOSFET
   class MinedaMOS < MinedaPCellCommon
@@ -227,7 +227,7 @@ module MinedaPCell
             end
             if top && !no_finger_conn
               create_path indices[:m1], top, y, x, y, mw1, mw1/2, mw1/2 
-              @kicad && ml1_to_kicad_Fcu(3, Box.new(top, y-mw1/2, x, y+mw1/2))
+              @kicad && ml1_to_kicad_Fcu(3, Box.new(top-mw1/2, y-mw1/2, x+mw1/2, y+mw1/2))
             end
             top = x
           else
@@ -253,7 +253,7 @@ module MinedaPCell
               y = y2+u1-vs/2
               unless no_finger_conn
                 create_path indices[:m1], bottom, y, x, y, mw1, mw1/2, mw1/2 
-                @kicad && ml1_to_kicad_Fcu(1, Box.new(bottom, y-mw1/2, x, y+mw1/2))
+                @kicad && ml1_to_kicad_Fcu(1, Box.new(bottom-mw1/2, y-mw1/2, x+mw1/2, y+mw1/2))
               end
             end
             bottom = x
@@ -565,7 +565,7 @@ module MinedaPCell
               y = y2-vs/2 + wm_offset + via_offset
               unless no_finger_conn
                 create_path indices[:m1], top, y, x, y, mw1, mw1/2,mw1/2
-                @kicad && ml1_to_kicad_Fcu(3, Box.new(top, y-mw1/2, x, y+mw1/2))
+                @kicad && ml1_to_kicad_Fcu(3, Box.new(top-mw1/2, y-mw1/2, x+mw1/2, y+mw1/2))
               end
             end
             top = x
@@ -590,7 +590,7 @@ module MinedaPCell
             end
             if bottom && !no_finger_conn
               create_path indices[:m1], bottom, y1-u1+vs/2, x, y1 -u1+vs/2, mw1, mw1/2, mw1/2
-              @kicad && ml1_to_kicad_Fcu(1, Box.new(bottom, y1-u1+vs/2-mw1/2, x, y1 -u1+vs/2+mw1/2))            
+              @kicad && ml1_to_kicad_Fcu(1, Box.new(bottom-mw1/2, y1-u1+vs/2-mw1/2, x+mw1/2, y1 -u1+vs/2+mw1/2))            
             end
             bottom = x
           end
