@@ -11,7 +11,7 @@ class KiCadGenerator
   TARGET_CENTER_Y = 100.0  # A4枠(297x210)のほぼ中央
   SCALE = 1 # 200.0 
   
-  def initialize layout, pretty_dir, layers, lvs_data, ml1, ml2, rsf=1.0
+  def initialize layout, pretty_dir, layers, lvs_data, ml1, ml2, rsf=1.0, pads_file=nil
     @layout = layout
     @pretty_dir = pretty_dir
     @layers = layers
@@ -37,6 +37,10 @@ class KiCadGenerator
     @ml1 = ml1
     @ml2 = ml2
     @rsf = rsf
+    if pads_file && File.exist?(file=File.join(pretty_dir, File.basename(pads_file)))
+      @pads_location = YAML.load(File.read file)
+    end
+    puts "*** #{file} read in KiCadGenerator: #{@pads_location}"
   end
   
   def find_prefix device_class_name
@@ -130,7 +134,6 @@ class KiCadGenerator
     @offset_x = offset_x
     @offset_y = offset_y
     footprints_sexpr = ""
-
     placement_data.each_pair do |ref, item|
       #ref = item[0]        # 素子名 (e.g., M5)
       item.unshift ref
@@ -141,13 +144,11 @@ class KiCadGenerator
       angle, mirror = rot_to_am(rot.to_f, false)
       # KiCadの座標系（通常はmm）。
       # 必要に応じてGDSの単位（μm等）からmmへのスケール変換（例: x * 0.001）をここで行ってください。
-      pos_x = ((x * SCALE) + @offset_x).round(2)
-      pos_y = ((y * SCALE) + @offset_y).round(2)
+      pos_x = ((x * SCALE) + @offset_x).round(6)
+      pos_y = ((y * SCALE) + @offset_y).round(6)
 
       uuid = SecureRandom.uuid
-  
       fp_body = get_footprint_body(fp_name, ref, Trans.new(angle, false, ((x/@rsf)/@layout.dbu).to_i, (-(y/@rsf)/@layout.dbu).to_i))
-
       footprints_sexpr << "  (footprint \"#{lib_name}:#{fp_name}\" (at #{pos_x} #{pos_y} #{rot}) (layer \"F.Cu\")\n"
       footprints_sexpr << "    (tstamp \"#{uuid}\")\n"
       footprints_sexpr << "    (at #{pos_x} #{pos_y})\n"
@@ -162,26 +163,47 @@ class KiCadGenerator
       footprints_sexpr << fp_body
       footprints_sexpr << "  )\n\n"
     end
-    footprints_sexpr
+    [footprints_sexpr, @pads_location]
   end
   
     # フットプリントファイル(.kicad_mod)から中身（形状部分）を抽出する関数
   def get_footprint_body(fp_name, ref, trans)
     mod_path = File.join(@pretty_dir, "#{fp_name}.kicad_mod")
-    return "" unless File.exist?(mod_path)
+    unless File.exist?(mod_path)
+      puts "Weird: #{mod_path} does not exist!!!"
+      return ""
+    end
 
     lines = File.read(mod_path)
     lines.sub!(/fp_text reference \"\S+\"/, "fp_text reference \"#{ref}\"")
     # 最初の行 (footprint ...) と最後の行 ) を除いた、中身の行だけを結合する
     body_lines = lines.split("\n")[1...-1]
+    puts ref
+    @pads_location ||= {}
+    @pads_location[ref] ||= []
+    count = 0
     @lvs_data && body_lines.each{|line|
       if line =~ /\(pad .*\(at (\S+) (\S+)\)/
-        pos_x = ($1.to_f / @layout.dbu).to_i
-        pos_y = (-$2.to_f / @layout.dbu).to_i
-        point = trans*Point.new(pos_x, pos_y)
+        if placement = @pads_location[ref][count]
+          pos_x =  placement[0] 
+          pos_y = placement[1] 
+          point = Point.new(pos_x, pos_y)
+        else
+          pos_x = ($1.to_f / @layout.dbu).to_i
+          pos_y = (-$2.to_f / @layout.dbu).to_i
+          point = trans*Point.new(pos_x, pos_y)
+        end
         if net_name = @lvs_data.probe_net(@ml1.data, point)
           line.sub! /\)\) *$/, ") (net \"#{net_name}\"))"
+          puts line
+          puts "#{point} => #{net_name}"
+        else
+          puts line
+          puts "No net_name at #{point}"
+          puts
         end
+        @pads_location[ref][count] = [point.x, point.y]
+        count = count + 1
       end
     }
     body_lines ? body_lines.join("\n"): ""
@@ -396,49 +418,6 @@ EOF
     # puts "points = #{points}"
     points.each_cons(2) do |p1, p2|
       # puts "p1, p2, pp = #{[p1, p2, pp]}"
-=begin
-      # KLayoutの座標系のままで中心座標(at)を計算
-      center_x = (p1[0] + p2[0]) / 2.0
-      center_y = (p1[1] + p2[1]) / 2.0 
-
-      # 線分自体の長さを計算
-      length = Math.sqrt((p2[0] - p1[0])**2 + (p2[1] - p1[1])**2) * @layout.dbu
-
-      # 水平（H）か垂直（V）かでサイズを割り振る (KLayout座標のままなので素直に比較できます)
-      if (p1[1] - p2[1]).abs < 0.0001
-        size_w = length
-        size_h = width_mm
-        if p1 == pp
-          size_w = size_w + width_mm/1
-          if p1[0] > p2[0]
-            center_x = center_x + width_mm/2
-          else
-            center_x = center_x - width_mm/2
-          end
-        end
-      else
-        size_w = width_mm
-        size_h = length
-        if p1 == pp
-          size_h = size_h + width_mm/1
-          if p1[1] > p2[1]
-            center_y = center_y + width_mm/2
-          else
-            center_y = center_y - width_mm/2
-          end
-        end
-      end
-      # 3. KiCadの footprint / pad 形式で1セグメントずつ出力
-
-      kicad_pads << <<EOF
-      (pad "" smd rect
-            (at #{(center_x*@layout.dbu + @offset_x).round(2)} #{(-center_y*@layout.dbu + @offset_y).round(2)})
-            (size #{size_w} #{size_h})
-            (layers "#{layer}")
-            (net #{net_id} "#{net_name_str}")
-       )
-EOF
-=end
       kicad_pads << <<EOF
       (segment
           (start #{(p1[0]*@layout.dbu + @offset_x).round(2)} #{(-p1[1]*@layout.dbu + @offset_y).round(2)})
@@ -512,7 +491,7 @@ EOF
           #kicad_elements[name] = [((trans*inst.trans).disp.x*@layout.dbu).round(2), (-(trans*inst.trans).disp.y*@layout.dbu).round(2), 
           #                        kicad_cell_name, angle]
           inst.cell_inst.each_trans{|trans2|
-            kicad_elements[name] = [((trans*trans2).disp.x*@layout.dbu).round(2), (-((trans*trans2).disp.y)*@layout.dbu).round(2), 
+            kicad_elements[name] = [((trans*trans2).disp.x*@layout.dbu).round(6), (-((trans*trans2).disp.y)*@layout.dbu).round(6), 
                                   kicad_cell_name, angle]
           }
         else
@@ -553,7 +532,7 @@ EOF
 EOF
         }
       elsif inst.cell.is_library_cell?
-        puts "Cell: #{inst.cell.name}"
+        #puts "Cell: #{inst.cell.name}"
         if ['pcont', 'psubcont', 'nsubcont'].include?(inst.cell.name.sub(/\$.*$/, ''))
           inst.cell_inst.each_trans{|trans|
             segments << generate_contact(inst.cell.name, trans*inst.cell.bbox, 'F.Fab')
@@ -591,10 +570,10 @@ EOF
           else
             net_name = shape.property('net') || shape.property(1)
           end
-          if shape.path.width > 10.0
+          if shape.path.width > 10.0/@layout.dbu
             segments << generate_zone(polygon[net_name], trans*shape.polygon, net_name, pcb_layer_name)
           else
-            puts "Shape width for #{net_name} is: #{shape.path.width}"
+            #puts "Shape width for #{net_name} is: #{shape.path.width}"
             pads = complex_path_to_kicad_pads(trans*shape.path, net_name, pcb_layer_name) 
             segments << pads if pads
           end
@@ -920,7 +899,7 @@ def extract_lvs_data_with_nets(lvsdb) # created by gemini but no longer used
   end
 end
 
-  def self::gds_to_pcb(lvs_data=nil, ml1=nil, ml2=nil, rsf=1.0)
+  def self::gds_to_pcb(lvs_data=nil, ml1=nil, ml2=nil, rsf=1.0, pads_file=nil)
     include RBA
     include MinedaPCellCommonModule
     mw = Application.instance.main_window
@@ -969,7 +948,7 @@ end
     pcell_lib = ('PCells_' + view.active_cellview.technology).sub('PCells_OpenRule1um', 'PCells')
     library = Library.library_by_name(pcell_lib)
     raise "Library '#{pcell_lib}' not found" unless library
-    kc = KiCadGenerator.new layout, pretty_dir, layers, lvs_data, ml1, ml2, rsf
+    kc = KiCadGenerator.new layout, pretty_dir, layers, lvs_data, ml1, ml2, rsf, pads_file
   
     Dir.chdir(pretty_dir){
       kc.generate_MX_footprints
@@ -980,9 +959,12 @@ end
     offset_x, offset_y = kc.centerize kicad_elements
     offset_x = 0.0 if offset_x.abs < 30.0
     offset_y = 0.0 if offset_y.abs < 30.0   
-    footprints = kc.generate_footprints kicad_elements, offset_x, offset_y, pcell_lib
+    footprints, pads_location = kc.generate_footprints kicad_elements, offset_x, offset_y, pcell_lib
+    pads_file = File.join(File.dirname(filename), File.basename(filename).sub(File.extname(filename), '') + '_pads.yaml')
+    File.open(pads_file, 'w'){|f| f.puts pads_location.to_yaml}
     segments = kc.convert_paths_and_cells_to_kicad_segments top_cell
     kc.write_pcb footprints, segments, pcb_file
     puts "KiCad PCB successfully generated: #{pcb_file}"
+    puts "PADS location stored in #{pads_file}"
   end
 end
