@@ -1,6 +1,6 @@
 # coding: utf-8
 # $priority: 1
-# Mineda Common v1.42 Aug. 31st, 2026
+# Mineda Common v1.421 Aug. 31st, 2026
 #   Force on-grid v0.1 July 39th 2022 copy right S. Moriyama (Anagix Corp.)
 #   LVS preprocessor(get_reference) v0.86 Dec. 18th, 2025 copyright by S. Moriyama (Anagix Corporation)
 #   * ConvertPCells and PCellDefaults moved from MinedaPCell v0.4 Nov. 22nd 2022
@@ -8,8 +8,8 @@
 #   ConvertLibraryCells (ConvertPCells) v0.69 Aug. 31st, 2026 copy right S. Moriyama
 #   PCellTest v0.2 August 22nd 2022 S. Moriyama
 #   DRC_helper::find_cells_to_exclude v0.1 Sep 23rd 2022 S. Moriyama
-#   MinedaInput v0.5 Aug. 31st, 2026 S. Moriyama
-#   MinedaPCellCommon v0.38 Aug. 31st, 2026 S. Moriyama
+#   MinedaInput v0.51 Aug. 31st, 2026 S. Moriyama
+#   MinedaPCellCommon v0.39 Aug. 31st, 2026 S. Moriyama
 #   Create Backannotation data v0.171 May 14th 2023 S. Moriyama
 #   MinedaAutoplace v0.44 Aug. 1st 2026 S. Moriyama
 #   ChangePCellParameters v0.1 July 29th 2023 S. Moriyama
@@ -63,6 +63,16 @@ module MinedaPCellCommonModule
       return unless @kicad
       #footprint_name=cell.name
       footprint_name = "#{self.class.name.sub('::', '#')}.l#{l.round(4)}w#{w.round(4)}m#{m}"
+      #puts footprint_name
+      if defined? with_pcont
+        options = ''
+        cell.pcell_declaration.get_parameters.each{|p|
+          if p.type == 3
+            options << (eval(p.name) ? '1' : '0')
+          end
+        }
+        footprint_name << "_#{options}" if options.length >= 7
+      end     
       # S式（S-expression）テキストの構築
       # ※ KiCad v6 / v7 / v8 形式に準拠
       s_expr =  "(footprint \"#{footprint_name}\"\n"
@@ -663,12 +673,13 @@ module MinedaCommon
         next unless cell.is_pcell_variant?
       
         # PCell 宣言オブジェクト（RBA::PCellDeclaration）を取得
-        pcell_decl = layout.pcell_declaration(cell.pcell_id)
+        #pcell_decl = layout.pcell_declaration(cell.pcell_id)
+        pcell_decl = cell.pcell_declaration
         next if pcell_decl.nil?
       
         # Ruby クラスの initialize メソッドから定義元ファイルパスを取得
         pcell_class = pcell_decl.class
-        next unless pcell_class.instance_methods(false).include?(:initialize)
+        #next unless pcell_class.instance_methods(false).include?(:initialize)
       
         loc = pcell_class.instance_method(:initialize).source_location
         next if loc.nil?
