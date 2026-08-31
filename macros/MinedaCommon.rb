@@ -1,15 +1,15 @@
 # coding: utf-8
 # $priority: 1
-# Mineda Common v1.41 Aug. 29th, 2026
+# Mineda Common v1.42 Aug. 31st, 2026
 #   Force on-grid v0.1 July 39th 2022 copy right S. Moriyama (Anagix Corp.)
 #   LVS preprocessor(get_reference) v0.86 Dec. 18th, 2025 copyright by S. Moriyama (Anagix Corporation)
 #   * ConvertPCells and PCellDefaults moved from MinedaPCell v0.4 Nov. 22nd 2022
 #   Change PCell Defaults v0.3 Dec. 25 2025 copyright S. Moriyama
-#   ConvertLibraryCells (ConvertPCells) v0.681 Dec. 25th 2025  copy right S. Moriyama
+#   ConvertLibraryCells (ConvertPCells) v0.69 Aug. 31st, 2026 copy right S. Moriyama
 #   PCellTest v0.2 August 22nd 2022 S. Moriyama
 #   DRC_helper::find_cells_to_exclude v0.1 Sep 23rd 2022 S. Moriyama
-#   MinedaInput v0.4 Aug. 29th, 2026 S. Moriyama
-#   MinedaPCellCommon v0.37 July 26th, 2026 S. Moriyama
+#   MinedaInput v0.5 Aug. 31st, 2026 S. Moriyama
+#   MinedaPCellCommon v0.38 Aug. 31st, 2026 S. Moriyama
 #   Create Backannotation data v0.171 May 14th 2023 S. Moriyama
 #   MinedaAutoplace v0.44 Aug. 1st 2026 S. Moriyama
 #   ChangePCellParameters v0.1 July 29th 2023 S. Moriyama
@@ -96,8 +96,8 @@ module MinedaPCellCommonModule
       #bbox = shape.bbox
       w = (bbox.width * layout.dbu).round(4)
       h = (bbox.height * layout.dbu).round(4)
-      cx = (bbox.center.x * layout.dbu).round(4)
-      cy = -(bbox.center.y * layout.dbu).round(4)
+      cx = (bbox.center.x * layout.dbu).round(6)
+      cy = -(bbox.center.y * layout.dbu).round(6)
       
       #pin_num = find_pin_num.call(cx, cy)
       #s_expr += 
@@ -110,8 +110,8 @@ module MinedaPCellCommonModule
       #bbox = shape.bbox
       w = (bbox.width * layout.dbu).round(4)
       h = (bbox.height * layout.dbu).round(4)
-      cx = (bbox.center.x * layout.dbu).round(4)
-      cy = -(bbox.center.y * layout.dbu).round(4)
+      cx = (bbox.center.x * layout.dbu).round(6)
+      cy = -(bbox.center.y * layout.dbu).round(6)
       
       #pin_num = find_pin_num.call(cx, cy)
       #s_expr += 
@@ -124,8 +124,8 @@ module MinedaPCellCommonModule
      # bbox = shape.bbox
       via_w = (bbox.width * layout.dbu).round(4)
       via_h = (bbox.height * layout.dbu).round(4)
-      cx = (bbox.center.x * layout.dbu).round(4)
-      cy = -(bbox.center.y * layout.dbu).round(4)
+      cx = (bbox.center.x * layout.dbu).round(6)
+      cy = -(bbox.center.y * layout.dbu).round(6)
       
       size_dia = [via_w, via_h].max
       drill_dia = (size_dia * 0.6).round(4)
@@ -147,11 +147,11 @@ module MinedaPCellCommonModule
       # 💡【最重要修正】Wが3倍になって大きくなったゲートPOLが消えないよう、制限を15.0μmに拡大
       #next if w > 15.0 || h > 15.0 
       
-      cx = (bbox.center.x * layout.dbu).round(4)
-      cy = -(bbox.center.y * layout.dbu).round(4)
+      cx = (bbox.center.x * layout.dbu).round(6)
+      cy = -(bbox.center.y * layout.dbu).round(6)
       
-      x1, x2 = (cx - w/2.0).round(4), (cx + w/2.0).round(4)
-      y1, y2 = (cy - h/2.0).round(4), (cy + h/2.0).round(4)
+      x1, x2 = (cx - w/2.0).round(6), (cx + w/2.0).round(6)
+      y1, y2 = (cy - h/2.0).round(6), (cy + h/2.0).round(6)
       
       #s_expr += 
       @kicad += "  (fp_poly (pts (xy #{x1} #{y1}) (xy #{x2} #{y1}) (xy #{x2} #{y2}) (xy #{x1} #{y2})) (stroke (width 0.05) #{type} (layer \"#{fill_layer}\"))\n"
@@ -191,7 +191,7 @@ module MinedaPCellCommonModule
     def kicad_fp_poly(points, layer, type='(type dash)) (fill none)')
       result = "  (fp_poly (pts \n    "
       points.each{|x, y|
-        result << "(xy #{(x*layout.dbu).round(4)} #{(-y*layout.dbu).round(4)}) "
+        result << "(xy #{(x*layout.dbu).round(6)} #{(-y*layout.dbu).round(6)}) "
       }
       result << "\n  ) (stroke (width 0.05) #{type} (layer \"#{layer}\"))\n"
       @kicad += result
@@ -701,9 +701,9 @@ module MinedaCommon
       end
     end
     
-    def gds_to_pcb(lvs_data=nil, ml1=nil, ml2=nil, rsf=1.0)
+    def gds_to_pcb(lvs_data=nil, ml1=nil, ml2=nil, rsf=1.0, pads_file=nil)
       reload_pcell
-      KiCadConverter::gds_to_pcb(lvs_data, ml1, ml2, rsf)
+      KiCadConverter::gds_to_pcb(lvs_data, ml1, ml2, rsf, pads_file)
     end
 
     def make_symlink output
@@ -1080,6 +1080,7 @@ module MinedaCommon
   end
 
   class ConvertPCells
+    attr_accessor :rsf
     def initialize pcell_module
       @technology_name = pcell_module.sub(/_v[^_]*$/, '')
       @pcell_lib = ('PCells_' + @technology_name).sub('PCells_OpenRule1um', 'PCells')
@@ -1283,6 +1284,7 @@ module MinedaCommon
       oo_layout_dbu = 1 / layout.dbu.round(5)
       path_args  = {path: {}}  # , rsf: rsf=args[:routing_scale_factor], psf: psf=args[:pcell_scale_factor]}
       rsf = args[:routing_scale_factor]
+      @rsf = rsf
       args[:path].each_pair{|layer_name, params|
         path_args[layer_name] ||= {}
         path_args[layer_name][:pws] = params[:path_width_scale]  && params[:path_width_scale]/rsf
@@ -1372,6 +1374,10 @@ module MinedaCommon
       }
       puts map
       map
+    end
+    
+    def cv
+      self.class.current_cellview
     end
     
     def self.current_cellview
