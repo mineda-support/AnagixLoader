@@ -62,7 +62,7 @@ class KiCadGenerator
 
   def generate_MX_footprints
     Dir.glob('*.kicad_mod') {|file|
-      next unless file =~ /(\S+m[0-9]+)\.kicad_mod/
+      next unless (file =~ /(\S+m[0-9]+_\d+)\.kicad_mod/ || file =~ /(\S+m[0-9]+)\.kicad_mod/)
       new_fp_name = $1 + '_MX'
       mx_file = new_fp_name + '.kicad_mod'
       next if File.exist?(mx_file) && (File.mtime(mx_file) > File.mtime(file))
@@ -143,7 +143,7 @@ class KiCadGenerator
       rot = item[4]
       angle, mirror = rot_to_am(rot.to_f, false)
       # KiCadの座標系（通常はmm）。
-      # 必要に応じてGDSの単位（μm等）からmmへのスケール変換（例: x * 0.001）をここで行ってください。
+    # 必要に応じてGDSの単位（μm等）からmmへのスケール変換（例: x * 0.001）をここで行ってください。
       pos_x = ((x * SCALE) + @offset_x).round(6)
       pos_y = ((y * SCALE) + @offset_y).round(6)
 
@@ -463,8 +463,18 @@ EOF
         w=inst.pcell_parameter('w') || 2.0
         m=inst.pcell_parameter('n') || 0
         next unless l && w
-        rot = (trans*inst.trans).to_s.sub(/ .*$/, '').upcase
         kicad_cell_name = "#{inst.cell.library.class.name.sub(/::.*$/,'')}\##{inst.cell.name.sub(/\$.*$/,'')}.l#{l.round(2)}w#{w.round(2)}m#{m||0}"
+        # inst.pcell_declaration.get_parameters.map{|p| [p.type, p.name, inst.pcell_parameter(p.name)]}
+        #if inst.pcell_parameter('with_pcont')
+          options = ''
+          inst.pcell_declaration.get_parameters.each{|p|
+            if p.type == 3
+              options << (inst.pcell_parameter(p.name) ? '1' : '0')
+            end
+          }
+          kicad_cell_name << "_#{options}" if options.length >= 7
+        #end
+        rot = (trans*inst.trans).to_s.sub(/ .*$/, '').upcase
         kicad_cell_name << '_MX' if rot.start_with? 'M'
 
         infile = File.join(@pretty_dir, kicad_cell_name) + '.kicad_mod'
