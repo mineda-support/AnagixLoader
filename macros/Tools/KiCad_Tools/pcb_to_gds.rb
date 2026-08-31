@@ -82,22 +82,34 @@ module PCB_to_gds
     raw_segments = []
     kpcb[1..-1].each do |blk|
       if blk[0] == :footprint
-        fp_name = blk[1].to_s # 念のためStringに変換       
+        fp_name = blk[1].to_s # 念のためStringに変換 
+        puts fp_name      
         # 正規表現にマッチするか確認
-        if fp_name =~ /^(\S+):(\S+)\.l(\S+)w(\S+)m(\S+)_(\S+)/ || 
-           fp_name =~ /^(\S+):(\S+)\.l(\S+)w(\S+)m(\S+)$/
+        if fp_name =~ /^(\S+):.*#(\S+)\.l(\S+)w(\S+)m(\S+)_(\d+)_(\S+)/ || 
+           fp_name =~ /^(\S+):.*#(\S+)\.l(\S+)w(\S+)m(\S+)_(\d+)$/ ||
+           fp_name =~ /^(\S+):.*#(\S+)\.l(\S+)w(\S+)m(\S+)_(\S+)/ || 
+           fp_name =~ /^(\S+):.*#(\S+)\.l(\S+)w(\S+)m(\S+)$/
           # マッチした場合のみ変数を抽出
-          lib, sym, l, w, m, mir = [$1, $2, $3.to_f, $4.to_f, $5.to_i, $6]
+          lib, sym, l, w, m, options, mir = [$1, $2, $3.to_f, $4.to_f, $5.to_i, $6, $7]
           
           decl = library.layout.pcell_declaration(sym)
           next unless decl # PCellが見つからない場合のスキップ処理
           
+          params = { "w" => w, "l" => l, "n" => m }
+          count = 0
+          options && decl.get_parameters.each{|p|
+            if p.type == 3
+              params[p.name] = (options[count] == '1' ? true : nil)
+              count = count + 1
+            end
+          }
           if sym == 'Pch'
-            pcell_id = layout.add_pcell_variant(library, decl.id, { "w" => w, "l" => l, "n" => m,
-                                                                    'use_nwell' => true, 'with_nsubcont' => true })
-          else
-            pcell_id = layout.add_pcell_variant(library, decl.id, { "w" => w, "l" => l, "n" => m })
+            if !params['use_nwell'] 
+              params.merge! ({'use_nwell' => true, 'with_nsubcont' => true})
+            end
           end
+          pcell_id = layout.add_pcell_variant(library, decl.id, params)
+          
           at = blk.assoc(:at)
           ref = nil
           blk[4..-1].each do |item|
@@ -115,7 +127,7 @@ module PCB_to_gds
           inst.set_property '1', ref   
         else
           if blk.assoc(:pad).nil? # need to check!
-            puts "need to insert path or pad for fp_name=#{fp_name}"
+            #puts "need to insert path or pad for fp_name=#{fp_name}"
             next
           end        
           blk[4..-1].each do |item|
