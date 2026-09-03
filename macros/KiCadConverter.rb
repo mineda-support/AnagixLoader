@@ -12,6 +12,9 @@ class KiCadGenerator
   SCALE = 1 # 200.0 
   
   def initialize layout, pretty_dir, layers, lvs_data, ml1, ml2, rsf=1.0, pads_file=nil
+    unless File.extname(pretty_dir) == '.pretty'
+      raise "KLayout to KiCad converter works only under directory whose extention is '.pretty'"
+    end
     @layout = layout
     @pretty_dir = pretty_dir
     @layers = layers
@@ -40,7 +43,7 @@ class KiCadGenerator
     if pads_file && File.exist?(file=File.join(pretty_dir, File.basename(pads_file)))
       @pads_location = YAML.load(File.read file)
     end
-    puts "*** #{file} read in KiCadGenerator: #{@pads_location}"
+    puts "*** #{file} loaded in KiCadGenerator: #{@pads_location}"
   end
   
   def find_prefix device_class_name
@@ -969,7 +972,7 @@ end
     offset_x, offset_y = kc.centerize kicad_elements
     offset_x = 0.0 if offset_x.abs < 30.0
     offset_y = 0.0 if offset_y.abs < 30.0   
-    footprints, pads_location = kc.generate_footprints kicad_elements, offset_x, offset_y, pcell_lib
+    footprints, pads_location = kc.generate_footprints kicad_elements, offset_x, offset_y, pretty_lib # pcell_lib
     pads_file = File.join(File.dirname(filename), File.basename(filename).sub(File.extname(filename), '') + '_pads.yaml')
     File.open(pads_file, 'w'){|f| f.puts pads_location.to_yaml}
     segments = kc.convert_paths_and_cells_to_kicad_segments top_cell
