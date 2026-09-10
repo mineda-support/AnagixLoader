@@ -69,7 +69,7 @@ module PCB_to_gds
       layers["F.Cu"] = layout.layer(mpc.get_layer_index('ML1', false), 0)
       layers["B.Cu"] = layout.layer(mpc.get_layer_index('ML2', false), 0)
       layers["Via"]  = layout.layer(mpc.get_layer_index('VIA1', false), 0)
-      via_index = mpc.library_cell('Via', 'IP62_Basic_MDP', layout)
+      via_index = mpc.library_cell('Via', view.technology + '_Basic', layout)
     rescue => e
       puts "Layer setup error: #{e.message}"
       return
