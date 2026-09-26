@@ -1,8 +1,8 @@
 # coding: utf-8
 # $priority: 1
-# Mineda Common v1.421 Aug. 31st, 2026
+# Mineda Common v1.422 Sep, 26th 2026
 #   Force on-grid v0.1 July 39th 2022 copy right S. Moriyama (Anagix Corp.)
-#   LVS preprocessor(get_reference) v0.86 Dec. 18th, 2025 copyright by S. Moriyama (Anagix Corporation)
+#   LVS preprocessor(get_reference) v0.87 Sep. 26th, 2026 copyright by S. Moriyama (Anagix Corporation)
 #   * ConvertPCells and PCellDefaults moved from MinedaPCell v0.4 Nov. 22nd 2022
 #   Change PCell Defaults v0.3 Dec. 25 2025 copyright S. Moriyama
 #   ConvertLibraryCells (ConvertPCells) v0.69 Aug. 31st, 2026 copy right S. Moriyama
@@ -2446,8 +2446,8 @@ class MinedaAutoPlace
         end
         #@components << @component if @component
                             # MPL01A l=1u w=10.2u m=5
-        inst['Sim.Params'] =~ /^\S+ +[lL]=(\S+)[uU] +[wW]=(\S+)[uU] +[mM]=(\S+)/ ||
-        inst['Sim.Params'] =~ /^\S+ +[lL]=(\S+)[uU] +[wW]=(\S+)[uU]/
+        inst['Sim.Params'] =~ /^\S+ +[lL]=(\S+)[uU][mM]* +[wW]=(\S+)[uU][mM]* +[mM]=(\S+)/ ||
+        inst['Sim.Params'] =~ /^\S+ +[lL]=(\S+)[uU][mM]* +[wW]=(\S+)[uU][mM]*/
         l=$1.to_f
         w=$2.to_f
         m=($3 || 1).to_i # note: nil.to_i => 0
