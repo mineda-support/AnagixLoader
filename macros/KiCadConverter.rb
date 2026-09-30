@@ -63,10 +63,10 @@ class KiCadGenerator
     prefix
   end
 
-  def generate_MX_footprints
+  def generate_MY_footprints
     Dir.glob('*.kicad_mod') {|file|
       next unless (file =~ /(\S+m[0-9]+_\d+)\.kicad_mod/ || file =~ /(\S+m[0-9]+)\.kicad_mod/)
-      new_fp_name = $1 + '_MX'
+      new_fp_name = $1 + '_MY'
       mx_file = new_fp_name + '.kicad_mod'
       next if File.exist?(mx_file) && (File.mtime(mx_file) > File.mtime(file))
 
@@ -478,7 +478,7 @@ EOF
           kicad_cell_name << "_#{options}" if options.length >= 7
         #end
         rot = (trans*inst.trans).to_s.sub(/ .*$/, '').upcase
-        kicad_cell_name << '_MX' if rot.start_with? 'M'
+        kicad_cell_name << '_MY' if rot.start_with? 'M'
 
         infile = File.join(@pretty_dir, kicad_cell_name) + '.kicad_mod'
         if File.exist?(infile)
@@ -964,7 +964,7 @@ end
     kc = KiCadGenerator.new layout, pretty_dir, layers, lvs_data, ml1, ml2, rsf, pads_file
   
     Dir.chdir(pretty_dir){
-      kc.generate_MX_footprints
+      kc.generate_MY_footprints
     }
     kicad_elements, segments = kc.convert_pcells_to_kicad_mods top_cell
 
