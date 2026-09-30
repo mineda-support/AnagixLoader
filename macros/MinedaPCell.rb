@@ -1,7 +1,7 @@
 # coding: cp932
-# MinedaPCell v1.12, September 10th, 2026 copy right S. Moriyama (Anagix Corporation)
+# MinedaPCell v1.14, September 30th, 2026 copy right S. Moriyama (Anagix Corporation)
 module MinedaPCell
-  version = 1.12
+  version = 1.14
   include MinedaPCellCommonModule
   # The PCell declaration for the Mineda MOSFET
   class MinedaMOS < MinedaPCellCommon
@@ -472,7 +472,7 @@ module MinedaPCell
               insert_cell indices[:dcont], x, yc
               insert_cell indices[:pcont], x, vs+u1+gw +vs/2 + u1 if i > 0
               create_path indices[:m1], x, yc - vs/2, x, vs+u1+gw +vs/2 + u1, vs, 0, 0
-              @kicad && ml1_to_kicad_Fcu(1, Box.new(x-vs/2, yc-vs/2, x+vs/2, vs+u1+gw +vs/2 + u1))
+              ### @kicad && ml1_to_kicad_Fcu(2, Box.new(x-vs/2, yc-vs/2, x+vs/2, vs+u1+gw +vs/2 + u1))
             elsif !with_pcont
               # insert_cell indices[:pcont],  x, (y1+y2)/2
               gcw = [gw, vs*3].min
@@ -869,7 +869,7 @@ module MinedaPCell
               insert_cell indices[:dcont],  x, yc
               insert_cell indices[:pcont],  x, y1+vs/2 if i> 0
               create_path indices[:m1], x, y1+vs/2, x, yc + vs/2, vs, 0, 0
-              @kicad && ml1_to_kicad_Fcu(1, Box.new(x-vs/2, y1+vs/2, x+vs/2, yc + vs/2))
+              ### @kicad && ml1_to_kicad_Fcu(2, Box.new(x-vs/2, y1+vs/2, x+vs/2, yc + vs/2))
             elsif !with_pcont
               # insert_cell indices[:pcont],  x, (y1+y2)/2
               gcw = [gw, vs*3].min

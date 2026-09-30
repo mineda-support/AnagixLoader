@@ -1,15 +1,15 @@
 # coding: utf-8
 # $priority: 1
-# Mineda Common v1.421 Aug. 31st, 2026
+# Mineda Common v1.422 Sep, 26th 2026
 #   Force on-grid v0.1 July 39th 2022 copy right S. Moriyama (Anagix Corp.)
-#   LVS preprocessor(get_reference) v0.86 Dec. 18th, 2025 copyright by S. Moriyama (Anagix Corporation)
+#   LVS preprocessor(get_reference) v0.87 Sep. 26th, 2026 copyright by S. Moriyama (Anagix Corporation)
 #   * ConvertPCells and PCellDefaults moved from MinedaPCell v0.4 Nov. 22nd 2022
 #   Change PCell Defaults v0.3 Dec. 25 2025 copyright S. Moriyama
 #   ConvertLibraryCells (ConvertPCells) v0.69 Aug. 31st, 2026 copy right S. Moriyama
 #   PCellTest v0.2 August 22nd 2022 S. Moriyama
 #   DRC_helper::find_cells_to_exclude v0.1 Sep 23rd 2022 S. Moriyama
 #   MinedaInput v0.51 Aug. 31st, 2026 S. Moriyama
-#   MinedaPCellCommon v0.39 Aug. 31st, 2026 S. Moriyama
+#   MinedaPCellCommon v0.391 Sep. 29th, 2026 S. Moriyama
 #   Create Backannotation data v0.171 May 14th 2023 S. Moriyama
 #   MinedaAutoplace v0.44 Aug. 1st 2026 S. Moriyama
 #   ChangePCellParameters v0.1 July 29th 2023 S. Moriyama
@@ -206,7 +206,20 @@ module MinedaPCellCommonModule
       result << "\n  ) (stroke (width 0.05) #{type} (layer \"#{layer}\"))\n"
       @kicad += result
     end
-        
+    
+    def path2box points, w, be=0, ee=0
+      if (x = points[0].x) == points[1].x
+        ymin = [points[0].y, points[1].y].min
+        ymax = [points[0].y, points[1].y].max
+        return [x -  w/2, ymin -  be, x + w/2, ymax + ee]
+      elsif (y = points[0].y) == points[1].y
+        xmin = [points[0].x, points[1].x].min
+        xmax = [points[0].x, points[1].x].max
+        return [xmin - be, y -  w/2, xmax + ee, y + w/2]
+      end
+      nil
+    end  
+    
     def set_alias args={}
       @@alias.merge! args
     end
@@ -2446,8 +2459,8 @@ class MinedaAutoPlace
         end
         #@components << @component if @component
                             # MPL01A l=1u w=10.2u m=5
-        inst['Sim.Params'] =~ /^\S+ +[lL]=(\S+)[uU] +[wW]=(\S+)[uU] +[mM]=(\S+)/ ||
-        inst['Sim.Params'] =~ /^\S+ +[lL]=(\S+)[uU] +[wW]=(\S+)[uU]/
+        inst['Sim.Params'] =~ /^\S+ +[lL]=(\S+)[uU][mM]* +[wW]=(\S+)[uU][mM]* +[mM]=(\S+)/ ||
+        inst['Sim.Params'] =~ /^\S+ +[lL]=(\S+)[uU][mM]* +[wW]=(\S+)[uU][mM]*/
         l=$1.to_f
         w=$2.to_f
         m=($3 || 1).to_i # note: nil.to_i => 0
