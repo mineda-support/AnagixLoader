@@ -1,7 +1,7 @@
 # coding: cp932
-# MinedaPCell v1.15, October 2nd, 2026 copy right S. Moriyama (Anagix Corporation)
+# MinedaPCell v1.16, October 2nd, 2026 copy right S. Moriyama (Anagix Corporation)
 module MinedaPCell
-  version = 1.15
+  version = 1.16
   include MinedaPCellCommonModule
   # The PCell declaration for the Mineda MOSFET
   class MinedaMOS < MinedaPCellCommon
@@ -966,22 +966,32 @@ end
       n = (w/pitch).to_i
       if n <= 1
         insert_cell contact, x0, y, true
-        insert_cell indices[:via], x0, y if !defined?(with_via) || with_via
+        if !defined?(with_via) || with_via
+          insert_cell indices[:via], x0, y
+          @kicad && via1_to_kicad_TH(indices[:kicad], Box.new(u1).move(x0, y))
+        end
       else
         offset = w- pitch*n
         (x0-w/2 + offset/2 + pitch/2).step(x0+w/2-vs/2, pitch){|x|
           # insert_cell indices, :via, x, y, vs, u1, false
           insert_cell contact, x, y, true
-          insert_cell indices[:via], x, y if !defined?(with_via) || with_via
+          if !defined?(with_via) || with_via
+            insert_cell indices[:via], x, y
+            @kicad && via1_to_kicad_TH(indices[:kicad], Box.new(u1).move(x, y))
+          end
         }
         #create_box indices[:m1], x0-w/2, y-vs/2, x0+w/2, y+vs/2 
-        create_box fill_metal, x0-w/2, y-vs/2, x0+w/2, y+vs/2 if fill_metal
+        if fill_metal
+          create_box fill_metal, x0-w/2, y-vs/2, x0+w/2, y+vs/2
+          @kicad && ml1_to_kicad_Fcu(indices[:kicad], Box.new(x0-w/2, y-vs/2, x0+w/2, y+vs/2))
+        end
         #vs2 = vs + u1/4
         #create_box indices[:m2], x0-w/2, y-vs2/2, x0+w/2, y+vs2/2
       end
     end
 
     def produce_impl indices, header_outside, vs, u1, params={}
+      @kicad = ''
       res_body = indices[:pol] || indices[:diff] || indices[:nwl]
       oo_layout_dbu = 1/ layout.dbu
       rw = (w*oo_layout_dbu).to_i
@@ -1022,6 +1032,7 @@ end
             # insert_cell indices, :via, x, y, vs, u1
             # insert_cell indices, :cnt, x, y, vs, u1
             # insert_cell indices, :diff, x, y, vs, u1
+            @kicad && indices[:kicad] = 1
             create_contacts indices, rw, x, y, vs, u1, params[:pitch], res_body
             ymin = [ho ? y + vs/2 : y - vs/2, ymin].min
             points = [Point::new(x, vs-rw_ho-(vs-cs)/2), Point::new(x, vs+r + (vs-cs)/2)]
@@ -1029,27 +1040,31 @@ end
             points = [Point::new(x, vs-rw_ho), Point::new(x, vs+r + (vs-cs)/2)]
           end
           cell.shapes(indices[:res]).insert(Path::new(points, rw, 0, 0))
+          @kicad && passive_shape_to_kicad(Box.new(*path2box(points, rw)))
           if i == n-1
             points = [Point::new(x, (n == 1 ? -rw_ho : vs)), Point::new(x, vs+r+vs)]
             y =  vs+r+vs/2
             # insert_cell indices, :via, x, y, vs, u1
             # insert_cell indices, :cnt, x, y, vs, u1
             # insert_cell indices, :diff, x, y, vs, u1
+            @kicad && indices[:kicad] = 2
             create_contacts indices, rw, x, y, vs, u1, params[:pitch], res_body
             ymax = [y+vs/2, ymax].max
           end
           cell.shapes(res_body).insert(Path::new(points, rw, 0, 0))
+          @kicad && passive_shape_to_kicad(Box.new(*path2box(points, rw)))
 
           if prev_x
             y = vs - rw/2
             points = [Point::new(x, y), Point::new(prev_x, y)]
             cell.shapes(res_body).insert(Path::new(points, rw, rw/2, rw/2))
             cell.shapes(indices[:res]).insert(Path::new(points, rw, rw/2, rw/2))
-            ymax = [y+rw/2, ymax].max
+            @kicad && passive_shape_to_kicad(Box.new(*path2box(points, rw, rw/2, rw/2)))
           end
         else
           points = [Point::new(offset, vs+(sl-r)-(vs-cs)/2), Point::new(offset, vs+sl)]
           cell.shapes(indices[:res]).insert(Path::new(points, rw, 0, 0))
+          @kicad && passive_shape_to_kicad(Box.new(*path2box(points, rw)))
           if i == n-1
             points = [Point::new(offset, sl-r), Point::new(offset, vs+sl)]
             x = offset
@@ -1057,18 +1072,20 @@ end
             # insert_cell indices, :via, x, y, vs, u1
             # insert_cell indices, :cnt, x, y, vs, u1
             # insert_cell indices, :diff, x, y, vs, u1
+            @kicad && indices[:kicad] = 2
             create_contacts indices, rw, x, y, vs, u1, params[:pitch], res_body
             ymax = [y+vs/2, ymax].max
             ymin = [ho ? y+vs/2+u1/4 : y-vs/2, ymin].min
           end
           cell.shapes(res_body).insert(Path::new(points, rw, 0, 0))
-
+          @kicad && passive_shape_to_kicad(Box.new(*path2box(points, rw)))
           if prev_x
             x = offset
             y = vs + sl + rw/2
             points = [Point::new(x, y), Point::new(prev_x, y)]
             cell.shapes(res_body).insert(Path::new(points, rw, rw/2, rw/2))
             cell.shapes(indices[:res]).insert(Path::new(points, rw, rw/2, rw/2))
+            @kicad && passive_shape_to_kicad(Box.new(*path2box(points, rw, rw/2, rw/2)))
             ymax = [y+rw/2, ymax].max
           end
         end
@@ -1076,6 +1093,7 @@ end
         xmax = [x + [rw/2, vs/2].max, xmax].max
         puts "[xmax,ymax] = #{[xmax,ymax].inspect}"
       end
+      generate_kicad_device l, w, n
       # puts "n=#{n}"
       [[[vs/2-rw/2, 0].min, [(ho||n<=2) ? 0 : vs - rw, ymin].min, xmax, ymax], rw_ho]
     end
