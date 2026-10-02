@@ -133,6 +133,7 @@ module PCB_to_gds
           blk[4..-1].each do |item|
             at = item.assoc(:at)
             size = item.assoc(:size)
+            next if size.nil?
             x, y = [at[1], at[2]].map(&:to_f)
             target_layer = layers[item.assoc(:layers)[1]]
             if item[0] == :pad
