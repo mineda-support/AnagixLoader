@@ -1,7 +1,7 @@
 # coding: cp932
-# MinedaPCell v1.14, September 30th, 2026 copy right S. Moriyama (Anagix Corporation)
+# MinedaPCell v1.15, October 2nd, 2026 copy right S. Moriyama (Anagix Corporation)
 module MinedaPCell
-  version = 1.14
+  version = 1.15
   include MinedaPCellCommonModule
   # The PCell declaration for the Mineda MOSFET
   class MinedaMOS < MinedaPCellCommon
@@ -717,224 +717,225 @@ module MinedaPCell
     end
   end
 
-  class MinedaPch_SOI < MinedaPch
-    include RBA
+class MinedaPch_SOI < MinedaPch
+  include RBA
 
-    def produce_impl indices, vs, u1, params = {} # PMOS_SOI
-      produce_impl_core(indices, vs, u1, params){|x1, y1, x2, y2, gl, gw, dgl, m1cnt_width|
-        # create pcont
-        wm_offset = defined?(wide_metal) && wide_metal ? params[:wm_offset] || vs/2 : 0
-        x = x1 + vs/2
-        pcont_dy = params[:pcont_dy] || -u1/4
-        y = y1 + vs/2 + pcont_dy
-        gate_ext = params[:gate_ext] || 0
-        if defined?(wide_metal) && wide_metal
-          x = x - u1
-          y = y - u1/2
-        end
-        if with_pcont
-          pol_width = params[:pol_width] || u1 + u1/4
-          if n == 1 && !with_sdcont
-            insert_cell indices[:pcont], x1+vs+dgl+gl/2, y
-            @kicad && ml1_to_kicad_Fcu(2, Box.new(vs).move(x1+vs+dgl+gl/2, y))
-            if with_via
-              insert_cell indices[:via], x1+vs+dgl+gl/2, y 
-              @kicad && via1_to_kicad_TH(2,Box.new(vs).move(x1+vs+dgl+gl/2, y))
-            end
-            create_path indices[:pol], x1+vs+dgl+gl/2, y, x1+vs+dgl+gl/2, y1+vs - gate_ext + u1, vs, 0,0 if soi_bridge
-          else
-            insert_cell indices[:pcont], x, y
-            @kicad && ml1_to_kicad_Fcu(2, Box.new(vs).move(x, y))
-            if with_via
-              insert_cell indices[:via], x, y 
-              @kicad && via1_to_kicad_TH(2, Box.new(vs).move(x, y))
-            end
-            y = y # + u1/2 # necessary to eliminate POL gap error
-            x0 = x1+vs+gl/2+dgl
-            pw2 = [pol_width, u1].max/2
-            unless no_finger_conn
-              if soi_bridge
-                create_path2 indices[:m1], x, y, x0, y, x0, y1+vs - gate_ext + u1, pol_width, 0, 0
-                create_path2 indices[:pol], x, y, x0, y, x0, y1+vs - gate_ext + u1, pol_width, 0, 0 if gl > vs
-                if @kicad
-                  ml1_to_kicad_Fcu(2, Box.new(x, y-pw2, x0, y+pw2))
-                  ml1_to_kicad_Fcu(2, Box.new(x0-pw2, y, x0+pw2, y1+vs - gate_ext + u1))
-                  if gl > vs
-                    gate_shape_to_kicad(Box.new(x, y-pw2, x0, y+pw2))
-                    gate_shape_to_kicad(Box.new(x0-pw2, y, x0+pw2, y1+vs - gate_ext + u1))
-                  end
-                end
-              else
-                create_path2 indices[:pol], x, y, x0, y, x0, y1+vs - gate_ext + u1, [pol_width, u1].max, 0, 0
-                if @kicad
+  def produce_impl indices, vs, u1, params = {} # PMOS_SOI
+    produce_impl_core(indices, vs, u1, params){|x1, y1, x2, y2, gl, gw, dgl, m1cnt_width|
+      # create pcont
+      wm_offset = defined?(wide_metal) && wide_metal ? params[:wm_offset] || vs/2 : 0
+      x = x1 + vs/2
+      pcont_dy = params[:pcont_dy] || -u1/4
+      y = y1 + vs/2 + pcont_dy
+      gate_ext = params[:gate_ext] || 0
+      if defined?(wide_metal) && wide_metal
+        x = x - u1
+        y = y - u1/2
+      end
+      if with_pcont
+        pol_width = params[:pol_width] || u1 + u1/4
+        if n == 1 && !with_sdcont
+          insert_cell indices[:pcont], x1+vs+dgl+gl/2, y
+          @kicad && ml1_to_kicad_Fcu(2, Box.new(vs).move(x1+vs+dgl+gl/2, y))
+          if with_via
+            insert_cell indices[:via], x1+vs+dgl+gl/2, y 
+            @kicad && via1_to_kicad_TH(2,Box.new(vs).move(x1+vs+dgl+gl/2, y))
+          end
+          create_path indices[:pol], x1+vs+dgl+gl/2, y, x1+vs+dgl+gl/2, y1+vs - gate_ext + u1, vs, 0,0 if soi_bridge
+        else
+          insert_cell indices[:pcont], x, y
+          @kicad && ml1_to_kicad_Fcu(2, Box.new(vs).move(x, y))
+          if with_via
+            insert_cell indices[:via], x, y 
+            @kicad && via1_to_kicad_TH(2, Box.new(vs).move(x, y))
+          end
+          y = y # + u1/2 # necessary to eliminate POL gap error
+          x0 = x1+vs+gl/2+dgl
+          pw2 = [pol_width, u1].max/2
+          unless no_finger_conn
+            if soi_bridge
+              create_path2 indices[:m1], x, y, x0, y, x0, y1+vs - gate_ext + u1, pol_width, 0, 0
+              create_path2 indices[:pol], x, y, x0, y, x0, y1+vs - gate_ext + u1, pol_width, 0, 0 if gl > vs
+              if @kicad
+                ml1_to_kicad_Fcu(2, Box.new(x, y-pw2, x0, y+pw2))
+                ml1_to_kicad_Fcu(2, Box.new(x0-pw2, y, x0+pw2, y1+vs - gate_ext + u1))
+                if gl > vs
                   gate_shape_to_kicad(Box.new(x, y-pw2, x0, y+pw2))
                   gate_shape_to_kicad(Box.new(x0-pw2, y, x0+pw2, y1+vs - gate_ext + u1))
                 end
               end
+            else
+              create_path2 indices[:pol], x, y, x0, y, x0, y1+vs - gate_ext + u1, [pol_width, u1].max, 0, 0
+              if @kicad
+                gate_shape_to_kicad(Box.new(x, y-pw2, x0, y+pw2))
+                gate_shape_to_kicad(Box.new(x0-pw2, y, x0+pw2, y1+vs - gate_ext + u1))
+              end
             end
           end
         end
-        offset = x1
-        top = nil
-        bottom = nil
-        prev_pol = nil
-        (n+1).times{|i|
-          x = offset + vs/2
-          y = y1 + vs - u1/2 - gate_ext + u1 ### y1 + u1/2 + vs/2 #
-          pol_width = params[:pol_width] || u1
-          unless no_finger_conn
-            if soi_bridge # NOTE: gate_contact_space + u1 = gl + dgl*2
-              if prev_pol
-                create_path indices[:pol], prev_pol-vs-gl-dgl*2, y-u1/2, x-vs-u1/2, y-u1/2, pol_width, 0, 0 
-                @kicad && gate_shape_to_kicad(Box.new(prev_pol-vs-gl-dgl*2, y-u1/2-pol_width/2, x-vs-u1/2, y-u1/2+pol_width/2))
-              end
-           else
-              # create_path indices[:pol], prev_pol-vs/2-gl-dgl*2, y, x-vs/2-dgl, y, pol_width, 0, 0 if prev_pol
-              if prev_pol
-                create_path indices[:pol], prev_pol-vs/2-gl-dgl, y, x-vs/2-dgl, y, pol_width, 0, 0
-                @kicad && gate_shape_to_kicad(Box.new(prev_pol-vs/2-gl-dgl, y-pol_width/2 , x-vs/2-dgl, y+pol_width/2))
-              end
+      end
+      offset = x1
+      top = nil
+      bottom = nil
+      prev_pol = nil
+      (n+1).times{|i|
+        x = offset + vs/2
+        y = y1 + vs - u1/2 - gate_ext + u1 ### y1 + u1/2 + vs/2 #
+        pol_width = params[:pol_width] || u1
+        unless no_finger_conn
+          if soi_bridge # NOTE: gate_contact_space + u1 = gl + dgl*2
+            if prev_pol
+              create_path indices[:pol], prev_pol-vs-gl-dgl*2, y-u1/2, x-vs-u1/2, y-u1/2, pol_width, 0, 0 
+              @kicad && gate_shape_to_kicad(Box.new(prev_pol-vs-gl-dgl*2, y-u1/2-pol_width/2, x-vs-u1/2, y-u1/2+pol_width/2))
             end
-          end
-          if defined?(body_tie) && body_tie && i < n
-            create_path indices[:tin_block], x + vs/2, y2 - (vs - u1/2 - u1/4),  x + vs/2  + gl+dgl*2, y2 - (vs - u1/2 - u1/4), u1 + u1/2, 0, 0
-            xstop = x + gl + dgl*2 + vs
-            xstop = xstop + vs + u1 + u1/8 if i < n-1 || n % 2 ==  0
-            create_path2 indices[:diff], x + vs/2  + (gl+dgl*2)/2, y2-(vs + u1), x + vs/2  + (gl+dgl*2)/2, y2-u1/4,                          xstop, y2-u1/4, u1 + u1/2, 0, 0
-          end
-          prev_pol = x  if i >=1
-          if i % 2 == 0
-            # first s/d and via
-            y = y2-vs/2 + wm_offset
-            if !no_finger_conn && (with_sdcont || n != 1)
-              if with_via && with_sdcont
-                insert_cell indices[:via], x, y 
-                @kicad && via1_to_kicad_TH(3, Box.new(vs).move(x, y))
-             end
-              create_path indices[:m1], x, y2-vs-2*u1, x, y, pol_width, 0, 0
-              @kicad && ml1_to_kicad_Fcu(3, Box.new(x-pol_width/2, y2-vs-2*u1, x+pol_width/2, y))
-            end
-            if top && !no_finger_conn
-              create_path indices[:m1], top, y, x, y, pol_width, pol_width/2, pol_width/2
-              @kicad && ml1_to_kicad_Fcu(3, Box.new(top-pol_width/2, y-pol_width/2, x+pol_width/2, y+pol_width/2))
-            end
-            top = x
           else
-            # second s/d and via
-            if soi_bridge
-              if n == 1 || (n == 2 && i == 1)
-                y = y1-u1+vs
-              else
-                y = y1-pol_width-u1/8
-              end
-            else
-              if n == 1 || (n == 2 && i == 1)
-                y = y1+vs/2
-              else
-                y = y1-u1+vs/2
-              end
+            # create_path indices[:pol], prev_pol-vs/2-gl-dgl*2, y, x-vs/2-dgl, y, pol_width, 0, 0 if prev_pol
+            if prev_pol
+              create_path indices[:pol], prev_pol-vs/2-gl-dgl, y, x-vs/2-dgl, y, pol_width, 0, 0
+              @kicad && gate_shape_to_kicad(Box.new(prev_pol-vs/2-gl-dgl, y-pol_width/2 , x-vs/2-dgl, y+pol_width/2))
             end
-            if n == 1
-              if with_via && with_sdcont
-                insert_cell indices[:via], x, y1+vs/2 - (defined?(wide_metal) && wide_metal ? u1/2 : 0) 
-                @kicad && via1_to_kicad_TH(1, Box.new(vs).move(x, y1+vs/2 - (defined?(wide_metal) &&wide_metal ? u1/2 : 0)))
-              end
-            else
-              if with_via && with_sdcont
-                insert_cell indices[:via], x, y 
-                @kicad && via1_to_kicad_TH(1, Box.new(vs).move(x, y))
-              end
-            end
-            if !no_finger_conn && (with_sdcont || n != 1)
-              create_path indices[:m1], x, y, x, y1+vs+2*u1, pol_width, 0, 0 
-              @kicad && ml1_to_kicad_Fcu(1, Box.new(x-pol_width/2, y, x+pol_width/2, y1+vs+2*u1))
-            end
-            if bottom && !no_finger_conn
-              if soi_bridge
-                create_path indices[:m1], bottom, y1-pol_width, x, y1-pol_width, pol_width+u1/4, pol_width/2, pol_width/2
-                @kicad && ml1_to_kicad_Fcu(1, Box.new(bottom-pol_width/2, y1-pol_width-pol_width/2, x+pol_width/2, y1-pol_width/2))
-              else
-                create_path indices[:m1], bottom, y1-u1+vs/2, x, y1-u1+vs/2, pol_width, pol_width/2, pol_width/2
-                @kicad && ml1_to_kicad_Fcu(1, Box.new(bottom-pol_width/2, y1-u1+vs/2-pol_width/2, x+pol_width/2, y1-u1+vs/2+pol_width/2))
-              end
-            end
-            bottom = x
           end
+        end
+        if defined?(body_tie) && body_tie && i < n
+          create_path indices[:tin_block], x + vs/2, y2 - (vs - u1/2 - u1/4),  x + vs/2  + gl+dgl*2, y2 - (vs - u1/2 - u1/4), u1 + u1/2, 0, 0
+          xstop = x + gl + dgl*2 + vs
+          xstop = xstop + vs + u1 + u1/8 if i < n-1 || n % 2 ==  0
+          create_path2 indices[:diff], x + vs/2  + (gl+dgl*2)/2, y2-(vs + u1), x + vs/2  + (gl+dgl*2)/2, y2-u1/4,                          xstop, y2-u1/4, u1 + u1/2, 0, 0
+        end
+        prev_pol = x  if i >=1
+        if i % 2 == 0
+          # first s/d and via
+          y = y2-vs/2 + wm_offset
+          if !no_finger_conn && (with_sdcont || n != 1)
+            if with_via && with_sdcont
+              insert_cell indices[:via], x, y 
+              @kicad && via1_to_kicad_TH(3, Box.new(vs).move(x, y))
+            end
+            create_path indices[:m1], x, y2-vs-2*u1, x, y, pol_width, 0, 0
+            @kicad && ml1_to_kicad_Fcu(3, Box.new(x-pol_width/2, y2-vs-2*u1, x+pol_width/2, y))
+          end
+          if top && !no_finger_conn
+            create_path indices[:m1], top, y, x, y, pol_width, pol_width/2, pol_width/2
+            @kicad && ml1_to_kicad_Fcu(3, Box.new(top-pol_width/2, y-pol_width/2, x+pol_width/2, y+pol_width/2))
+          end
+          top = x
+        else
+          # second s/d and via
+          if soi_bridge
+            if n == 1 || (n == 2 && i == 1)
+              y = y1-u1+vs
+            else
+              y = y1-pol_width-u1/8
+            end
+          else
+            if n == 1 || (n == 2 && i == 1)
+              y = y1+vs/2
+            else
+              y = y1-u1+vs/2
+            end
+          end
+          if n == 1
+            if with_via && with_sdcont
+              insert_cell indices[:via], x, y1+vs/2 - (defined?(wide_metal) && wide_metal ? u1/2 : 0) 
+              @kicad && via1_to_kicad_TH(1, Box.new(vs).move(x, y1+vs/2 - (defined?(wide_metal) &&wide_metal ? u1/2 : 0)))
+            end
+          else
+            if with_via && with_sdcont
+              insert_cell indices[:via], x, y 
+              @kicad && via1_to_kicad_TH(1, Box.new(vs).move(x, y))
+            end
+          end
+          if !no_finger_conn && (with_sdcont || n != 1)
+            create_path indices[:m1], x, y, x, y1+vs+2*u1, pol_width, 0, 0 
+            @kicad && ml1_to_kicad_Fcu(1, Box.new(x-pol_width/2, y, x+pol_width/2, y1+vs+2*u1))
+          end
+          if bottom && !no_finger_conn
+            if soi_bridge
+              create_path indices[:m1], bottom, y1-pol_width, x, y1-pol_width, pol_width+u1/4, pol_width/2, pol_width/2
+              @kicad && ml1_to_kicad_Fcu(1, Box.new(bottom-pol_width/2, y1-pol_width-pol_width/2, x+pol_width/2, y1-pol_width/2))
+            else
+              create_path indices[:m1], bottom, y1-u1+vs/2, x, y1-u1+vs/2, pol_width, pol_width/2, pol_width/2
+              @kicad && ml1_to_kicad_Fcu(1, Box.new(bottom-pol_width/2, y1-u1+vs/2-pol_width/2, x+pol_width/2, y1-u1+vs/2+pol_width/2))
+            end
+          end
+          bottom = x
+        end
 
-          if i < n
-            #create_path(indices[:pol], x, vs, x, vs+u1+gw + u1, gl, 0, 0)
-            x = x + vs/2 + gl/2 + dgl
-            if soi_bridge
-              yc = [y1+vs+vs+u1, y1+vs+u1+gw-vs/2].min
-              insert_cell indices[:dcont],  x, yc
-              insert_cell indices[:pcont],  x, y1+vs/2 if i> 0
-              create_path indices[:m1], x, y1+vs/2, x, yc + vs/2, vs, 0, 0
-              ### @kicad && ml1_to_kicad_Fcu(2, Box.new(x-vs/2, y1+vs/2, x+vs/2, yc + vs/2))
-            elsif !with_pcont
-              # insert_cell indices[:pcont],  x, (y1+y2)/2
-              gcw = [gw, vs*3].min
-              insert_contacts [x - vs/2, (y1+y2)/2 - gcw/2, x + vs/2, (y1+y2)/2 + gcw/2], vs, indices[:pcont_min] || indices[:pcont]
-            end
+        if i < n
+          #create_path(indices[:pol], x, vs, x, vs+u1+gw + u1, gl, 0, 0)
+          x = x + vs/2 + gl/2 + dgl
+          if soi_bridge
+            yc = [y1+vs+vs+u1, y1+vs+u1+gw-vs/2].min
+            insert_cell indices[:dcont],  x, yc
+            insert_cell indices[:pcont],  x, y1+vs/2 if i> 0
+            create_path indices[:m1], x, y1+vs/2, x, yc + vs/2, vs, 0, 0
+            ### @kicad && ml1_to_kicad_Fcu(2, Box.new(x-vs/2, y1+vs/2, x+vs/2, yc + vs/2))
+          elsif !with_pcont
+            # insert_cell indices[:pcont],  x, (y1+y2)/2
+            gcw = [gw, vs*3].min
+            insert_contacts [x - vs/2, (y1+y2)/2 - gcw/2, x + vs/2, (y1+y2)/2 + gcw/2], vs, indices[:pcont_min] || indices[:pcont]
           end
-          offset = offset + m1cnt_width + gl + 2*dgl
-        }
-        if defined?(body_tie) && body_tie
-          y = y2 + vs/2
-          x = offset - gl-dgl*2 - vs/2
-          x = x + vs + u1 if n % 2 == 0
-          insert_cell indices[:dcont], x, y - u1
-          insert_cell indices[:diff], x, y - u1
-          create_box indices[:narea], x1 + vs -u1/2- u1/8, y + u1/2 + u1/8, x + vs/2 + u1/2, y - 3*u1 + u1/4 + u1/8
         end
-        offset = offset - 2*dgl
-        # nsubcont and via
-        if with_nsubcont && use_nwell
-          nsubcont_dx = params[:nsubcont_dx] || 0
-          nsubcont_dy = params[:nsubcont_dy] ||  u1/2 + u1
-          x = offset - gl - vs/2 + (with_via ? u1/2 : 0) + nsubcont_dx
-          if n % 2 == 0
-            y = y1 + vs/2 - nsubcont_dy - (defined?(wide_metal) && wide_metal ? u1 : 0)
-          else
-            y = y2 - vs/2 + nsubcont_dy + wm_offset
-          end
-          y = y + u1/2 if defined?(wide_metal) && wide_metal
-          x = x + u1/2 if n > 1
-          if indices[:nsubcont]
-            insert_cell indices[:nsubcont], x, y 
-            @kicad && ml1_to_kicad_Fcu(4, Box.new(vs).move(x, y))
+        offset = offset + m1cnt_width + gl + 2*dgl
+      }
+      if defined?(body_tie) && body_tie
+        y = y2 + vs/2
+        x = offset - gl-dgl*2 - vs/2
+        x = x + vs + u1 if n % 2 == 0
+        insert_cell indices[:dcont], x, y - u1
+        insert_cell indices[:diff], x, y - u1
+        create_box indices[:narea], x1 + vs -u1/2- u1/8, y + u1/2 + u1/8, x + vs/2 + u1/2, y - 3*u1 + u1/4 + u1/8
+      end
+      offset = offset - 2*dgl
+      # nsubcont and via
+      if with_nsubcont && use_nwell
+        nsubcont_dx = params[:nsubcont_dx] || 0
+        nsubcont_dy = params[:nsubcont_dy] ||  u1/2 + u1
+        x = offset - gl - vs/2 + (with_via ? u1/2 : 0) + nsubcont_dx
+        if n % 2 == 0
+          y = y1 + vs/2 - nsubcont_dy - (defined?(wide_metal) && wide_metal ? u1 : 0)
+        else
+          y = y2 - vs/2 + nsubcont_dy + wm_offset
+        end
+        y = y + u1/2 if defined?(wide_metal) && wide_metal
+        x = x + u1/2 if n > 1
+        if indices[:nsubcont]
+          insert_cell indices[:nsubcont], x, y 
+          @kicad && ml1_to_kicad_Fcu(4, Box.new(vs).move(x, y))
           if with_via
             insert_cell indices[:via], x, y 
             @kicad && via1_to_kicad_TH(4, Box.new(vs).move(x, y))
           end
         end
-        parea_bw = params[:parea_bw] || u1 + u1/4
-        create_box indices[:parea], x1-parea_bw, y1+vs+u1-parea_bw, offset-gl+parea_bw, y2-vs-u1+parea_bw
-        @kicad && pdiff_to_kicad_Bsilk(Box.new(x1-parea_bw, y1+vs+u1-parea_bw, offset-gl+parea_bw, y2-vs-u1+parea_bw))
-        # create_box indices[:lvhvt], x1-parea_bw, y1+vs+u1-parea_bw, offset-gl+parea_bw, y2-vs-u1+parea_bw if indices[:lvhvt]
-        delta = params[:pex_delta] || u1*5
-        create_box indices[:pex], x1-delta, y1+vs-u1/2-delta-u1, offset-gl+delta, y2-vs+u1/2+delta+u1 if indices[:pex]
-        delta = delta + delta
-        create_box indices[:ar], x1-delta, y1+vs-u1/2-delta-u1, offset-gl+delta, y2-vs+u1/2+delta+u1 if indices[:ar]
-        if indices[:nwl] && use_nwell
-          if one = params[:nwl_bw] 
-            if indices[:pex]
-              create_box indices[:nwl],  x1-delta-one, y1+vs-u1/2-delta-u1-one, [offset-gl+delta+one, x1-delta+4*one].max,
-                     [y2-vs+u1/2+delta+u1+one, y1+vs-u1/2-delta-u1+4*one].max # just for tiascr130?
-            else
-              create_box indices[:nwl],  x1-delta-one, y1+vs+u1-delta-one, offset-gl+delta+one, y2-vs-u1+delta+one
-            end
+      end
+      parea_bw = params[:parea_bw] || u1 + u1/4
+      create_box indices[:parea], x1-parea_bw, y1+vs+u1-parea_bw, offset-gl+parea_bw, y2-vs-u1+parea_bw
+      @kicad && pdiff_to_kicad_Bsilk(Box.new(x1-parea_bw, y1+vs+u1-parea_bw, offset-gl+parea_bw, y2-vs-u1+parea_bw))
+      # create_box indices[:lvhvt], x1-parea_bw, y1+vs+u1-parea_bw, offset-gl+parea_bw, y2-vs-u1+parea_bw if indices[:lvhvt]
+      delta = params[:pex_delta] || u1*5
+      create_box indices[:pex], x1-delta, y1+vs-u1/2-delta-u1, offset-gl+delta, y2-vs+u1/2+delta+u1 if indices[:pex]
+      delta = delta + delta
+      create_box indices[:ar], x1-delta, y1+vs-u1/2-delta-u1, offset-gl+delta, y2-vs+u1/2+delta+u1 if indices[:ar]
+      if indices[:nwl] && use_nwell
+        if one = params[:nwl_bw] 
+          if indices[:pex]
+            create_box indices[:nwl],  x1-delta-one, y1+vs-u1/2-delta-u1-one, [offset-gl+delta+one, x1-delta+4*one].max,
+                       [y2-vs+u1/2+delta+u1+one, y1+vs-u1/2-delta-u1+4*one].max # just for tiascr130?
           else
-            if n % 2 == 0
-              create_box indices[:nwl], x1-vs, y1-u1-u1/2, offset-gl +2*u1, y2
-            else
-              create_box indices[:nwl], x1-vs, y1, offset-gl +2*u1, y2+u1+u1/2
-            end
+            create_box indices[:nwl],  x1-delta-one, y1+vs+u1-delta-one, offset-gl+delta+one, y2-vs-u1+delta+one
+          end
+        else
+          if n % 2 == 0
+            create_box indices[:nwl], x1-vs, y1-u1-u1/2, offset-gl +2*u1, y2
+          else
+            create_box indices[:nwl], x1-vs, y1, offset-gl +2*u1, y2+u1+u1/2
           end
         end
       end
-      }
-    end
+    }
   end
+end
+
 
   class MinedaResistor < MinedaPCellCommon
 
