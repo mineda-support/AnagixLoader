@@ -1,236 +1,226 @@
 # $autorun
 # coding: utf-8
 module MinedaKicadModule
-    def generate_kicad_device l=0, w=0, m=0
-      return unless @kicad
-      #footprint_name=cell.name
-      footprint_name = "#{self.class.name.sub('::', '#')}.l#{l.round(4)}w#{w.round(4)}m#{m}"
-      #puts footprint_name
-      if defined? with_pcont
-        options = ''
-        cell.pcell_declaration.get_parameters.each{|p|
-          if p.type == 3
-            options << (eval(p.name) ? '1' : '0')
-          end
-        }
-        footprint_name << "_#{options}" if options.length >= 7
-      end     
-      # S式（S-expression）テキストの構築
-      # ※ KiCad v6 / v7 / v8 形式に準拠
-      s_expr =  "(footprint \"#{footprint_name}\"\n"
-      s_expr += "  (version 20240101)\n"
-      s_expr += "  (generator \"KLayout_Ruby_Script\")\n"
-      s_expr += "  (layer \"F.Cu\")\n"
-      s_expr += "  (descr \"Generated automatically from KLayout PCell\")\n"
-      # デフォルトの参照符号（Reference）と値（Value）のテキスト配置
-      s_expr += "  (fp_text reference \"REF**\" (at 0 -5) (layer \"F.SilkS\") (effects (font (size 1 1) (thickness 0.15))))\n"
-      s_expr += "  (fp_text value \"#{footprint_name}\" (at 0 1) (layer \"F.Fab\") (effects (font (size 1 1) (thickness 0.15))))\n"
-      s_expr += "#{@kicad})\n"
-      app = RBA::Application.instance
-      mw = app.main_window
-      if lv = mw.current_view
-        filename = lv.active_cellview.filename
-        dir = File.dirname filename
-      end
-      if lv && File.extname(dir) == '.pretty' # create files under footprint library
-        kicad_mod_path = File.join(dir, "#{footprint_name}.kicad_mod")
-        File.open(kicad_mod_path, 'w'){|f| f.puts s_expr}
-        puts "#{kicad_mod_path} created for l=#{l} w=#{w} m=#{m}"
-      else
-        puts "KiCad footprint for #{footprint_name}: #{s_expr.split(/\n/).length} lines"
-      end
-      s_expr  
-    end
-    
-    # --- ① ML1 (6/0) -> 表面銅箔パッド (F.Cu) ---
-    #flat_cell.each_shape(layer_ml1_scan) do |shape|
-    def ml1_to_kicad_Fcu (pin_num, bbox)
-      #bbox = shape.bbox
-      w = (bbox.width * @layout.dbu).round(4)
-      h = (bbox.height * @layout.dbu).round(4)
-      cx = (bbox.center.x * @layout.dbu).round(6)
-      cy = -(bbox.center.y * @layout.dbu).round(6)
-      
-      #pin_num = find_pin_num.call(cx, cy)
-      #s_expr += 
-      @kicad += "  (pad \"#{pin_num}\" smd rect (at #{cx} #{cy}) (size #{w} #{h}) (layers \"F.Cu\" \"F.Paste\" \"F.Mask\"))\n"
-    end
-
-    # --- ② ML2 (9/0) -> 裏面銅箔パッド (B.Cu) ---
-    #flat_cell.each_shape(layer_ml2) do |shape|
-    def ml2_to_kicad_Bcu (pin_num, bbox)
-      #bbox = shape.bbox
-      w = (bbox.width * @layout.dbu).round(4)
-      h = (bbox.height * @layout.dbu).round(4)
-      cx = (bbox.center.x * @layout.dbu).round(6)
-      cy = -(bbox.center.y * @layout.dbu).round(6)
-      
-      #pin_num = find_pin_num.call(cx, cy)
-      #s_expr += 
-      @kicad += "  (pad \"#{pin_num}\" smd rect (at #{cx} #{cy}) (size #{w} #{h}) (layers \"B.Cu\" \"B.Mask\"))\n"
-    end
-
-    # --- ③ VIA1 (8/0) -> スルーホール (Through-hole) ---
-    #flat_cell.each_shape(layer_via1) do |shape|
-    def via1_to_kicad_TH pin_num, bbox
-     # bbox = shape.bbox
-      via_w = (bbox.width * @layout.dbu).round(4)
-      via_h = (bbox.height * @layout.dbu).round(4)
-      cx = (bbox.center.x * @layout.dbu).round(6)
-      cy = -(bbox.center.y * @layout.dbu).round(6)
-      
-      size_dia = [via_w, via_h].max
-      drill_dia = (size_dia * 0.6).round(4)
-      
-      #pin_num = find_pin_num.call(cx, cy)
-      #s_expr += 
-      @kicad += "  (pad \"#{pin_num}\" thru_hole circle (at #{cx} #{cy}) (size #{size_dia} #{size_dia}) (drill #{drill_dia}) (layers \"*.Cu\" \"*.Mask\"))\n"
-      ml1_to_kicad_Fcu pin_num, bbox
-      ml2_to_kicad_Bcu pin_num, bbox
-    end
-
-    # --- ④ POL (4/0) -> ゲート形状を完璧に描き出す ---
-    #flat_cell.each_shape(layer_pol) do |shape|
-    def draw_kicad_poly fill_layer, bbox, type
-      #bbox = shape.bbox
-      w = (bbox.width * @layout.dbu).round(4)
-      h = (bbox.height * @layout.dbu).round(4)
-      
-      # 💡【最重要修正】Wが3倍になって大きくなったゲートPOLが消えないよう、制限を15.0μmに拡大
-      #next if w > 15.0 || h > 15.0 
-      
-      cx = (bbox.center.x * @layout.dbu).round(6)
-      cy = -(bbox.center.y * @layout.dbu).round(6)
-      
-      x1, x2 = (cx - w/2.0).round(6), (cx + w/2.0).round(6)
-      y1, y2 = (cy - h/2.0).round(6), (cy + h/2.0).round(6)
-      
-      #s_expr += 
-      @kicad += "  (fp_poly (pts (xy #{x1} #{y1}) (xy #{x2} #{y1}) (xy #{x2} #{y2}) (xy #{x1} #{y2})) (stroke (width 0.05) #{type} (layer \"#{fill_layer}\"))\n"
-    end
-
-    def fill_none_kicad_layer fill_layer, bbox
-      draw_kicad_poly fill_layer, bbox, '(type solid)) (fill none)'
-   end
-
-    def fill_solid_kicad_layer fill_layer, bbox 
-      draw_kicad_poly fill_layer, bbox, '(type solid)) (fill solid)'
-    end
-
-    def gate_shape_to_kicad bbox
-      fill_solid_kicad_layer 'F.Fab', bbox
-    end
-
-    def passive_shape_to_kicad bbox
-      fill_solid_kicad_layer 'B.Fab', bbox
-    end
-
-    # --- ⑤ DIFF (20/0：拡散層) -> アクティブ領域をシルク破線で囲む ---
-    #flat_cell.each_shape(layer_diff) do |shape|
-    def active_to_kicad_silk bbox, fill_layer
-      draw_kicad_poly fill_layer, bbox, '(type dash)) (fill none)'
-    end
-    private :active_to_kicad_silk
-    
-    def ndiff_to_kicad_Fsilk bbox
-      active_to_kicad_silk bbox, 'F.SilkS'
-    end
-    
-    def pdiff_to_kicad_Bsilk bbox
-      active_to_kicad_silk bbox, 'B.SilkS'
-    end
-    
-    def kicad_fp_poly(points, layer, type='(type dash)) (fill none)')
-      result = "  (fp_poly (pts \n    "
-      points.each{|x, y|
-        result << "(xy #{(x*@layout.dbu).round(6)} #{(-y*@layout.dbu).round(6)}) "
+  def generate_kicad_device l=0, w=0, m=0
+    return unless @kicad
+    #footprint_name=cell.name
+    footprint_name = "#{self.class.name.sub('::', '#')}.l#{l.round(4)}w#{w.round(4)}m#{m}"
+    #puts footprint_name
+    if defined? with_pcont
+      options = ''
+      cell.pcell_declaration.get_parameters.each{|p|
+        if p.type == 3
+          options << (eval(p.name) ? '1' : '0')
+        end
       }
-      result << "\n  ) (stroke (width 0.05) #{type} (layer \"#{layer}\"))\n"
-      @kicad += result
+      footprint_name << "_#{options}" if options.length >= 7
+    end     
+    # S式（S-expression）テキストの構築
+    # ※ KiCad v6 / v7 / v8 形式に準拠
+    s_expr =  "(footprint \"#{footprint_name}\"\n"
+    s_expr += "  (version 20240101)\n"
+    s_expr += "  (generator \"KLayout_Ruby_Script\")\n"
+    s_expr += "  (layer \"F.Cu\")\n"
+    s_expr += "  (descr \"Generated automatically from KLayout PCell\")\n"
+    # デフォルトの参照符号（Reference）と値（Value）のテキスト配置
+    s_expr += "  (fp_text reference \"REF**\" (at 0 -5) (layer \"F.SilkS\") (effects (font (size 1 1) (thickness 0.15))))\n"
+    s_expr += "  (fp_text value \"#{footprint_name}\" (at 0 1) (layer \"F.Fab\") (effects (font (size 1 1) (thickness 0.15))))\n"
+    s_expr += "#{@kicad})\n"
+    app = RBA::Application.instance
+    mw = app.main_window
+    if lv = mw.current_view
+      filename = lv.active_cellview.filename
+      dir = File.dirname filename
     end
+    if lv && File.extname(dir) == '.pretty' # create files under footprint library
+      kicad_mod_path = File.join(dir, "#{footprint_name}.kicad_mod")
+      File.open(kicad_mod_path, 'w'){|f| f.puts s_expr}
+      puts "#{kicad_mod_path} created for l=#{l} w=#{w} m=#{m}"
+    else
+      puts "KiCad footprint for #{footprint_name}: #{s_expr.split(/\n/).length} lines"
+    end
+    s_expr  
+  end
+  
+  # --- ① ML1 (6/0) -> 表面銅箔パッド (F.Cu) ---
+  #flat_cell.each_shape(layer_ml1_scan) do |shape|
+  def ml1_to_kicad_Fcu (pin_num, bbox)
+    #bbox = shape.bbox
+    w = (bbox.width * @layout.dbu).round(4)
+    h = (bbox.height * @layout.dbu).round(4)
+    cx = (bbox.center.x * @layout.dbu).round(6)
+    cy = -(bbox.center.y * @layout.dbu).round(6)
+    
+    #pin_num = find_pin_num.call(cx, cy)
+    #s_expr += 
+    @kicad += "  (pad \"#{pin_num}\" smd rect (at #{cx} #{cy}) (size #{w} #{h}) (layers \"F.Cu\" \"F.Paste\" \"F.Mask\"))\n"
+  end
+
+  # --- ② ML2 (9/0) -> 裏面銅箔パッド (B.Cu) ---
+  #flat_cell.each_shape(layer_ml2) do |shape|
+  def ml2_to_kicad_Bcu (pin_num, bbox)
+    #bbox = shape.bbox
+    w = (bbox.width * @layout.dbu).round(4)
+    h = (bbox.height * @layout.dbu).round(4)
+    cx = (bbox.center.x * @layout.dbu).round(6)
+    cy = -(bbox.center.y * @layout.dbu).round(6)
+    
+    #pin_num = find_pin_num.call(cx, cy)
+    #s_expr += 
+    @kicad += "  (pad \"#{pin_num}\" smd rect (at #{cx} #{cy}) (size #{w} #{h}) (layers \"B.Cu\" \"B.Mask\"))\n"
+  end
+
+  # --- ③ VIA1 (8/0) -> スルーホール (Through-hole) ---
+  #flat_cell.each_shape(layer_via1) do |shape|
+  def via1_to_kicad_TH pin_num, bbox
+    # bbox = shape.bbox
+    via_w = (bbox.width * @layout.dbu).round(4)
+    via_h = (bbox.height * @layout.dbu).round(4)
+    cx = (bbox.center.x * @layout.dbu).round(6)
+    cy = -(bbox.center.y * @layout.dbu).round(6)
+    
+    size_dia = [via_w, via_h].max
+    drill_dia = (size_dia * 0.6).round(4)
+    
+    #pin_num = find_pin_num.call(cx, cy)
+    #s_expr += 
+    @kicad += "  (pad \"#{pin_num}\" thru_hole circle (at #{cx} #{cy}) (size #{size_dia} #{size_dia}) (drill #{drill_dia}) (layers \"*.Cu\" \"*.Mask\"))\n"
+    ml1_to_kicad_Fcu pin_num, bbox
+    ml2_to_kicad_Bcu pin_num, bbox
+  end
+
+  # --- ④ POL (4/0) -> ゲート形状を完璧に描き出す ---
+  #flat_cell.each_shape(layer_pol) do |shape|
+  def draw_kicad_poly fill_layer, bbox, type
+    #bbox = shape.bbox
+    w = (bbox.width * @layout.dbu).round(4)
+    h = (bbox.height * @layout.dbu).round(4)
+    
+    # 💡【最重要修正】Wが3倍になって大きくなったゲートPOLが消えないよう、制限を15.0μmに拡大
+    #next if w > 15.0 || h > 15.0 
+    
+    cx = (bbox.center.x * @layout.dbu).round(6)
+    cy = -(bbox.center.y * @layout.dbu).round(6)
+    
+    x1, x2 = (cx - w/2.0).round(6), (cx + w/2.0).round(6)
+    y1, y2 = (cy - h/2.0).round(6), (cy + h/2.0).round(6)
+    
+    #s_expr += 
+    @kicad += "  (fp_poly (pts (xy #{x1} #{y1}) (xy #{x2} #{y1}) (xy #{x2} #{y2}) (xy #{x1} #{y2})) (stroke (width 0.05) #{type} (layer \"#{fill_layer}\"))\n"
+  end
+
+  def fill_none_kicad_layer fill_layer, bbox
+    draw_kicad_poly fill_layer, bbox, '(type solid)) (fill none)'
+  end
+
+  def fill_solid_kicad_layer fill_layer, bbox 
+    draw_kicad_poly fill_layer, bbox, '(type solid)) (fill solid)'
+  end
+
+  def gate_shape_to_kicad bbox
+    fill_solid_kicad_layer 'F.Fab', bbox
+  end
+
+  def passive_shape_to_kicad bbox
+    fill_solid_kicad_layer 'B.Fab', bbox
+  end
+
+  # --- ⑤ DIFF (20/0：拡散層) -> アクティブ領域をシルク破線で囲む ---
+  #flat_cell.each_shape(layer_diff) do |shape|
+  def active_to_kicad_silk bbox, fill_layer
+    draw_kicad_poly fill_layer, bbox, '(type dash)) (fill none)'
+  end
+  private :active_to_kicad_silk
+  
+  def ndiff_to_kicad_Fsilk bbox
+    active_to_kicad_silk bbox, 'F.SilkS'
+  end
+  
+  def pdiff_to_kicad_Bsilk bbox
+    active_to_kicad_silk bbox, 'B.SilkS'
+  end
+  
+  def kicad_fp_poly(points, layer, type='(type dash)) (fill none)')
+    result = "  (fp_poly (pts \n    "
+    points.each{|x, y|
+      result << "(xy #{(x*@layout.dbu).round(6)} #{(-y*@layout.dbu).round(6)}) "
+    }
+    result << "\n  ) (stroke (width 0.05) #{type} (layer \"#{layer}\"))\n"
+    @kicad += result
+  end
 end
 module KiCadConverter
-class KiCadGenerator
-  include RBA
-  include MinedaKicadModule
-  #include MinedaCommon
-  #include MinedaPCellCommonModule
-  require 'securerandom'
-  
-  TARGET_CENTER_X = 150.0  # A4枠(297x210)のほぼ中央
-  TARGET_CENTER_Y = 100.0  # A4枠(297x210)のほぼ中央
-  SCALE = 1 # 200.0 
-  
-  def initialize layout, pretty_dir, pretty_lib, layers, lvs_data, ml1, ml2, rsf=1.0, pads_file=nil
-    unless File.extname(pretty_dir) == '.pretty'
-      raise "KLayout to KiCad converter works only under directory whose extention is '.pretty'"
-    end
-    @layout = layout
-    @pretty_dir = pretty_dir
-    @pretty_lib = pretty_lib
-    @layers = layers
-    @offset_x = 0.0
-    @offset_y = 0.0
-    if @lvs_data = lvs_data
-      cross_ref = lvs_data.xref
-      netlist = @lvs_data.netlist
-      @sch_to_dev_map = {}
+  class KiCadGenerator
+    include RBA
+    include MinedaKicadModule
+    #include MinedaCommon
+    #include MinedaPCellCommonModule
+    require 'securerandom'
+    
+    TARGET_CENTER_X = 150.0  # A4枠(297x210)のほぼ中央
+    TARGET_CENTER_Y = 100.0  # A4枠(297x210)のほぼ中央
+    SCALE = 1 # 200.0 
+    
+    def initialize layout, pretty_dir, pretty_lib, layers, lvs_data, ml1, ml2, rsf=1.0, pads_file=nil
+      unless File.extname(pretty_dir) == '.pretty'
+        raise "KLayout to KiCad converter works only under directory whose extention is '.pretty'"
+      end
+      @layout = layout
+      @pretty_dir = pretty_dir
+      @pretty_lib = pretty_lib
+      @layers = layers
+      @offset_x = 0.0
+      @offset_y = 0.0
+      if @lvs_data = lvs_data
+        cross_ref = lvs_data.xref
+        netlist = @lvs_data.netlist
+        @sch_to_dev_map = {}
 
-      netlist.each_circuit do |circuit|
-        cross_ref.each_device_pair(circuit) do |pair|
-          dev_layout = pair.first
-          dev_ref = pair.second
-          next unless dev_layout && dev_ref
-          center = RBA::ICplxTrans::new(dev_layout.trans, @layout.dbu).disp
-          prefix = find_prefix dev_layout.device_class.class.name
-          name_ref = prefix + (dev_ref.expanded_name.empty? ? dev_ref.name : dev_ref.expanded_name)
-          @sch_to_dev_map[name_ref] = center 
+        netlist.each_circuit do |circuit|
+          cross_ref.each_device_pair(circuit) do |pair|
+            dev_layout = pair.first
+            dev_ref = pair.second
+            next unless dev_layout && dev_ref
+            center = RBA::ICplxTrans::new(dev_layout.trans, @layout.dbu).disp
+            prefix = find_prefix dev_layout.device_class.class.name
+            name_ref = prefix + (dev_ref.expanded_name.empty? ? dev_ref.name : dev_ref.expanded_name)
+            @sch_to_dev_map[name_ref] = center 
+          end
         end
       end
+      @ml1 = ml1
+      @ml2 = ml2
+      @rsf = rsf
+      if pads_file && File.exist?(file=File.join(pretty_dir, File.basename(pads_file)))
+        @pads_location = YAML.load(File.read file)
+      end
+      puts "*** #{file} loaded in KiCadGenerator: #{@pads_location}"
     end
-    @ml1 = ml1
-    @ml2 = ml2
-    @rsf = rsf
-    if pads_file && File.exist?(file=File.join(pretty_dir, File.basename(pads_file)))
-      @pads_location = YAML.load(File.read file)
+    
+    def find_prefix device_class_name
+      prefix = nil
+      case device_class_name
+      when 'RBA::DeviceClassResistor', 'RBA::DeviceClassResistorWithBulk'
+        prefix = 'R'
+      when 'RBA::DeviceClassCapacitor', 'RBA::DeviceClassCapacitorWithBulk'
+        prefix = 'C'
+      when 'RBA::DeviceClassDiode'
+        prefix = 'D'
+      when 'RBA::DeviceClassMOS3Transistor', 'RBA::DeviceClassMOS4Transistor'
+        prefix = 'M'
+      when 'RBA::DeviceClassBJT3Transistor', 'RBA::DeviceClassBJT4Transistor'
+        prefix = 'Q' 
+      end
+      prefix
     end
-    puts "*** #{file} loaded in KiCadGenerator: #{@pads_location}"
-  end
-  
-  def find_prefix device_class_name
-    prefix = nil
-    case device_class_name
-    when 'RBA::DeviceClassResistor', 'RBA::DeviceClassResistorWithBulk'
-      prefix = 'R'
-    when 'RBA::DeviceClassCapacitor', 'RBA::DeviceClassCapacitorWithBulk'
-      prefix = 'C'
-    when 'RBA::DeviceClassDiode'
-      prefix = 'D'
-    when 'RBA::DeviceClassMOS3Transistor', 'RBA::DeviceClassMOS4Transistor'
-      prefix = 'M'
-    when 'RBA::DeviceClassBJT3Transistor', 'RBA::DeviceClassBJT4Transistor'
-      prefix = 'Q' 
-    end
-    prefix
-  end
 
-  def mirrorY_segments content
-    content.gsub!(/\(xy\s+([\d.-]+)\s+([\d.-]+)\)/) do
-      x = -$1.to_f
-      y = $2.to_f
-      "(xy #{x.round(2)} #{y.round(2)})"
-    end
-    content
-  end
-  
-  def generate_mirrorY_footprints # no longer used
-    Dir.glob('*.kicad_mod') {|file|
-      next unless (file =~ /(\S+m[0-9]+_\d+)\.kicad_mod/ || file =~ /(\S+m[0-9]+)\.kicad_mod/)
-      new_fp_name = $1 + '_MY'
-      mx_file = new_fp_name + '.kicad_mod'
-      next if File.exist?(mx_file) && (File.mtime(mx_file) > File.mtime(file))
-
-      content = File.read(file, encoding: 'utf-8')
+    def generate_mirrorY_footprint fp_name
+      #new_fp_name = fp_name + '_MY'
+      new_fp_name = "#{fp_name}_MY"
+      my_file = new_fp_name + '.kicad_mod'
+      #file = fp_name + '.kicad_mod'
+      file = "#{fp_name}.kicad_mod"
+      content = File.read(File.join(@pretty_dir, file), encoding: 'utf-8')
       content.sub!(/^(\s*\(footprint\s+)"[^"]+"/) do
         "#{$1}\"#{new_fp_name}\""
       end
@@ -253,137 +243,133 @@ class KiCadGenerator
         y = $2.to_f
         "(xy #{x.round(2)} #{y.round(2)})"
       end
-      File.write(mx_file, content)
-      puts "#{File.join @pretty_dir, mx_file} created"
-    }
-  end
-  
-  def centerize placement_data
-    # 1. 元データの中心（重心）を計算する
-    sum_x = 0.0
-    sum_y = 0.0
-    placement_data.each_value do |item|
-      sum_x += item[0].to_f
-      sum_y += item[1].to_f
+      File.write(my_file, content)
+      puts "#{File.join @pretty_dir, my_file} created"
     end
-    current_center_x = sum_x / placement_data.size
-    current_center_y = sum_y / placement_data.size
-
-    # 2. 目標中央座標へ移動させるためのオフセット量を計算
-    offset_x = TARGET_CENTER_X - (current_center_x * SCALE)
-    offset_y = TARGET_CENTER_Y - (current_center_y * SCALE)
-    [offset_x, offset_y]
-  end
-  
-  def rot_to_am(rotation, mir)
-    if mir
-      case rotation.to_i
-      when 0
-        [2, true]
-      when 90
-        [3, true]
-      when 180
-        [0, true]
-      when 270
-        [1, true]
+    
+    def generate_mirrorY_footprints # no longer used
+      Dir.glob('*.kicad_mod') {|file|
+        my_file = file.sub('.kicad_mod', '_MY.kicad_mod')
+        next unless (file =~ /(\S+m[0-9]+_\d+)\.kicad_mod/ || file =~ /(\S+m[0-9]+)\.kicad_mod/)
+        next if File.exist?(my_file) && (File.mtime(my_file) > File.mtime(file))
+      }
+    end
+    
+    def centerize placement_data
+      # 1. 元データの中心（重心）を計算する
+      sum_x = 0.0
+      sum_y = 0.0
+      placement_data.each_value do |item|
+        sum_x += item[0].to_f
+        sum_y += item[1].to_f
       end
-    else
-      [rotation.to_i/90, false]
-    end
-  end
-  
-  def fill_sexpr lib_name, fp_name, pos_x, pos_y, rot, uuid, ref, angle=''
-    sexpr = ''
-    sexpr << "  (footprint \"#{lib_name}:#{fp_name}\" (at #{pos_x} #{pos_y} #{rot}) (layer \"F.Cu\")\n"
-    sexpr << "    (tstamp \"#{uuid}\")\n"
-    sexpr << "    (at #{pos_x} #{pos_y}#{angle})\n"
-    sexpr << "    (descr \"Generated from KLayout PCell\")\n"
-    sexpr << "    (property \"Reference\" \"#{ref}\" (at 0 -1 0) (layer \"F.SilkS\")\n"
-    sexpr << "      (effects (font (size 1 1) (thickness 0.15)))\n"
-    sexpr << "    )\n"
-    sexpr << "    (property \"Value\" \"#{fp_name}\" (at 0 1 0) (layer \"F.Fab\")\n"
-    sexpr << "      (effects (font (size 1 1) (thickness 0.15)))\n"
-    sexpr << "    )\n"
-    sexpr
-  end
+      current_center_x = sum_x / placement_data.size
+      current_center_y = sum_y / placement_data.size
 
-  def generate_footprints placement_data, offset_x, offset_y, lib_name
-    # フットプリント（footprint）セクションの生成
-    @offset_x = offset_x
-    @offset_y = offset_y
-    footprints_sexpr = ''
-    footprints_MY = ''
-    placement_data.each_pair do |ref, item|
-      #ref = item[0]        # 素子名 (e.g., M5)
-      item.unshift ref
-      x = item[1].to_f     # X座標
-      y = item[2].to_f     # Y座標
-      fp_name = item[3]    # フットプリント名 (e.g., Pch.M0l2.0w6.0m1)
-      rot = item[4]
-      angle, mirror = rot_to_am(rot.to_f, false)
-      # KiCadの座標系（通常はmm）。
-    # 必要に応じてGDSの単位（μm等）からmmへのスケール変換（例: x * 0.001）をここで行ってください。
-      pos_x = ((x * SCALE) + @offset_x).round(6)
-      pos_y = ((y * SCALE) + @offset_y).round(6)
-
-      uuid = SecureRandom.uuid
-      fp_body = get_footprint_body(fp_name, mirror, Trans.new(angle, false, ((x/@rsf)/@layout.dbu).to_i, (-(y/@rsf)/@layout.dbu).to_i))
-      footprints_sexpr << fill_sexpr(lib_name, fp_name, pos_x, pos_y, rot, uuid, ref)
-      footprints_sexpr << fp_body + "  )\n\n"
-      angle = (angle == '') ? 0 : angle
-      angle = (-angle) % 360
-      angle_str = angle == 0.0 ? "" : " #{angle.round(2)}"
-      footprints_MY << fill_sexpr(lib_name, fp_name + '_MY', -pos_x, pos_y, rot, uuid, ref, angle_str)
-      footprints_MY << fp_body + "  )\n\n"
+      # 2. 目標中央座標へ移動させるためのオフセット量を計算
+      offset_x = TARGET_CENTER_X - (current_center_x * SCALE)
+      offset_y = TARGET_CENTER_Y - (current_center_y * SCALE)
+      [offset_x, offset_y]
     end
-    [footprints_sexpr, footprints_MY, @pads_location]
-  end
-  
+    
+    def rot_to_am(rotation, mir)
+      if mir
+        case rotation.to_i
+        when 0
+          [2, true]
+        when 90
+          [3, true]
+        when 180
+          [0, true]
+        when 270
+          [1, true]
+        end
+      else
+        [rotation.to_i/90, false]
+      end
+    end
+    
+    def generate_footprints placement_data, offset_x, offset_y, lib_name
+      # フットプリント（footprint）セクションの生成
+      @offset_x = offset_x
+      @offset_y = offset_y
+      footprints_sexpr = ''
+      placement_data.each_pair do |ref, item|
+        #ref = item[0]        # 素子名 (e.g., M5)
+        item.unshift ref
+        x = item[1].to_f     # X座標
+        y = item[2].to_f     # Y座標
+        fp_name = item[3]    # フットプリント名 (e.g., Pch.M0l2.0w6.0m1)
+        rot = item[4]
+        angle, mirror = rot_to_am(rot.to_f, false)
+        # KiCadの座標系（通常はmm）。
+        # 必要に応じてGDSの単位（μm等）からmmへのスケール変換（例: x * 0.001）をここで行ってください。
+        pos_x = ((x * SCALE) + @offset_x).round(6)
+        pos_y = ((y * SCALE) + @offset_y).round(6)
+
+        uuid = SecureRandom.uuid
+        fp_body = get_footprint_body(fp_name, mirror, Trans.new(angle, false, ((x/@rsf)/@layout.dbu).to_i, (-(y/@rsf)/@layout.dbu).to_i))
+        sexpr = ''
+        sexpr << "  (footprint \"#{lib_name}:#{fp_name}\" (at #{pos_x} #{pos_y} #{rot}) (layer \"F.Cu\")\n"
+        sexpr << "    (tstamp \"#{uuid}\")\n"
+        sexpr << "    (at #{pos_x} #{pos_y})\n"
+        sexpr << "    (descr \"Generated from KLayout PCell\")\n"
+        sexpr << "    (property \"Reference\" \"#{ref}\" (at 0 -1 0) (layer \"F.SilkS\")\n"
+        sexpr << "      (effects (font (size 1 1) (thickness 0.15)))\n"
+        sexpr << "    )\n"
+        sexpr << "    (property \"Value\" \"#{fp_name}\" (at 0 1 0) (layer \"F.Fab\")\n"
+        sexpr << "      (effects (font (size 1 1) (thickness 0.15)))\n"
+        sexpr << "    )\n"
+        footprints_sexpr << sexpr + fp_body + "  )\n\n"
+      end
+      [footprints_sexpr, @pads_location]
+    end
+    
     # フットプリントファイル(.kicad_mod)から中身（形状部分）を抽出する関数
-  def get_footprint_body(fp_name, ref, trans)
-    mod_path = File.join(@pretty_dir, "#{fp_name}.kicad_mod")
-    unless File.exist?(mod_path)
-      puts "Weird: #{mod_path} does not exist!!!"
-      return ""
+    def get_footprint_body(fp_name, ref, trans)
+      mod_path = File.join(@pretty_dir, "#{fp_name}.kicad_mod")
+      unless File.exist?(mod_path)
+        puts "Weird: #{mod_path} does not exist!!!"
+        return ""
+      end
+
+      lines = File.read(mod_path)
+      lines.sub!(/fp_text reference \"\S+\"/, "fp_text reference \"#{ref}\"")
+      # 最初の行 (footprint ...) と最後の行 ) を除いた、中身の行だけを結合する
+      body_lines = lines.split("\n")[1...-1]
+      puts ref
+      @pads_location ||= {}
+      @pads_location[ref] ||= []
+      count = 0
+      @lvs_data && body_lines.each{|line|
+        if line =~ /\(pad .*\(at (\S+) (\S+)\)/
+          if placement = @pads_location[ref][count]
+            pos_x =  placement[0] 
+            pos_y = placement[1] 
+            point = Point.new(pos_x, pos_y)
+          else
+            pos_x = ($1.to_f / @layout.dbu).to_i
+            pos_y = (-$2.to_f / @layout.dbu).to_i
+            point = trans*Point.new(pos_x, pos_y)
+          end
+          if net_name = @lvs_data.probe_net(@ml1.data, point)
+            line.sub! /\)\) *$/, ") (net \"#{net_name}\"))"
+            puts line
+            puts "#{point} => #{net_name}"
+          else
+            puts line
+            puts "No net_name at #{point}"
+            puts
+          end
+          @pads_location[ref][count] = [point.x, point.y]
+          count = count + 1
+        end
+      }
+      body_lines ? body_lines.join("\n"): ""
     end
 
-    lines = File.read(mod_path)
-    lines.sub!(/fp_text reference \"\S+\"/, "fp_text reference \"#{ref}\"")
-    # 最初の行 (footprint ...) と最後の行 ) を除いた、中身の行だけを結合する
-    body_lines = lines.split("\n")[1...-1]
-    puts ref
-    @pads_location ||= {}
-    @pads_location[ref] ||= []
-    count = 0
-    @lvs_data && body_lines.each{|line|
-      if line =~ /\(pad .*\(at (\S+) (\S+)\)/
-        if placement = @pads_location[ref][count]
-          pos_x =  placement[0] 
-          pos_y = placement[1] 
-          point = Point.new(pos_x, pos_y)
-        else
-          pos_x = ($1.to_f / @layout.dbu).to_i
-          pos_y = (-$2.to_f / @layout.dbu).to_i
-          point = trans*Point.new(pos_x, pos_y)
-        end
-        if net_name = @lvs_data.probe_net(@ml1.data, point)
-          line.sub! /\)\) *$/, ") (net \"#{net_name}\"))"
-          puts line
-          puts "#{point} => #{net_name}"
-        else
-          puts line
-          puts "No net_name at #{point}"
-          puts
-        end
-        @pads_location[ref][count] = [point.x, point.y]
-        count = count + 1
-      end
-    }
-    body_lines ? body_lines.join("\n"): ""
-  end
-
-  def write_pcb footprints, segments, pcb_file
-    File.write(pcb_file, <<EOF
+    def write_pcb footprints, segments, pcb_file
+      File.write(pcb_file, <<EOF
 (kicad_pcb
 	(version 20260206)
 	(generator "pcbnew")
@@ -474,71 +460,71 @@ class KiCadGenerator
 	(embedded_fonts no)
 )
 EOF
-  )
-  end
-  
-  def generate_kicad_box inst, box, layer='F.Cu', trans
-    name = inst.cell.name
-    x = trans*inst.trans.disp.x
-    y = trans*inst.trans.disp.y
-    segment = <<EOF
+                )
+    end
+    
+    def generate_kicad_box inst, box, layer='F.Cu', trans
+      name = inst.cell.name
+      x = trans*inst.trans.disp.x
+      y = trans*inst.trans.disp.y
+      segment = <<EOF
         (footprint "#{name}" (layer "#{layer}") (at 0 0)
             (pad "" smd rect 
                 (at #{(x*@layout.dbu+@offset_x).round(2)} #{(-y*@layout.dbu+@offset_y).round(2)}) 
                 (size #{(box.width*@layout.dbu).round(2)} #{(box.height*@layout.dbu).round(2)})
                 (layers "#{layer}") (net 0 "")
-            )
-        )        
+                )
+                )        
 EOF
-    segment
-  end
-      
-  def generate_contact name, box, layer_name='F.Cu'
-    x = box.center.x*@layout.dbu+@offset_x
-    y = -box.center.y*@layout.dbu+@offset_y
-    width = box.width*@layout.dbu
-    height = box.height*@layout.dbu
-    x1, y1 = [x - width/2, y - height/2]
-    x2, y2 = [x + width/2, y + height/2]
-    segment = <<EOF
+      segment
+    end
+    
+    def generate_contact name, box, layer_name='F.Cu'
+      x = box.center.x*@layout.dbu+@offset_x
+      y = -box.center.y*@layout.dbu+@offset_y
+      width = box.width*@layout.dbu
+      height = box.height*@layout.dbu
+      x1, y1 = [x - width/2, y - height/2]
+      x2, y2 = [x + width/2, y + height/2]
+      segment = <<EOF
 (footprint "#{name}" (layer "#{layer_name}") (at 0 0)
      (fp_poly (pts (xy #{x1.round(2)} #{y1.round(2)}) (xy #{x1.round(2)} #{y2.round(2)})
                    (xy #{x2.round(2)} #{y2.round(2)}) (xy #{x2.round(2)} #{y1.round(2)}))
          (stroke (width 0.05) (type solid)) (fill none) (layer \"#{layer_name}\")
      )
-)        
+                   )        
 EOF
-    segment
-  end
-        
-  #MAX_PATH_WIDTH = 5
-  def generate_net_rail_pad_for_BOX box, layer_name='F.Cu', net_name=''
-    x = box.center.x*@layout.dbu
-    y = -box.center.y*@layout.dbu
-    segment = <<EOF
+      segment
+    end
+    
+    #MAX_PATH_WIDTH = 5
+    def generate_net_rail_pad_for_BOX box, layer_name='F.Cu', net_name=''
+      x = box.center.x*@layout.dbu
+      y = -box.center.y*@layout.dbu
+      segment = <<EOF
 (footprint "Net_Rail_Pad_for_BOX" (layer "#{layer_name}") (at 0 0)
     (pad "" smd rect 
         (at #{(x+@offset_x).round(2)} #{(y+@offset_y).round(2)}) 
         (size #{(box.width*@layout.dbu).round(2)} #{(box.height*@layout.dbu).round(2)})
         (layers "#{layer_name}") (net "#{net_name}")
-     )
-)        
+        )
+        )        
 EOF
-    segment
-  end
-  
-  def polygon_points polygon
-    points = ''
-    polygon && polygon.each_point_hull{|e|
-      points << " (xy #{(e.x*@layout.dbu+@offset_x).round(2)} #{(-e.y*@layout.dbu+@offset_y).round(2)})"
-    }
-    points
-  end
-  private :polygon_points
-  
-  def generate_zone polygon, filled_polygon, net_name, layer_name='F.Cu'
-    polygon ||= filled_polygon
-    segment = <<EOF
+      segment
+    end
+    
+    def polygon_points polygon
+      points = ''
+      polygon && polygon.each_point_hull{|e|
+        points << " (xy #{(e.x*@layout.dbu+@offset_x).round(2)} #{(-e.y*@layout.dbu+@offset_y).round(2)})"
+      }
+      points
+    end
+    private :polygon_points
+    
+    def generate_zone polygon, filled_polygon, net_name, layer_name='F.Cu'
+      polygon ||= filled_polygon
+      segment = <<EOF
 (zone
     (net "#{net_name}") (layer "#{layer_name}")
     (uuid #{SecureRandom.uuid})
@@ -563,35 +549,35 @@ EOF
 	  #{polygon_points filled_polygon}
         )
     )
-)
+    )
 EOF
-    segment
-  end
-  
-  def complex_path_to_kicad_pads path, net_name, layer='F.Cu'
-    # Pathの太さ（幅）をmmに変換
-    width_mm = path.width * @layout.dbu
-  
-    # ネット名・ネット情報の取得
-    net_name ||= ""
-    net_id = (net_name == "" || net_name.nil?) ? 0 : 1
-    net_name_str = net_name.nil? ? "" : net_name.to_s
-
-# 1. Pathの全頂点を配列に格納 (ここではKLayoutの生の座標(mm)のまま保持)
-    points = []
-    path.each_point do |p|
-      points << [p.x, p.y]
+      segment
     end
-  
-    #kicad_pads = "(footprint \"Net_Rail_Pad\" (layer \"#{layer}\") (at 0 0)\n"
-    kicad_pads = ""
-  
-  # 2. each_cons(2) で2点ずつ直接取り出す
-    pp = nil
-    # puts "points = #{points}"
-    points.each_cons(2) do |p1, p2|
-      # puts "p1, p2, pp = #{[p1, p2, pp]}"
-      kicad_pads << <<EOF
+    
+    def complex_path_to_kicad_pads path, net_name, layer='F.Cu'
+      # Pathの太さ（幅）をmmに変換
+      width_mm = path.width * @layout.dbu
+      
+      # ネット名・ネット情報の取得
+      net_name ||= ""
+      net_id = (net_name == "" || net_name.nil?) ? 0 : 1
+      net_name_str = net_name.nil? ? "" : net_name.to_s
+
+      # 1. Pathの全頂点を配列に格納 (ここではKLayoutの生の座標(mm)のまま保持)
+      points = []
+      path.each_point do |p|
+        points << [p.x, p.y]
+      end
+      
+      #kicad_pads = "(footprint \"Net_Rail_Pad\" (layer \"#{layer}\") (at 0 0)\n"
+      kicad_pads = ""
+      
+      # 2. each_cons(2) で2点ずつ直接取り出す
+      pp = nil
+      # puts "points = #{points}"
+      points.each_cons(2) do |p1, p2|
+        # puts "p1, p2, pp = #{[p1, p2, pp]}"
+        kicad_pads << <<EOF
       (segment
           (start #{(p1[0]*@layout.dbu + @offset_x).round(2)} #{(-p1[1]*@layout.dbu + @offset_y).round(2)})
           (end #{(p2[0]*@layout.dbu + @offset_x).round(2)} #{(-p2[1]*@layout.dbu + @offset_y).round(2)})
@@ -599,360 +585,363 @@ EOF
           (layer "#{layer}")
           (net "#{net_name_str}")
           (uuid #{SecureRandom.uuid})
-       )
+          )
 EOF
-      pp = p2
+        pp = p2
+      end
+      #kicad_pads << ")\n"
+      kicad_pads
     end
-    #kicad_pads << ")\n"
-    kicad_pads
-  end
-  
-  def find_dev_name box
-    puts "== x:#{[box.left,box.right]} y:#{[box.bottom,box.top]} =================="
-    @sch_to_dev_map.each{|dev_name, point|
-      #puts "#{dev_name}@[#{point.x}, #{point.y}]:#{point.x < box.left|| box.right < point.x}|#{point.y < box.bottom || box.top < point.y}"
-      point_x = point.x*@rsf
-      point_y = point.y*@rsf
-      next if point_x < box.left|| box.right < point_x
-      next if point_y < box.bottom || box.top < point_y
-      puts "#{dev_name}@[#{point_x}, #{point_y}]:#{point_x < box.left|| box.right < point_x}|#{point_y < box.bottom || box.top < point_y}"
-      puts "===========> #{dev_name}"
-      return dev_name
-    }
-    puts 'fail!!! =================================='
-    nil
-  end  
-  
-  def convert_cell_to_kicad_footprint cell, trans = Trans::R0, pcb_file, pads_file 
-    pcb_file ||= File.join(@pretty_dir, cell.name + '.kicad_mod')
-    padsfile ||= File.join(@pretty_dir, cell.name + '.yaml')
-    kicad_elements = {}
-    count = 0
-    segments = ''
-    cell.each_inst{|inst|
-      #top_cell.begin_instances_rec.each{|iter|
-      #  inst = iter.inst_cell
-      puts "#{inst.cell.name}(#{inst.property('name') || inst.property(1)}): #{(trans*inst.trans).to_s}"
-      if inst.cell.is_library_cell?
-        if inst.is_pcell?
-          l=inst.pcell_parameter 'l'
-          w=inst.pcell_parameter('w') || 2.0
-          m=inst.pcell_parameter('n') || 0
-          next unless l && w
-          kicad_cell_name = "#{inst.cell.library.class.name.sub(/::.*$/,'')}\##{inst.cell.name.sub(/\$.*$/,'')}.l#{l.round(2)}w#{w.round(2)}m#{m||0}"
-          # inst.pcell_declaration.get_parameters.map{|p| [p.type, p.name, inst.pcell_parameter(p.name)]}
-          #if inst.pcell_parameter('with_pcont')
-          options = ''
-          inst.pcell_declaration.get_parameters.each{|p|
-            if p.type == 3
-              options << (inst.pcell_parameter(p.name) ? '1' : '0')
+    
+    def find_dev_name box
+      puts "== x:#{[box.left,box.right]} y:#{[box.bottom,box.top]} =================="
+      @sch_to_dev_map.each{|dev_name, point|
+        #puts "#{dev_name}@[#{point.x}, #{point.y}]:#{point.x < box.left|| box.right < point.x}|#{point.y < box.bottom || box.top < point.y}"
+        point_x = point.x*@rsf
+        point_y = point.y*@rsf
+        next if point_x < box.left|| box.right < point_x
+        next if point_y < box.bottom || box.top < point_y
+        puts "#{dev_name}@[#{point_x}, #{point_y}]:#{point_x < box.left|| box.right < point_x}|#{point_y < box.bottom || box.top < point_y}"
+        puts "===========> #{dev_name}"
+        return dev_name
+      }
+      puts 'fail!!! =================================='
+      nil
+    end  
+    
+    def convert_cell_to_kicad_footprint cell, trans = Trans::R0, pcb_file, pads_file 
+      pcb_file ||= File.join(@pretty_dir, cell.name + '.kicad_mod')
+      padsfile ||= File.join(@pretty_dir, cell.name + '.yaml')
+      kicad_elements = {}
+      count = 0
+      segments = ''
+      cell.each_inst{|inst|
+        #top_cell.begin_instances_rec.each{|iter|
+        #  inst = iter.inst_cell
+        puts "#{inst.cell.name}(#{inst.property('name') || inst.property(1)}): #{(trans*inst.trans).to_s}"
+        if inst.cell.is_library_cell?
+          if inst.is_pcell?
+            l=inst.pcell_parameter 'l'
+            w=inst.pcell_parameter('w') || 2.0
+            m=inst.pcell_parameter('n') || 0
+            next unless l && w
+            kicad_cell_name = "#{inst.cell.library.class.name.sub(/::.*$/,'')}\##{inst.cell.name.sub(/\$.*$/,'')}.l#{l.round(2)}w#{w.round(2)}m#{m||0}"
+            # inst.pcell_declaration.get_parameters.map{|p| [p.type, p.name, inst.pcell_parameter(p.name)]}
+            #if inst.pcell_parameter('with_pcont')
+            options = ''
+            inst.pcell_declaration.get_parameters.each{|p|
+              if p.type == 3
+                options << (inst.pcell_parameter(p.name) ? '1' : '0')
+              end
+            }
+            kicad_cell_name << "_#{options}" if options.length >= 7
+          else # static cell like one in standard cell library
+            kicad_cell_name = generate_cell_footprint(inst.cell)
+          end  
+          infile = File.join(@pretty_dir, kicad_cell_name) + '.kicad_mod'
+          if File.exist?(infile)
+            count = count + 1
+            if @lvs_data
+              name = find_dev_name trans*inst.bbox         
+            else
+              name = inst.property('name') || inst.property(1) || inst.cell.name.sub(/\$.*$/,'')+count.to_s        
             end
-          }
-          kicad_cell_name << "_#{options}" if options.length >= 7
-        else # static cell like one in standard cell library
-          kicad_cell_name = generate_cell_footprint(inst.cell)
-        end  
-        infile = File.join(@pretty_dir, kicad_cell_name) + '.kicad_mod'
-        if File.exist?(infile)
-          count = count + 1
-          if @lvs_data
-            name = find_dev_name trans*inst.bbox         
           else
-            name = inst.property('name') || inst.property(1) || inst.cell.name.sub(/\$.*$/,'')+count.to_s        
+            puts "#{infile} does not exist!"
           end
+          rot = (trans*inst.trans).to_s.sub(/ .*$/, '').upcase
+          kicad_cell_name << '_MY' if rot.start_with? 'M'
+          angle = case rot
+                  when 'R0'     then 0
+                  when 'R90'    then 90
+                  when 'R180'   then 180
+                  when 'R270'   then 270
+                  when 'M0'     then 180
+                  when 'M45'    then 90
+                  when 'M90'    then 0
+                  when 'M135'   then 270
+                  else
+                    warn "未知の変換指示です: #{rot}"
+                    0
+                  end 
+          #inst.cell_inst.each_trans{|trans2|
+          #  kicad_elements[name] = [((trans*trans2).disp.x*@layout.dbu).round(6), (-((trans*trans2).disp.y)*@layout.dbu).round(6), 
+          #                          kicad_cell_name, angle]
+          #}
+          kicad_elements[name] = [(inst.trans.disp.x*@layout.dbu).round(6), (-(inst.trans.disp.y)*@layout.dbu).round(6), 
+                                  kicad_cell_name, angle]
+        #end
+        elsif inst.is_regular_array?
+          puts "#(inst.name} is regular array"
         else
-          puts "#{infile} does not exist!"
+          k_e = convert_cell_to_kicad_footprint inst.cell, trans*inst.trans
+          kicad_elements.merge! k_e
         end
-        rot = (trans*inst.trans).to_s.sub(/ .*$/, '').upcase
-        kicad_cell_name << '_MY' if rot.start_with? 'M'
-        angle = case rot
-                when 'R0'     then 0
-                when 'R90'    then 90
-                when 'R180'   then 180
-                when 'R270'   then 270
-                when 'M0'     then 180
-                when 'M45'    then 90
-                when 'M90'    then 0
-                when 'M135'   then 270
-                else
-                  warn "未知の変換指示です: #{rot}"
-                  0
-                end 
-        #inst.cell_inst.each_trans{|trans2|
-        #  kicad_elements[name] = [((trans*trans2).disp.x*@layout.dbu).round(6), (-((trans*trans2).disp.y)*@layout.dbu).round(6), 
-        #                          kicad_cell_name, angle]
-        #}
-        kicad_elements[name] = [(inst.trans.disp.x*@layout.dbu).round(6), (-(inst.trans.disp.y)*@layout.dbu).round(6), 
-                                 kicad_cell_name, angle]
-      #end
-      elsif inst.is_regular_array?
-        puts "#(inst.name} is regular array"
-      else
-        k_e = convert_cell_to_kicad_footprint inst.cell, trans*inst.trans
-        kicad_elements.merge! k_e
-      end
-    }
-    # kicad_elements
-    puts 'kicad_elements=', kicad_elements.inspect
-    offset_x, offset_y = centerize kicad_elements
-    offset_x = 0.0 if offset_x.abs < 30.0
-    offset_y = 0.0 if offset_y.abs < 30.0   
-    footprints, footprints_MY, pads_location = generate_footprints kicad_elements, offset_x, offset_y, @pretty_lib # pcell_lib
-    File.open(pads_file, 'w'){|f| f.puts pads_location.to_yaml}
-    segments = convert_paths_and_cells_to_kicad_segments cell
-    write_pcb footprints, segments, pcb_file
-    my_file = pcb_file.sub('.kicad_mod', '_MY.kicad_mod')
-    write_pcb footprints_MY, mirrorY_segments(segments), my_file
-    puts "KiCad PCB successfully generated: #{pcb_file} and #{File.basename my_file} for cell=#{cell.name}"
-    puts "PADS location for #{cell.name} stored in #{pads_file}"
-    kicad_elements   
-  end
-  
-  def extract_cell_pins cell
-    text_layer = @layers['TEXT']
-    box_layer = @layers['Via']
-    square_boxes = []
-    texts = []
-    # --- 1. 再帰的シェイプイテレータを使用して全階層からBoxとTextを抽出 ---
-    # KLayoutの RecursiveShapeIterator を直接生成することで、下位セル(Viaなど)のバウンディングボックスやトランスフォームを確実に拾います。
-    # VIA1（正方形Box）の回収
-    it_box = @layout.begin_shapes(cell, box_layer)
-    while !it_box.at_end?
-      shape = it_box.shape
-      if shape.is_box?
-        box = shape.box
-        # 幅と高さが完全に一致＝正方形
-        if box.width == box.height
-          # 現在の階層位置のトランスフォーム(累積座標変換)を適用してtop_cell基準にする
-          transformed_box = box.transformed(it_box.trans)
-          square_boxes << transformed_box
-        end
-      end
-      it_box.next
+      }
+      # kicad_elements
+      puts 'kicad_elements=', kicad_elements.inspect
+      offset_x, offset_y = centerize kicad_elements
+      offset_x = 0.0 if offset_x.abs < 30.0
+      offset_y = 0.0 if offset_y.abs < 30.0   
+      footprints, pads_location = generate_footprints kicad_elements, offset_x, offset_y, @pretty_lib # pcell_lib
+      kicad_elements.each{|ref, item|
+        #item.unshift ref
+        fp_name = item[3]    # フットプリント名 (e.g., Pch.M0l2.0w6.0m1)
+        generate_mirrorY_footprint fp_name
+      }
+      File.open(pads_file, 'w'){|f| f.puts pads_location.to_yaml}
+      segments = convert_paths_and_cells_to_kicad_segments cell
+      write_pcb footprints, segments, pcb_file
+      puts "KiCad PCB successfully generated: #{pcb_file} for cell=#{cell.name}"
+      puts "PADS location for #{cell.name} stored in #{pads_file}"
+      kicad_elements   
     end
-    # 2. Textの取得
-    cell.shapes(text_layer).each do |shape|
-      texts << shape.text if shape.is_text?
-    end
-    results = []
-    puts result_output = "--- セル: #{cell.name} のピン抽出結果（正方形中心座標） ---\n"
-    pin_count = 0
-    # すでに処理したBoxのセンター座標を記録する配列（重複防止用）
-    processed_centers = []
-    # 正方形BoxとTextの当たり判定
-    texts.each do |text|
-      text_point = Point::new(text.x, text.y)
-      square_boxes.each do |box|
-        if box.contains?(text_point)
-          box_center = box.center
-          # 【重要】もしこのBoxのセンターがすでにピン登録済みなら、今回のテキスト（例: "via"）は無視してスキップ
-          if processed_centers.include?(box_center)
-            break # このテキストはすでに処理済みのBoxに入っているので、次のテキストへ
+    
+    def extract_cell_pins cell
+      text_layer = @layers['TEXT']
+      box_layer = @layers['Via']
+      square_boxes = []
+      texts = []
+      # --- 1. 再帰的シェイプイテレータを使用して全階層からBoxとTextを抽出 ---
+      # KLayoutの RecursiveShapeIterator を直接生成することで、下位セル(Viaなど)のバウンディングボックスやトランスフォームを確実に拾います。
+      # VIA1（正方形Box）の回収
+      it_box = @layout.begin_shapes(cell, box_layer)
+      while !it_box.at_end?
+        shape = it_box.shape
+        if shape.is_box?
+          box = shape.box
+          # 幅と高さが完全に一致＝正方形
+          if box.width == box.height
+            # 現在の階層位置のトランスフォーム(累積座標変換)を適用してtop_cell基準にする
+            transformed_box = box.transformed(it_box.trans)
+            square_boxes << transformed_box
           end
-          pin_name = text.string
-          # お使いの環境に合わせて、"via" などの明らかにピン名ではない配線名のテキストを除外したい場合の安全弁
-          # if pin_name.downcase.include?("via")
-          #   next
-          # end
-          x_um = box_center.x #* @layout.dbu
-          y_um = -box_center.y #* @layout.dbu
-          size_um = box.width #* @layout.dbu
-          result_output += "ピン名: #{pin_name}(#{pin_count}) -> センター座標: (#{x_um* @layout.dbu}, #{y_um* @layout.dbu}) um [正方形サイズ: #{size_um* @layout.dbu} um]\n"
-          results << [pin_name, x_um, y_um, size_um]
-          pin_count += 1
-          # このBoxは処理したことを記録
-          processed_centers << box_center
-          break 
+        end
+        it_box.next
+      end
+      # 2. Textの取得
+      cell.shapes(text_layer).each do |shape|
+        texts << shape.text if shape.is_text?
+      end
+      results = []
+      puts result_output = "--- セル: #{cell.name} のピン抽出結果（正方形中心座標） ---\n"
+      pin_count = 0
+      # すでに処理したBoxのセンター座標を記録する配列（重複防止用）
+      processed_centers = []
+      # 正方形BoxとTextの当たり判定
+      texts.each do |text|
+        text_point = Point::new(text.x, text.y)
+        square_boxes.each do |box|
+          if box.contains?(text_point)
+            box_center = box.center
+            # 【重要】もしこのBoxのセンターがすでにピン登録済みなら、今回のテキスト（例: "via"）は無視してスキップ
+            if processed_centers.include?(box_center)
+              break # このテキストはすでに処理済みのBoxに入っているので、次のテキストへ
+            end
+            pin_name = text.string
+            # お使いの環境に合わせて、"via" などの明らかにピン名ではない配線名のテキストを除外したい場合の安全弁
+            # if pin_name.downcase.include?("via")
+            #   next
+            # end
+            x_um = box_center.x #* @layout.dbu
+            y_um = -box_center.y #* @layout.dbu
+            size_um = box.width #* @layout.dbu
+            result_output += "ピン名: #{pin_name}(#{pin_count}) -> センター座標: (#{x_um* @layout.dbu}, #{y_um* @layout.dbu}) um [正方形サイズ: #{size_um* @layout.dbu} um]\n"
+            results << [pin_name, x_um, y_um, size_um]
+            pin_count += 1
+            # このBoxは処理したことを記録
+            processed_centers << box_center
+            break 
+          end
         end
       end
+      puts result_output
+      results
     end
-    puts result_output
-    results
-  end
-  
-  def generate_cell_footprint cell
-    @kicad = ''
-    pins = extract_cell_pins cell
-    pins.each_with_index{|p, i|
-      name, x, y, w = p
-      @kicad && via1_to_kicad_TH(i+1, Box.new(x - w/2, -(y - w/2), x + w/2, -(y + w/2)))
-    }
-    footprint_name = cell.name
-    s_expr =  "(footprint \"#{footprint_name}\"\n"
-    s_expr += "  (version 20240101)\n"
-    s_expr += "  (generator \"KLayout_Ruby_Script\")\n"
-    s_expr += "  (layer \"F.Cu\")\n"
-    s_expr += "  (descr \"Generated automatically from KLayout PCell\")\n"
-    # デフォルトの参照符号（Reference）と値（Value）のテキスト配置
-    s_expr += "  (fp_text reference \"REF**\" (at 0 -5) (layer \"F.SilkS\") (effects (font (size 1 1) (thickness 0.15))))\n"
-    s_expr += "  (fp_text value \"#{footprint_name}\" (at 0 1) (layer \"F.Fab\") (effects (font (size 1 1) (thickness 0.15))))\n"
-    s_expr += "#{@kicad})\n"    
-    kicad_mod_path = File.join(@pretty_dir, "#{footprint_name}.kicad_mod")
-    File.open(kicad_mod_path, 'w'){|f| f.puts s_expr}
-    puts "#{kicad_mod_path} created"
-    footprint_name
-  end
-  
-  def convert_paths_and_cells_to_kicad_segments cell, trans = Trans::R0
-    segments = ''
-    cell.each_inst{|inst|
-      if inst.is_pcell?
-        next
-      elsif inst.cell.name.sub(/\$.*$/, '') == 'Via'
-        if @lvs_data
-          probe_point = inst.bbox.center
-          net_name = @lvs_data.probe_net(@ml1.data, probe_point) 
+    
+    def generate_cell_footprint cell
+      @kicad = ''
+      pins = extract_cell_pins cell
+      pins.each_with_index{|p, i|
+        name, x, y, w = p
+        @kicad && via1_to_kicad_TH(i+1, Box.new(x - w/2, -(y - w/2), x + w/2, -(y + w/2)))
+      }
+      footprint_name = cell.name
+      s_expr =  "(footprint \"#{footprint_name}\"\n"
+      s_expr += "  (version 20240101)\n"
+      s_expr += "  (generator \"KLayout_Ruby_Script\")\n"
+      s_expr += "  (layer \"F.Cu\")\n"
+      s_expr += "  (descr \"Generated automatically from KLayout PCell\")\n"
+      # デフォルトの参照符号（Reference）と値（Value）のテキスト配置
+      s_expr += "  (fp_text reference \"REF**\" (at 0 -5) (layer \"F.SilkS\") (effects (font (size 1 1) (thickness 0.15))))\n"
+      s_expr += "  (fp_text value \"#{footprint_name}\" (at 0 1) (layer \"F.Fab\") (effects (font (size 1 1) (thickness 0.15))))\n"
+      s_expr += "#{@kicad})\n"    
+      kicad_mod_path = File.join(@pretty_dir, "#{footprint_name}.kicad_mod")
+      File.open(kicad_mod_path, 'w'){|f| f.puts s_expr}
+      puts "#{kicad_mod_path} created"
+      footprint_name
+    end
+    
+    def convert_paths_and_cells_to_kicad_segments cell, trans = Trans::R0
+      segments = ''
+      cell.each_inst{|inst|
+        if inst.is_pcell?
+          next
+        elsif inst.cell.name.sub(/\$.*$/, '') == 'Via'
+          if @lvs_data
+            probe_point = inst.bbox.center
+            net_name = @lvs_data.probe_net(@ml1.data, probe_point) 
           # puts "#{net_name}@#{probe_point/1000}"
-        else
-          net_name = inst.property('net') || inst.property(1)
-        end
-        width = inst.cell.bbox.width*@layout.dbu
-        drill_width = inst.cell.each_shape(@layers['Via']).first.bbox.width*@layout.dbu
-        inst.cell_inst.each_trans{|trans|
-          segments << <<EOF + "\n"
+          else
+            net_name = inst.property('net') || inst.property(1)
+          end
+          width = inst.cell.bbox.width*@layout.dbu
+          drill_width = inst.cell.each_shape(@layers['Via']).first.bbox.width*@layout.dbu
+          inst.cell_inst.each_trans{|trans|
+            segments << <<EOF + "\n"
 (via
    (at #{(trans.disp.x*@layout.dbu+@offset_x).round(2)} #{(-(trans.disp.y)*@layout.dbu+@offset_y).round(2)})
        (size #{width}) (drill #{drill_width}) (layers "F.Cu" "B.Cu") (net "#{net_name}")
       	(uuid "#{SecureRandom.uuid}")
-)
+   )
 EOF
-        }
-      elsif inst.cell.is_library_cell?
-        #puts "Cell: #{inst.cell.name}"
-        if ['pcont', 'psubcont', 'nsubcont'].include?(inst.cell.name.sub(/\$.*$/, ''))
-          inst.cell_inst.each_trans{|trans|
-            segments << generate_contact(inst.cell.name, trans*inst.cell.bbox, 'F.Fab')
           }
+        elsif inst.cell.is_library_cell?
+          #puts "Cell: #{inst.cell.name}"
+          if ['pcont', 'psubcont', 'nsubcont'].include?(inst.cell.name.sub(/\$.*$/, ''))
+            inst.cell_inst.each_trans{|trans|
+              segments << generate_contact(inst.cell.name, trans*inst.cell.bbox, 'F.Fab')
+            }
+          else
+            # inst.cell.shapes(@layers['F.Cu']).each{|shape|
+            #  segments << generate_kicad_box(inst, shape.bbox, 'F.Cu', trans)
+            # }
+          end
         else
-          # inst.cell.shapes(@layers['F.Cu']).each{|shape|
-          #  segments << generate_kicad_box(inst, shape.bbox, 'F.Cu', trans)
-          # }
-        end
-      else
-        seg = convert_paths_and_cells_to_kicad_segments inst.cell, trans*inst.trans
-        segments << seg
-      end 
-    }  
- 
-    @layers.each_pair do |pcb_layer_name, layer|
-      polygon = {}
-      cell.shapes(layer).each{|shape|
-        if shape.is_path?
-          if @lvs_data
-            #probe_point = shape.path.polygon.point_hull(1)/@rsf
-            points = shape.path.each_point.to_a
-            if points.size >= 2
-              p0 = points[0]
-              p1 = points[1]
-              # 1番目のセグメントの中点を計算（骨格線の中心点）
-              mid_x = ((p0.x + p1.x) / 2.0).round
-              mid_y = ((p0.y + p1.y) / 2.0).round
-              probe_point = RBA::Point.new(mid_x, mid_y)/@rsf
+          seg = convert_paths_and_cells_to_kicad_segments inst.cell, trans*inst.trans
+          segments << seg
+        end 
+      }  
+      
+      @layers.each_pair do |pcb_layer_name, layer|
+        polygon = {}
+        cell.shapes(layer).each{|shape|
+          if shape.is_path?
+            if @lvs_data
+              #probe_point = shape.path.polygon.point_hull(1)/@rsf
+              points = shape.path.each_point.to_a
+              if points.size >= 2
+                p0 = points[0]
+                p1 = points[1]
+                # 1番目のセグメントの中点を計算（骨格線の中心点）
+                mid_x = ((p0.x + p1.x) / 2.0).round
+                mid_y = ((p0.y + p1.y) / 2.0).round
+                probe_point = RBA::Point.new(mid_x, mid_y)/@rsf
+              else
+                # 頂点が1つしかない場合はその点
+                probe_point = points[0]/@rsf
+              end
+              net_name = @lvs_data.probe_net(@layers['F.Cu'] == layer ? @ml1.data : @ml2.data, probe_point) 
             else
-              # 頂点が1つしかない場合はその点
-              probe_point = points[0]/@rsf
+              net_name = shape.property('net') || shape.property(1)
             end
-            net_name = @lvs_data.probe_net(@layers['F.Cu'] == layer ? @ml1.data : @ml2.data, probe_point) 
-          else
-            net_name = shape.property('net') || shape.property(1)
-          end
-          if shape.path.width > 10.0/@layout.dbu
-            segments << generate_zone(polygon[net_name], trans*shape.polygon, net_name, pcb_layer_name)
-          else
-            #puts "Shape width for #{net_name} is: #{shape.path.width}"
-            pads = complex_path_to_kicad_pads(trans*shape.path, net_name, pcb_layer_name) 
-            segments << pads if pads
-          end
+            if shape.path.width > 10.0/@layout.dbu
+              segments << generate_zone(polygon[net_name], trans*shape.polygon, net_name, pcb_layer_name)
+            else
+              #puts "Shape width for #{net_name} is: #{shape.path.width}"
+              pads = complex_path_to_kicad_pads(trans*shape.path, net_name, pcb_layer_name) 
+              segments << pads if pads
+            end
           #end 
-        elsif shape.is_box?
-          if @lvs_data
-            probe_point = shape.box.center/@rsf
-            net_name = @lvs_data.probe_net(@layers['F.Cu'] == layer ? @ml1.data : @ml2.data, probe_point) 
-          else
-            net_name = shape.property('net') || shape.property(1)
+          elsif shape.is_box?
+            if @lvs_data
+              probe_point = shape.box.center/@rsf
+              net_name = @lvs_data.probe_net(@layers['F.Cu'] == layer ? @ml1.data : @ml2.data, probe_point) 
+            else
+              net_name = shape.property('net') || shape.property(1)
+            end
+            if polygon[net_name] # polygon with 4 points could be converted to box when saved and reload
+              segments << generate_zone(polygon[net_name], trans*shape.polygon, net_name, pcb_layer_name)
+            else
+              segments << generate_net_rail_pad_for_BOX(trans*shape.box, pcb_layer_name, net_name)
+            end
+          elsif shape.is_polygon?
+            if @lvs_data
+              probe_point = get_probe_point_for_polygon(shape.polygon)/@rsf
+              net_name = @lvs_data.probe_net(@layers['F.Cu'] == layer ? @ml1.data : @ml2.data, probe_point) 
+            else
+              net_name = shape.property('net') || shape.property(1)
+            end
+            if polygon[net_name] # shape.polygon is filled_polygon in zone
+              segments << generate_zone(polygon[net_name], trans*shape.polygon, net_name, pcb_layer_name)
+            else # trick to save polygon
+              polygon[net_name] =  trans*shape.polygon
+            end
           end
-          if polygon[net_name] # polygon with 4 points could be converted to box when saved and reload
-            segments << generate_zone(polygon[net_name], trans*shape.polygon, net_name, pcb_layer_name)
-          else
-            segments << generate_net_rail_pad_for_BOX(trans*shape.box, pcb_layer_name, net_name)
-          end
-        elsif shape.is_polygon?
-          if @lvs_data
-            probe_point = get_probe_point_for_polygon(shape.polygon)/@rsf
-            net_name = @lvs_data.probe_net(@layers['F.Cu'] == layer ? @ml1.data : @ml2.data, probe_point) 
-          else
-            net_name = shape.property('net') || shape.property(1)
-          end
-          if polygon[net_name] # shape.polygon is filled_polygon in zone
-            segments << generate_zone(polygon[net_name], trans*shape.polygon, net_name, pcb_layer_name)
-          else # trick to save polygon
-            polygon[net_name] =  trans*shape.polygon
-          end
-        end
-      }
+        }
+      end
+      segments
     end
-    segments
-  end
-  
-  # Polygon 内の安全なプローブ点を取得する関数
-  def get_probe_point_for_polygon(poly)
-    return nil if poly.nil? || poly.num_points == 0
+    
+    # Polygon 内の安全なプローブ点を取得する関数
+    def get_probe_point_for_polygon(poly)
+      return nil if poly.nil? || poly.num_points == 0
 
-    margin = 5 # ズラす距離 (DBU単位)
-    n = poly.num_points
+      margin = 5 # ズラす距離 (DBU単位)
+      n = poly.num_points
 
-    # 1. 各頂点において「内角の二等分線方向」へずらして inside? 判定
-    (0...n).each do |i|
-      p_prev = poly.point((i - 1) % n)
-      p_curr = poly.point(i)
-      p_next = poly.point((i + 1) % n)
+      # 1. 各頂点において「内角の二等分線方向」へずらして inside? 判定
+      (0...n).each do |i|
+        p_prev = poly.point((i - 1) % n)
+        p_curr = poly.point(i)
+        p_next = poly.point((i + 1) % n)
 
-      # 隣り合う2辺の単位ベクトルを計算
-      v1_x = p_curr.x - p_prev.x
-      v1_y = p_curr.y - p_prev.y
-      len1 = Math.hypot(v1_x, v1_y)
+        # 隣り合う2辺の単位ベクトルを計算
+        v1_x = p_curr.x - p_prev.x
+        v1_y = p_curr.y - p_prev.y
+        len1 = Math.hypot(v1_x, v1_y)
 
-      v2_x = p_next.x - p_curr.x
-      v2_y = p_next.y - p_curr.y
-      len2 = Math.hypot(v2_x, v2_y)
+        v2_x = p_next.x - p_curr.x
+        v2_y = p_next.y - p_curr.y
+        len2 = Math.hypot(v2_x, v2_y)
 
-      next if len1 == 0 || len2 == 0
+        next if len1 == 0 || len2 == 0
 
-      # 頂点から内側に向かう方向ベクトル（辺の垂線方向の合成）
-      # 反時計回り(CCW)のポリゴンを前提とした内向き法線ベクトル
-      nx = -(v1_y / len1) - (v2_y / len2)
-      ny =  (v1_x / len1) + (v2_x / len2)
-      norm_len = Math.hypot(nx, ny)
+        # 頂点から内側に向かう方向ベクトル（辺の垂線方向の合成）
+        # 反時計回り(CCW)のポリゴンを前提とした内向き法線ベクトル
+        nx = -(v1_y / len1) - (v2_y / len2)
+        ny =  (v1_x / len1) + (v2_x / len2)
+        norm_len = Math.hypot(nx, ny)
 
-      if norm_len > 0
-        # 二等分線方向に margin (5 DBU) 進めた候補点
-        cand_x = (p_curr.x + (nx / norm_len) * margin).round
-        cand_y = (p_curr.y + (ny / norm_len) * margin).round
-        candidate = RBA::Point.new(cand_x, cand_y)
+        if norm_len > 0
+          # 二等分線方向に margin (5 DBU) 進めた候補点
+          cand_x = (p_curr.x + (nx / norm_len) * margin).round
+          cand_y = (p_curr.y + (ny / norm_len) * margin).round
+          candidate = RBA::Point.new(cand_x, cand_y)
 
+          return candidate if poly.inside?(candidate)
+        end
+      end
+
+      # 2. 上記で全滅した場合（特殊形状）、最初の頂点から 8 方向へ順にスキャン
+      v0 = poly.point(0)
+      offsets = [
+        [margin, margin],   [-margin, margin], 
+        [margin, -margin],  [-margin, -margin],
+        [margin, 0],        [-margin, 0], 
+        [0, margin],        [0, -margin]
+      ]
+
+      offsets.each do |ox, oy|
+        candidate = RBA::Point.new(v0.x + ox, v0.y + oy)
         return candidate if poly.inside?(candidate)
       end
+
+      # 3. それでも見つからない場合のフォールバック（BBox中心）
+      poly.bbox.center
     end
 
-    # 2. 上記で全滅した場合（特殊形状）、最初の頂点から 8 方向へ順にスキャン
-    v0 = poly.point(0)
-    offsets = [
-      [margin, margin],   [-margin, margin], 
-      [margin, -margin],  [-margin, -margin],
-      [margin, 0],        [-margin, 0], 
-      [0, margin],        [0, -margin]
-    ]
-
-    offsets.each do |ox, oy|
-      candidate = RBA::Point.new(v0.x + ox, v0.y + oy)
-      return candidate if poly.inside?(candidate)
-    end
-
-    # 3. それでも見つからない場合のフォールバック（BBox中心）
-    poly.bbox.center
-  end
-
-  def annotate_lvs_properties(lvs_data) # created with gemini help but no longer used
+    def annotate_lvs_properties(lvs_data) # created with gemini help but no longer used
       cross_ref = lvs_data.xref
       netlist = lvs_data.netlist
 
@@ -1070,175 +1059,175 @@ EOF
       end
     end
 
-def extract_lvs_data_with_nets(lvsdb) # created by gemini but no longer used
-    # 1. lvsdb が保持する Layout と Schematic のネットリストを取得
-    netlist = lvsdb.netlist
-    layout = lvsdb.internal_layout
-    dbu = layout ? layout.dbu : 0.001
+    def extract_lvs_data_with_nets(lvsdb) # created by gemini but no longer used
+      # 1. lvsdb が保持する Layout と Schematic のネットリストを取得
+      netlist = lvsdb.netlist
+      layout = lvsdb.internal_layout
+      dbu = layout ? layout.dbu : 0.001
 
-    # 2. lvsdb から比較を実行し、確実な CrossReference を生成
-    # (lvsdb は RBA::LayoutVsSchematic のため compare が正当な API です)
-    cross_ref = nil
-    begin
-      cross_ref = lvsdb.compare
-    rescue => e
-      # compare が呼べない、またはすでに完了している場合の安全処理
-    end
-
-    net_list = []
-    device_data_list = []
-    wire_segments = []
-    zone_polygons = []
-
-    netlist.each_circuit do |circuit|
-      # ネットマップの作成
-      net_map = {}
-      circuit.each_net do |net|
-        net_name = net.expanded_name
-        net_name = net.name if net_name.empty?
-        net_map[net] = { name: net_name, obj: net }
-        net_list << net_name unless net_name.empty?
+      # 2. lvsdb から比較を実行し、確実な CrossReference を生成
+      # (lvsdb は RBA::LayoutVsSchematic のため compare が正当な API です)
+      cross_ref = nil
+      begin
+        cross_ref = lvsdb.compare
+      rescue => e
+        # compare が呼べない、またはすでに完了している場合の安全処理
       end
 
-      # 3. デバイスの抽出とリファレンス名の変換
-      circuit.each_device do |device|
-        # デフォルト（レイアウト側名: $1, $2 等）
-        ref_name = device.expanded_name.empty? ? device.name : device.expanded_name
+      net_list = []
+      device_data_list = []
+      wire_segments = []
+      zone_polygons = []
 
-        # CrossReference が取得できている場合のみ照合
-        if cross_ref && cross_ref.respond_to?(:device_pair_for_device)
-          begin
-            dev_pair = cross_ref.device_pair_for_device(device)
-            if dev_pair
-              sch_dev = (dev_pair.first == device) ? dev_pair.second : dev_pair.first
-              if sch_dev
-                sch_name = sch_dev.expanded_name
-                sch_name = sch_dev.name if sch_name.empty?
-                ref_name = sch_name unless sch_name.empty?
-              end
-            end
-          rescue => e
-          end
+      netlist.each_circuit do |circuit|
+        # ネットマップの作成
+        net_map = {}
+        circuit.each_net do |net|
+          net_name = net.expanded_name
+          net_name = net.name if net_name.empty?
+          net_map[net] = { name: net_name, obj: net }
+          net_list << net_name unless net_name.empty?
         end
 
-        device_class = device.device_class.name
-        pos_x_mm = device.trans.disp.x * dbu
-        pos_y_mm = device.trans.disp.y * dbu
+        # 3. デバイスの抽出とリファレンス名の変換
+        circuit.each_device do |device|
+          # デフォルト（レイアウト側名: $1, $2 等）
+          ref_name = device.expanded_name.empty? ? device.name : device.expanded_name
 
-        pins_nets = {}
-
-        # ピン接続情報
-        device.device_class.terminal_definitions.each do |term_def|
-          term_name = term_def.name
-          dev_term = device.net_for_terminal(term_def.id)
-          target_name = "NC"
-
-          if dev_term
-            net_obj = dev_term.respond_to?(:net) ? dev_term.net : dev_term
-
-            if net_obj && net_obj.is_a?(RBA::Net)
-              net_name = net_obj.expanded_name
-              net_name = net_obj.name if net_name.empty?
-
-              if !net_name.empty?
-                target_name = net_name
-              elsif net_map[net_obj]
-                target_name = net_map[net_obj][:name]
-              else
-                c_id = net_obj.cluster_id rescue nil
-                matched = net_map.find do |n, info|
-                  n == net_obj || (c_id && n.respond_to?(:cluster_id) && n.cluster_id == c_id)
+          # CrossReference が取得できている場合のみ照合
+          if cross_ref && cross_ref.respond_to?(:device_pair_for_device)
+            begin
+              dev_pair = cross_ref.device_pair_for_device(device)
+              if dev_pair
+                sch_dev = (dev_pair.first == device) ? dev_pair.second : dev_pair.first
+                if sch_dev
+                  sch_name = sch_dev.expanded_name
+                  sch_name = sch_dev.name if sch_name.empty?
+                  ref_name = sch_name unless sch_name.empty?
                 end
-                target_name = matched[1][:name] if matched
               end
+            rescue => e
             end
           end
 
-          pins_nets[term_name] = target_name
+          device_class = device.device_class.name
+          pos_x_mm = device.trans.disp.x * dbu
+          pos_y_mm = device.trans.disp.y * dbu
+
+          pins_nets = {}
+
+          # ピン接続情報
+          device.device_class.terminal_definitions.each do |term_def|
+            term_name = term_def.name
+            dev_term = device.net_for_terminal(term_def.id)
+            target_name = "NC"
+
+            if dev_term
+              net_obj = dev_term.respond_to?(:net) ? dev_term.net : dev_term
+
+              if net_obj && net_obj.is_a?(RBA::Net)
+                net_name = net_obj.expanded_name
+                net_name = net_obj.name if net_name.empty?
+
+                if !net_name.empty?
+                  target_name = net_name
+                elsif net_map[net_obj]
+                  target_name = net_map[net_obj][:name]
+                else
+                  c_id = net_obj.cluster_id rescue nil
+                  matched = net_map.find do |n, info|
+                    n == net_obj || (c_id && n.respond_to?(:cluster_id) && n.cluster_id == c_id)
+                  end
+                  target_name = matched[1][:name] if matched
+                end
+              end
+            end
+
+            pins_nets[term_name] = target_name
+          end
+
+          device_data_list << {
+            ref:     ref_name,
+            fp_name: device_class,
+            x:       pos_x_mm,
+            y:       pos_y_mm,
+            pins:    pins_nets
+          }
         end
+      end
 
-        device_data_list << {
-          ref:     ref_name,
-          fp_name: device_class,
-          x:       pos_x_mm,
-          y:       pos_y_mm,
-          pins:    pins_nets
-        }
+      # 4. 返却形式
+      {
+        nets:     net_list.uniq,
+        devices:  device_data_list,
+        segments: wire_segments,
+        zones:    zone_polygons
+      }
+    end
+
+    def map_klayout_layer_to_kicad(layer_num)
+      case layer_num
+      when 1 then "F.Cu"
+      when 2 then "B.Cu"
+      else "F.Cu"
       end
     end
-
-    # 4. 返却形式
-    {
-      nets:     net_list.uniq,
-      devices:  device_data_list,
-      segments: wire_segments,
-      zones:    zone_polygons
-    }
   end
 
-  def map_klayout_layer_to_kicad(layer_num)
-    case layer_num
-    when 1 then "F.Cu"
-    when 2 then "B.Cu"
-    else "F.Cu"
-    end
-  end
-end
-
-  def self::gds_to_pcb(lvs_data=nil, ml1=nil, ml2=nil, rsf=1.0, pads_file=nil)
-    include RBA
-    include MinedaPCellCommonModule
-    mw = Application.instance.main_window
-    view = mw.current_view
-    if view
-      layout = view.active_cellview.layout
-      top_cell = view.active_cellview.cell
+    def self::gds_to_pcb(lvs_data=nil, ml1=nil, ml2=nil, rsf=1.0, pads_file=nil)
+      include RBA
+      include MinedaPCellCommonModule
+      mw = Application.instance.main_window
+      view = mw.current_view
+      if view
+        layout = view.active_cellview.layout
+        top_cell = view.active_cellview.cell
       #  top_cell = layout.cell("TOP") || layout.create_cell("TOP")
-    else
-      layout = Layout.new
-      layout.dbu = 0.001
-      top_cell = layout.create_cell(gds_file)
-    end
-    fp_lib_table_file = top_cell.property('fp-lib-table')
-    if fp_lib_table_file && File.exist?(fp_lib_table_file)
-      require 'sxp'
-      fp_lib_table = File.read(fp_lib_table_file)
-      puts 'fp_lib_table:', fp_lib_table.inspect
-      flt = SXP.read(fp_lib_table)
-      lib = flt.assoc(:lib)
-      pretty_lib = lib.assoc(:name)[1]
-      pretty_dir = lib.assoc(:uri)[1]
-    else
-      pretty_lib = top_cell.property('pretty_lib')
-      pretty_dir = top_cell.property('pretty_dir')
-      if pretty_lib.nil?
-        pretty_dir = File.dirname(view.active_cellview.filename)
-        pretty_lib = File.basename(pretty_dir).sub(File.extname(pretty_dir), '')
+      else
+        layout = Layout.new
+        layout.dbu = 0.001
+        top_cell = layout.create_cell(gds_file)
       end
+      fp_lib_table_file = top_cell.property('fp-lib-table')
+      if fp_lib_table_file && File.exist?(fp_lib_table_file)
+        require 'sxp'
+        fp_lib_table = File.read(fp_lib_table_file)
+        puts 'fp_lib_table:', fp_lib_table.inspect
+        flt = SXP.read(fp_lib_table)
+        lib = flt.assoc(:lib)
+        pretty_lib = lib.assoc(:name)[1]
+        pretty_dir = lib.assoc(:uri)[1]
+      else
+        pretty_lib = top_cell.property('pretty_lib')
+        pretty_dir = top_cell.property('pretty_dir')
+        if pretty_lib.nil?
+          pretty_dir = File.dirname(view.active_cellview.filename)
+          pretty_lib = File.basename(pretty_dir).sub(File.extname(pretty_dir), '')
+        end
+      end
+      puts "Execute GDS to PCB conversion at pretty_dir=#{pretty_dir}"
+      filename = view.active_cellview.filename 
+      pcb_file = File.join(File.dirname(filename), File.basename(filename).sub(File.extname(filename), '') + '.kicad_pcb')
+      mpc = MinedaPCellCommon.new
+      mpc.set_technology(view ? view.active_cellview.technology : "")
+      mpc.set_layer_index
+      layers = {}
+      begin
+        layers["F.Cu"] = layout.layer(mpc.get_layer_index('ML1', false), 0)
+        layers["B.Cu"] = layout.layer(mpc.get_layer_index('ML2', false), 0)
+        layers["Via"]  = layout.layer(mpc.get_layer_index('VIA1', false), 0)
+        layers["TEXT"] = layout.layer(mpc.get_layer_index('TEXT', false), 0)
+      rescue => e
+        puts "Layer setup error: #{e.message}"
+        exit
+      end
+      pcell_lib = ('PCells_' + view.active_cellview.technology).sub('PCells_OpenRule1um', 'PCells')
+      #library = Library.library_by_name(pcell_lib) || raise("Library '#{pcell_lib}' not found")
+      kc = KiCadGenerator.new layout, pretty_dir, pretty_lib, layers, lvs_data, ml1, ml2, rsf, pads_file
+      pads_file = File.join(File.dirname(filename), File.basename(filename).sub(File.extname(filename), '') + '_pads.yaml')
+      kicad_elements, segments = kc.convert_cell_to_kicad_footprint top_cell, Trans::R0, pcb_file, pads_file
+      #Dir.chdir(pretty_dir){
+      #  kc.generate_mirrorY_footprints
+      #}
     end
-    puts "Execute GDS to PCB conversion at pretty_dir=#{pretty_dir}"
-    filename = view.active_cellview.filename 
-    pcb_file = File.join(File.dirname(filename), File.basename(filename).sub(File.extname(filename), '') + '.kicad_pcb')
-    mpc = MinedaPCellCommon.new
-    mpc.set_technology(view ? view.active_cellview.technology : "")
-    mpc.set_layer_index
-    layers = {}
-    begin
-      layers["F.Cu"] = layout.layer(mpc.get_layer_index('ML1', false), 0)
-      layers["B.Cu"] = layout.layer(mpc.get_layer_index('ML2', false), 0)
-      layers["Via"]  = layout.layer(mpc.get_layer_index('VIA1', false), 0)
-      layers["TEXT"] = layout.layer(mpc.get_layer_index('TEXT', false), 0)
-    rescue => e
-      puts "Layer setup error: #{e.message}"
-      exit
-    end
-    pcell_lib = ('PCells_' + view.active_cellview.technology).sub('PCells_OpenRule1um', 'PCells')
-    #library = Library.library_by_name(pcell_lib) || raise("Library '#{pcell_lib}' not found")
-    kc = KiCadGenerator.new layout, pretty_dir, pretty_lib, layers, lvs_data, ml1, ml2, rsf, pads_file
-    pads_file = File.join(File.dirname(filename), File.basename(filename).sub(File.extname(filename), '') + '_pads.yaml')
-    kicad_elements, segments = kc.convert_cell_to_kicad_footprint top_cell, Trans::R0, pcb_file, pads_file
-    #Dir.chdir(pretty_dir){
-    #  kc.generate_mirrorY_footprints
-    #}
   end
-end
