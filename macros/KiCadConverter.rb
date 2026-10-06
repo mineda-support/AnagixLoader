@@ -308,7 +308,7 @@ module KiCadConverter
         pos_y = ((y * SCALE) + @offset_y).round(6)
 
         uuid = SecureRandom.uuid
-        fp_body = get_footprint_body(fp_name, mirror, Trans.new(angle, false, ((x/@rsf)/@layout.dbu).to_i, (-(y/@rsf)/@layout.dbu).to_i))
+        fp_body = get_footprint_body(fp_name, ref, Trans.new(angle, false, ((x/@rsf)/@layout.dbu).to_i, (-(y/@rsf)/@layout.dbu).to_i))
         sexpr = ''
         sexpr << "  (footprint \"#{lib_name}:#{fp_name}\" (at #{pos_x} #{pos_y} #{rot}) (layer \"F.Cu\")\n"
         sexpr << "    (tstamp \"#{uuid}\")\n"
@@ -766,7 +766,7 @@ EOF
         name, x, y, w = p
         @kicad && via1_to_kicad_TH(i+1, Box.new(x - w/2, -(y - w/2), x + w/2, -(y + w/2)))
       }
-      footprint_name = cell.name
+     footprint_name = cell.name
       s_expr =  "(footprint \"#{footprint_name}\"\n"
       s_expr += "  (version 20240101)\n"
       s_expr += "  (generator \"KLayout_Ruby_Script\")\n"
