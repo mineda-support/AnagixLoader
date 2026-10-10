@@ -1,6 +1,6 @@
 # coding: utf-8
 # $priority: 1
-# Mineda Common v1.422 Sep, 26th 2026
+# Mineda Common v1.423 Oct. 10th 2026
 #   Force on-grid v0.1 July 39th 2022 copy right S. Moriyama (Anagix Corp.)
 #   LVS preprocessor(get_reference) v0.87 Sep. 26th, 2026 copyright by S. Moriyama (Anagix Corporation)
 #   * ConvertPCells and PCellDefaults moved from MinedaPCell v0.4 Nov. 22nd 2022
@@ -9,7 +9,7 @@
 #   PCellTest v0.2 August 22nd 2022 S. Moriyama
 #   DRC_helper::find_cells_to_exclude v0.1 Sep 23rd 2022 S. Moriyama
 #   MinedaInput v0.51 Aug. 31st, 2026 S. Moriyama
-#   MinedaPCellCommon v0.391 Sep. 29th, 2026 S. Moriyama
+#   MinedaPCellCommon v0.392 Oct. 10th, 2026 S. Moriyama
 #   Create Backannotation data v0.171 May 14th 2023 S. Moriyama
 #   MinedaAutoplace v0.44 Aug. 1st 2026 S. Moriyama
 #   ChangePCellParameters v0.1 July 29th 2023 S. Moriyama
@@ -488,7 +488,20 @@ module MinedaPCellCommonModule
       new_area[2] = new_area[2] + delta_x
       new_area[3] = new_area[3] + delta_y
       new_area
-    end 
+    end
+    
+    def create_ring_using_box layer, rectangle, encl, width
+      x1, y1, x2, y2 = rectangle.zip([-encl, -encl, encl, encl]).map { |x, y| x + y }
+      start_x = (x1 + x2)/2
+      start_y = y1
+      points = [[start_x, start_y], 
+                [x2, y1],[x2, y2], [x1, y2], [x1, y1], [start_x, start_y],
+                [start_x, start_y-width],
+                [x1-width, y1-width], [x1-width, y2+width], [x2+width, y2+width], [x2+width, y1-width],
+                [start_x, start_y-width]].map{|a| Point::new(a[0], a[1])}
+      cell.shapes(layer).insert(Polygon::new(points)) 
+    end
+    
     ### class variables for PCell classes
     @vs = @u1 = nil
     def self.vs
