@@ -300,6 +300,9 @@ module KiCadConverter
         x = item[1].to_f     # X座標
         y = item[2].to_f     # Y座標
         fp_name = item[3]    # フットプリント名 (e.g., Pch.M0l2.0w6.0m1)
+        unless File.exist?(mod_path = File.join(@pretty_dir, "#{fp_name}.kicad_mod"))
+          raise "Weird: #{mod_path} does not exist!!!"
+        end        
         rot = item[4]
         angle, mirror = rot_to_am(rot.to_f, false)
         # KiCadの座標系（通常はmm）。
@@ -327,13 +330,7 @@ module KiCadConverter
     
     # フットプリントファイル(.kicad_mod)から中身（形状部分）を抽出する関数
     def get_footprint_body(fp_name, ref, trans)
-      mod_path = File.join(@pretty_dir, "#{fp_name}.kicad_mod")
-      unless File.exist?(mod_path)
-        puts "Weird: #{mod_path} does not exist!!!"
-        return ""
-      end
-
-      lines = File.read(mod_path)
+      lines = File.read(mod_path = File.join(@pretty_dir, "#{fp_name}.kicad_mod"))
       lines.sub!(/fp_text reference \"\S+\"/, "fp_text reference \"#{ref}\"")
       # 最初の行 (footprint ...) と最後の行 ) を除いた、中身の行だけを結合する
       body_lines = lines.split("\n")[1...-1]
@@ -609,9 +606,9 @@ EOF
       nil
     end  
     
-    def convert_cell_to_kicad_footprint cell, trans = Trans::R0, pcb_file, pads_file 
+    def convert_cell_to_kicad_footprint cell, trans = Trans::R0, pcb_file=nil, pads_file=nil
       pcb_file ||= File.join(@pretty_dir, cell.name + '.kicad_mod')
-      padsfile ||= File.join(@pretty_dir, cell.name + '.yaml')
+      pads_file ||= File.join(@pretty_dir, cell.name + '.yaml')
       kicad_elements = {}
       count = 0
       segments = ''
@@ -637,6 +634,7 @@ EOF
             kicad_cell_name << "_#{options}" if options.length >= 7
           else # static cell like one in standard cell library
             kicad_cell_name = generate_cell_footprint(inst.cell)
+            next if kicad_cell_name.nil?
           end  
           infile = File.join(@pretty_dir, kicad_cell_name) + '.kicad_mod'
           if File.exist?(infile)
@@ -674,6 +672,7 @@ EOF
         elsif inst.is_regular_array?
           puts "#(inst.name} is regular array"
         else
+          pcb_file = File.join(@pretty_dir, inst.cell.name + '.kicad_pcb')
           k_e = convert_cell_to_kicad_footprint inst.cell, trans*inst.trans
           kicad_elements.merge! k_e
         end
@@ -762,11 +761,15 @@ EOF
     def generate_cell_footprint cell
       @kicad = ''
       pins = extract_cell_pins cell
+      if pins.size == 0
+        puts "#{cell.name} footprint is not generated"
+        return nil
+      end
       pins.each_with_index{|p, i|
         name, x, y, w = p
         @kicad && via1_to_kicad_TH(i+1, Box.new(x - w/2, -(y - w/2), x + w/2, -(y + w/2)))
       }
-     footprint_name = cell.name
+      footprint_name = cell.name
       s_expr =  "(footprint \"#{footprint_name}\"\n"
       s_expr += "  (version 20240101)\n"
       s_expr += "  (generator \"KLayout_Ruby_Script\")\n"
