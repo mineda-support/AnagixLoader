@@ -220,6 +220,10 @@ module KiCadConverter
       my_file = new_fp_name + '.kicad_mod'
       #file = fp_name + '.kicad_mod'
       file = "#{fp_name}.kicad_mod"
+      unless File.exist?(File.join(@pretty_dir, file))
+        puts "#{file} does not exist!"
+        return
+      end
       content = File.read(File.join(@pretty_dir, file), encoding: 'utf-8')
       content.sub!(/^(\s*\(footprint\s+)"[^"]+"/) do
         "#{$1}\"#{new_fp_name}\""
@@ -301,7 +305,12 @@ module KiCadConverter
         y = item[2].to_f     # Y座標
         fp_name = item[3]    # フットプリント名 (e.g., Pch.M0l2.0w6.0m1)
         unless File.exist?(mod_path = File.join(@pretty_dir, "#{fp_name}.kicad_mod"))
-          raise "Weird: #{mod_path} does not exist!!!"
+          if File.exist?(pcb_file = File.join(@pretty_dir, "#{fp_name}.kicad_pcb"))
+            pcb_to_mod pcb_file
+          else
+            puts "Weird: #{mod_path} does not exist!!!"
+            next
+          end
         end        
         rot = item[4]
         angle, mirror = rot_to_am(rot.to_f, false)
@@ -607,7 +616,7 @@ EOF
     end  
     
     def convert_cell_to_kicad_footprint cell, trans = Trans::R0, pcb_file=nil, pads_file=nil
-      pcb_file ||= File.join(@pretty_dir, cell.name + '.kicad_mod')
+      pcb_file ||= File.join(@pretty_dir, cell.name + '.kicad_pcb')
       pads_file ||= File.join(@pretty_dir, cell.name + '.yaml')
       kicad_elements = {}
       count = 0
@@ -615,6 +624,7 @@ EOF
       cell.each_inst{|inst|
         #top_cell.begin_instances_rec.each{|iter|
         #  inst = iter.inst_cell
+        next if kicad_elements[inst.cell.name]
         puts "#{inst.cell.name}(#{inst.property('name') || inst.property(1)}): #{(trans*inst.trans).to_s}"
         if inst.cell.is_library_cell?
           if inst.is_pcell?
@@ -636,6 +646,13 @@ EOF
             kicad_cell_name = generate_cell_footprint(inst.cell)
             next if kicad_cell_name.nil?
           end  
+        elsif inst.is_regular_array?
+          puts "#(inst.name} is regular array"
+        else
+          kicad_cell_name = inst.cell.name
+          #pcb_file = File.join(@pretty_dir, kicad_cell_name + '.kicad_pcb')
+          convert_cell_to_kicad_footprint inst.cell, trans*inst.trans
+        end
           infile = File.join(@pretty_dir, kicad_cell_name) + '.kicad_mod'
           if File.exist?(infile)
             count = count + 1
@@ -662,20 +679,8 @@ EOF
                     warn "未知の変換指示です: #{rot}"
                     0
                   end 
-          #inst.cell_inst.each_trans{|trans2|
-          #  kicad_elements[name] = [((trans*trans2).disp.x*@layout.dbu).round(6), (-((trans*trans2).disp.y)*@layout.dbu).round(6), 
-          #                          kicad_cell_name, angle]
-          #}
           kicad_elements[name] = [(inst.trans.disp.x*@layout.dbu).round(6), (-(inst.trans.disp.y)*@layout.dbu).round(6), 
                                   kicad_cell_name, angle]
-        #end
-        elsif inst.is_regular_array?
-          puts "#(inst.name} is regular array"
-        else
-          pcb_file = File.join(@pretty_dir, inst.cell.name + '.kicad_pcb')
-          k_e = convert_cell_to_kicad_footprint inst.cell, trans*inst.trans
-          kicad_elements.merge! k_e
-        end
       }
       # kicad_elements
       puts 'kicad_elements=', kicad_elements.inspect
@@ -1177,60 +1182,233 @@ EOF
     end
   end
 
-    def self::gds_to_pcb(lvs_data=nil, ml1=nil, ml2=nil, rsf=1.0, pads_file=nil)
-      include RBA
-      include MinedaPCellCommonModule
-      mw = Application.instance.main_window
-      view = mw.current_view
-      if view
-        layout = view.active_cellview.layout
-        top_cell = view.active_cellview.cell
-      #  top_cell = layout.cell("TOP") || layout.create_cell("TOP")
-      else
-        layout = Layout.new
-        layout.dbu = 0.001
-        top_cell = layout.create_cell(gds_file)
+  def self::gds_to_pcb(lvs_data=nil, ml1=nil, ml2=nil, rsf=1.0, pads_file=nil)
+    include RBA
+    include MinedaPCellCommonModule
+    mw = Application.instance.main_window
+    view = mw.current_view
+    if view
+      layout = view.active_cellview.layout
+      top_cell = view.active_cellview.cell
+    #  top_cell = layout.cell("TOP") || layout.create_cell("TOP")
+    else
+      layout = Layout.new
+      layout.dbu = 0.001
+      top_cell = layout.create_cell(gds_file)
+    end
+    fp_lib_table_file = top_cell.property('fp-lib-table')
+    if fp_lib_table_file && File.exist?(fp_lib_table_file)
+      require 'sxp'
+      fp_lib_table = File.read(fp_lib_table_file)
+      puts 'fp_lib_table:', fp_lib_table.inspect
+      flt = SXP.read(fp_lib_table)
+      lib = flt.assoc(:lib)
+      pretty_lib = lib.assoc(:name)[1]
+      pretty_dir = lib.assoc(:uri)[1]
+    else
+      pretty_lib = top_cell.property('pretty_lib')
+      pretty_dir = top_cell.property('pretty_dir')
+      if pretty_lib.nil?
+        pretty_dir = File.dirname(view.active_cellview.filename)
+        pretty_lib = File.basename(pretty_dir).sub(File.extname(pretty_dir), '')
       end
-      fp_lib_table_file = top_cell.property('fp-lib-table')
-      if fp_lib_table_file && File.exist?(fp_lib_table_file)
-        require 'sxp'
-        fp_lib_table = File.read(fp_lib_table_file)
-        puts 'fp_lib_table:', fp_lib_table.inspect
-        flt = SXP.read(fp_lib_table)
-        lib = flt.assoc(:lib)
-        pretty_lib = lib.assoc(:name)[1]
-        pretty_dir = lib.assoc(:uri)[1]
+    end
+    puts "Execute GDS to PCB conversion at pretty_dir=#{pretty_dir}"
+    filename = view.active_cellview.filename 
+    pcb_file = File.join(File.dirname(filename), File.basename(filename).sub(File.extname(filename), '') + '.kicad_pcb')
+    mpc = MinedaPCellCommon.new
+    mpc.set_technology(view ? view.active_cellview.technology : "")
+    mpc.set_layer_index
+    layers = {}
+    begin
+      layers["F.Cu"] = layout.layer(mpc.get_layer_index('ML1', false), 0)
+      layers["B.Cu"] = layout.layer(mpc.get_layer_index('ML2', false), 0)
+      layers["Via"]  = layout.layer(mpc.get_layer_index('VIA1', false), 0)
+      layers["TEXT"] = layout.layer(mpc.get_layer_index('TEXT', false), 0)
+    rescue => e
+      puts "Layer setup error: #{e.message}"
+      exit
+    end
+    pcell_lib = ('PCells_' + view.active_cellview.technology).sub('PCells_OpenRule1um', 'PCells')
+    #library = Library.library_by_name(pcell_lib) || raise("Library '#{pcell_lib}' not found")
+    kc = KiCadGenerator.new layout, pretty_dir, pretty_lib, layers, lvs_data, ml1, ml2, rsf, pads_file
+    pads_file = File.join(File.dirname(filename), File.basename(filename).sub(File.extname(filename), '') + '_pads.yaml')
+    kicad_elements, segments = kc.convert_cell_to_kicad_footprint top_cell, Trans::R0, pcb_file, pads_file
+    #Dir.chdir(pretty_dir){
+    #  kc.generate_mirrorY_footprints
+    #}
+  end
+    
+  def parse_s_expression(str)
+    tokens = str.scan(/[()]|"(?:[^"\\]|\\.)*"|[^\s()]+/ )
+    stack = [[]]
+    tokens.each do |token|
+      case token
+      when '('
+        new_list = []
+        stack.last << new_list
+        stack << new_list
+      when ')'
+        stack.pop
       else
-        pretty_lib = top_cell.property('pretty_lib')
-        pretty_dir = top_cell.property('pretty_dir')
-        if pretty_lib.nil?
-          pretty_dir = File.dirname(view.active_cellview.filename)
-          pretty_lib = File.basename(pretty_dir).sub(File.extname(pretty_dir), '')
+        val = token.start_with?('"') ? token[1...-1] : token
+        stack.last << val
+      end
+    end
+    stack.first.first
+  end
+  def write_footprint(file_path, cell_name, w, h, graphics, pads)
+    s_expr =  "(footprint \"#{cell_name}\"\n"
+    s_expr += "  (version 20240101)\n"
+    s_expr += "  (generator \"KiCad_SXP_INV_Generator_Full_Fixed\")\n"
+    s_expr += "  (layer \"F.Cu\")\n"
+    s_expr += "  (descr \"Upper-level macro cell for Floorplan\")\n"
+    s_expr += "  (fp_rect (start #{-w/2} #{-h/2}) (end #{w/2} #{h/2}) (stroke (width 0.1) (type solid)) (fill none) (layer \"F.Fab\"))\n"
+    s_expr += graphics
+    s_expr += pads
+    s_expr += ")\n"
+    File.write(file_path, s_expr)
+  end
+
+  def pcb_to_mod kicad_pcb_file
+    unless File.exist?(kicad_pcb_file)
+      puts "エラー: #{kicad_pcb_file} が見つかりません。"
+      return
+    end
+    kicad_mod.file = File.basename(kicad_pcb_file).sub('.kicad_pcb', '.kicad_mod')
+    pcb_content = File.read(kicad_pcb_file)
+
+    parsed_pcb = parse_s_expression(pcb_content)
+    return if parsed_pcb.nil?
+
+    x_coords, y_coords, mos_data, segments = [], [], [], []
+
+    parsed_pcb.each do |node|
+      next unless node.is_a?(Array)
+      if node[0] == "footprint" && node[1] =~ /MyCustomLibrary:(Nch|Pch)/
+        pcell_name = $1
+        mos_x, mos_y = 0.0, 0.0
+        polygons, pads = [], []
+        node.each do |child|
+          next unless child.is_a?(Array)
+          if child[0] == "at"
+            mos_x = child[1].to_f
+            mos_y = child[2].to_f
+          end
+          polygons << child if child[0] == "fp_poly"
+          pads << child if child[0] == "pad"
+        end
+        x_coords << mos_x; y_coords << mos_y
+        mos_data << { name: pcell_name, x: mos_x, y: mos_y, polys: polygons, pads: pads }
+      end
+      if node[0] == "segment"
+        s = node.find{|c| c.is_a?(Array) && c[0] == "start"}
+        e = node.find{|c| c.is_a?(Array) && c[0] == "end"}
+        if s && e
+          x_coords << s[1].to_f << e[1].to_f; y_coords << s[2].to_f << e[2].to_f
+          segments << { x1: s[1].to_f, y1: s[2].to_f, x2: e[1].to_f, y2: e[2].to_f }
         end
       end
-      puts "Execute GDS to PCB conversion at pretty_dir=#{pretty_dir}"
-      filename = view.active_cellview.filename 
-      pcb_file = File.join(File.dirname(filename), File.basename(filename).sub(File.extname(filename), '') + '.kicad_pcb')
-      mpc = MinedaPCellCommon.new
-      mpc.set_technology(view ? view.active_cellview.technology : "")
-      mpc.set_layer_index
-      layers = {}
-      begin
-        layers["F.Cu"] = layout.layer(mpc.get_layer_index('ML1', false), 0)
-        layers["B.Cu"] = layout.layer(mpc.get_layer_index('ML2', false), 0)
-        layers["Via"]  = layout.layer(mpc.get_layer_index('VIA1', false), 0)
-        layers["TEXT"] = layout.layer(mpc.get_layer_index('TEXT', false), 0)
-      rescue => e
-        puts "Layer setup error: #{e.message}"
-        exit
-      end
-      pcell_lib = ('PCells_' + view.active_cellview.technology).sub('PCells_OpenRule1um', 'PCells')
-      #library = Library.library_by_name(pcell_lib) || raise("Library '#{pcell_lib}' not found")
-      kc = KiCadGenerator.new layout, pretty_dir, pretty_lib, layers, lvs_data, ml1, ml2, rsf, pads_file
-      pads_file = File.join(File.dirname(filename), File.basename(filename).sub(File.extname(filename), '') + '_pads.yaml')
-      kicad_elements, segments = kc.convert_cell_to_kicad_footprint top_cell, Trans::R0, pcb_file, pads_file
-      #Dir.chdir(pretty_dir){
-      #  kc.generate_mirrorY_footprints
-      #}
     end
+
+    if x_coords.empty?
+      puts "エラー: 座標データを抽出できませんでした。"
+      return
+    end
+
+#      inv_cx = ((x_coords.min + x_coords.max) / 2.0).round(4)
+#      inv_cy = ((y_coords.min + y_coords.max) / 2.0).round(4)
+
+# --- 4パターンのグラフィックス構築 ---
+#  g_n, g_m, g_ud, g_mud = "", "", "", ""
+    macro_ports = { "IN" => [], "OUT" => [], "VDD" => [], "VSS" => [] }
+
+    mos_data.each do |m|
+      mos_x, mos_y = m[:x], m[:y]
+      m[:polys].each do |poly|
+        pts_node = poly.find { |c| c.is_a?(Array) && c[0] == "pts" }
+        layer_node = poly.find { |c| c.is_a?(Array) && c[0] == "layer" }
+        layer = layer_node ? layer_node[1] : "F.SilkS"
+        stroke_node = poly.find { |c| c.is_a?(Array) && c[0] == "stroke" }
+        stroke_type = stroke_node ? (stroke_node.find { |c| c.is_a?(Array) && c[0] == "type" } ? stroke_node.find { |c| c.is_a?(Array) && c[0] == "type" }[1] : "solid") : "solid"
+        fill_node = poly.find { |c| c.is_a?(Array) && c[0] == "fill" }
+        fill_type = fill_node ? fill_node[1] : "none"
+        next unless pts_node
+
+        pt_n = ""
+        pts_node.each do |xy|
+          next unless xy.is_a?(Array) && xy[0] == "xy"
+          rx = (mos_x + xy[1].to_f - inv_cx).round(4)
+          ry = (mos_y + xy[2].to_f - inv_cy).round(4)
+          pt_n   += " (xy #{rx} #{ry})"
+        end
+
+        unless pt_n.empty?
+          s_stroke = stroke_type.include?("dash") ? "dash" : "solid"
+          s_fill   = fill_type.include?("yes") ? "solid" : "none"
+          poly_fmt = "  (fp_poly (pts%s) (stroke (width 0.05) (type #{s_stroke})) (fill #{s_fill}) (layer \"#{layer}\"))\n"
+          g_n   += sprintf(poly_fmt, pt_n)
+        end
+      end
+
+        # 💡 内部パッドの確実な座標回収処理
+      m[:pads].each do |pad|
+        pin_num = pad[1].to_s
+        at_node = pad.find { |c| c.is_a?(Array) && c[0] == "at" }
+        next unless at_node
+        abs_pad_x = mos_x + at_node[1].to_f
+        abs_pad_y = mos_y + at_node[2].to_f
+        if m[:name] == "Nch"
+          macro_ports["IN"]  << [abs_pad_x, abs_pad_y] if pin_num == "2"
+          macro_ports["VSS"] << [abs_pad_x, abs_pad_y] if pin_num == "3"
+        elsif m[:name] == "Pch"
+          macro_ports["OUT"] << [abs_pad_x, abs_pad_y] if pin_num == "1"
+          macro_ports["VDD"] << [abs_pad_x, abs_pad_y] if pin_num == "3"
+        end
+      end
+
+      lx = (mos_x - inv_cx).round(4)
+      ly = (mos_y - inv_cy).round(4)
+      txt_fmt = "  (fp_text user \"#{m[:name]}\" (at %s %s 0) (layer \"F.Fab\") (effects (font (size 0.5 0.5) (thickness 0.08))))\n"
+      g_n   += sprintf(txt_fmt, lx, ly + 2.5)
+    end
+
+    segments.each do |seg|
+      rx1, ry1 = (seg[:x1] - inv_cx).round(4), (seg[:y1] - inv_cy).round(4)
+      rx2, ry2 = (seg[:x2] - inv_cx).round(4), (seg[:y2] - inv_cy).round(4)
+      line_fmt = "  (fp_line (start %s %s) (end %s %s) (stroke (width 0.12) (type solid)) (layer \"F.SilkS\"))\n"
+      g_n   += sprintf(line_fmt, rx1, ry1, rx2, ry2)
+    end
+
+    # 💡【重要修正】二次元配列の計算バグ(NoMethodError)を完全に排除した平均値計算
+    get_coord = lambda do |ports, key|
+      pts = ports[key]
+      return [0.0, 0.0] if pts.empty?
+      xs = pts.map { |p| p[0].to_f }
+      ys = pts.map { |p| p[1].to_f }
+  [    (xs.sum / pts.size).round(4), (ys.sum / pts.size).round(4)]
+    end
+    in_x, in_y   = get_coord.call(macro_ports, "IN")
+    out_x, out_y = get_coord.call(macro_ports, "OUT")
+    vdd_x, vdd_y = get_coord.call(macro_ports, "VDD")
+    vss_x, vss_y = get_coord.call(macro_ports, "VSS")
+    p_in_x, p_in_y   = (in_x - inv_cx).round(4), (in_y - inv_cy).round(4)
+    p_out_x, p_out_y = (out_x - inv_cx).round(4), (out_y - inv_cy).round(4)
+    p_vdd_x, p_vdd_y = (vdd_x - inv_cx).round(4), (vdd_y - inv_cy).round(4)
+    p_vss_x, p_vss_y = (get_coord.call(macro_ports, "VSS")[0] - inv_cx).round(4), (get_coord.call(macro_ports, "VSS")[1] - inv_cy).round(4)
+
+    inv_w = (x_coords.max - x_coords.min + 4.0).round(4)
+    inv_h = (y_coords.max - y_coords.min + 4.0).round(4)
+
+    # 各パターンの外部パッド文字列の精緻な構築
+    pad_fmt = "  (pad \"1\" smd rect (at %s %s) (size 1.5 1.5) (layers \"F.Cu\" \"F.Paste\" \"F.Mask\"))\n" +
+              "  (pad \"2\" smd rect (at %s %s) (size 1.5 1.5) (layers \"F.Cu\" \"F.Paste\" \"F.Mask\"))\n" +
+              "  (pad \"3\" smd rect (at %s %s) (size 3.0 1.0) (layers \"F.Cu\" \"F.Paste\" \"F.Mask\"))\n" +
+              "  (pad \"4\" smd rect (at %s %s) (size 3.0 1.0) (layers \"F.Cu\" \"F.Paste\" \"F.Mask\"))\n"
+    pads_n   = sprintf(pad_fmt, p_in_x, p_in_y, p_out_x, p_out_y, p_vdd_x, p_vdd_y, p_vss_x, p_vss_y)    
+    # ライブラリへの4ファイル同時保存
+    write_footprint("#{@pretty_dir}/#{kicad_mod_file}", kicad_mod.file.sub('.kicad_mod', ''), inv_w, inv_h, g_n, pads_n)
+
+    puts "● 成功: マクロを完璧に同時生成しました！"
   end
+end
