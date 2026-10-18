@@ -1,6 +1,6 @@
 # coding: utf-8
 # $priority: 1
-# Mineda Common v1.423 Oct. 10th 2026
+# Mineda Common v1.43 Oct. 18th 2026
 #   Force on-grid v0.1 July 39th 2022 copy right S. Moriyama (Anagix Corp.)
 #   LVS preprocessor(get_reference) v0.87 Sep. 26th, 2026 copyright by S. Moriyama (Anagix Corporation)
 #   * ConvertPCells and PCellDefaults moved from MinedaPCell v0.4 Nov. 22nd 2022
@@ -11,7 +11,7 @@
 #   MinedaInput v0.51 Aug. 31st, 2026 S. Moriyama
 #   MinedaPCellCommon v0.392 Oct. 10th, 2026 S. Moriyama
 #   Create Backannotation data v0.171 May 14th 2023 S. Moriyama
-#   MinedaAutoplace v0.44 Aug. 1st 2026 S. Moriyama
+#   MinedaAutoplace v0.45 Oct. 18th 2026 S. Moriyama
 #   ChangePCellParameters v0.1 July 29th 2023 S. Moriyama
 #   MinedaBridge v0.1 Sep. 17 2023 S. Moriyama
 #   MinedaUtility v0.1 Aug. 8, 2025 S. Moriyama
@@ -2511,6 +2511,27 @@ class MinedaAutoPlace
       }
       if instance.nil?
         puts "#{name}(#{sym}): l=#{l} w=#{w} m=#{m ? m : 1} @ (#{x}, #{y}), #{rot}"
+          xpos = x*@xscale/@grid.to_i*@grid
+          ypos = (ymax - y)*@yscale/@grid.to_i*@grid
+          case rot
+          when 'R0'
+            trans = Trans.new(Trans::R0, xpos, ypos)
+          when 'R90'
+            trans = Trans.new(Trans::R90, xpos, ypos)
+          when 'R180'
+            trans = Trans.new(Trans::R180, xpos, ypos)
+          when 'R270'
+           trans = Trans.new(Trans::R270, xpos, ypos)
+          when 'M0'
+            trans = Trans.new(Trans::M90, xpos, ypos)
+          when 'M90'
+            trans = Trans.new(Trans::M45, xpos, ypos) # not sure
+          when 'M180'
+            trans = Trans.new(Trans::M0, xpos, ypos)
+          when 'M270'
+            trans = Trans.new(Trans::M135, xpos, ypos) # not sure
+          end        
+                
         if sym =~ /NMOS|nmos/ #  'MinedaLIB\\NMOS_MIN'
           index = nch_index
           force_ = @force['Nch'] || {}
@@ -2531,28 +2552,12 @@ class MinedaAutoPlace
         if index && l && w
           mos = instantiate index, 0, 0
           inst = @cell.insert(mos)
-          xpos = x*@xscale/@grid.to_i*@grid
-          ypos = (ymax - y)*@yscale/@grid.to_i*@grid
-          case rot
-          when 'R0'
-            inst.transform Trans.new(Trans::R0, xpos, ypos)
-          when 'R90'
-            inst.transform Trans.new(Trans::R90, xpos, ypos)
-          when 'R180'
-            inst.transform Trans.new(Trans::R180, xpos, ypos)
-          when 'R270'
-            inst.transform Trans.new(Trans::R270, xpos, ypos)
-          when 'M0'
-            inst.transform Trans.new(Trans::M90, xpos, ypos)
-          when 'M90'
-            inst.transform Trans.new(Trans::M45, xpos, ypos) # not sure
-          when 'M180'
-            inst.transform Trans.new(Trans::M0, xpos, ypos)
-          when 'M270'
-            inst.transform Trans.new(Trans::M135, xpos, ypos) # not sure
-          end
+        elsif layout.has_cell? sym
+          cell_index = layout.cell_by_name sym
+          inst = @cell.insert(RBA::CellInstArray.new(cell_index, trans))
         else
           puts "warning: instance #{name}(l=#{l} w=#{w}) does not have a valid symbol"
+          next
         end
       else
         inst = instance
@@ -2563,10 +2568,13 @@ class MinedaAutoPlace
         puts "Change #{name} to l=#{l}, w=#{w}, n=#{m}"
       end
       if inst
-        w, m = adjust(w, m, @wmax) if m
-        inst.change_pcell_parameter 'l', l
-        inst.change_pcell_parameter 'w', w
-        inst.change_pcell_parameter 'n', m if m
+        #inst.transform trans
+        if inst.is_pcell?
+          w, m = adjust(w, m, @wmax) if m
+          inst.change_pcell_parameter 'l', l
+          inst.change_pcell_parameter 'w', w
+          inst.change_pcell_parameter 'n', m if m
+        end
         inst.set_property 'name', name
         inst.set_property 1, name # to save in GDS format
         File.extname(@dir) == '.pretty' && Dir.chdir(@dir){
@@ -2584,7 +2592,7 @@ class MinedaAutoPlace
             kicad_elements[name] = [(x*layout.dbu).round(4), (y*layout.dbu).round(4), kicad_cell_rot]
           end
         }
-        force_.each_pair{|p, v|
+        inst.is_pcell? && force_.each_pair{|p, v|
           inst.change_pcell_parameter p.to_s, v
         }
       end
