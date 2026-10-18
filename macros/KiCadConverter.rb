@@ -468,9 +468,9 @@ EOF
       nil
     end  
     
-    def convert_cell_to_kicad_footprint cell, trans = Trans::R0, pcb_file=nil, pads_file=nil
-      pcb_file ||= File.join(@pretty_dir, cell.name + '.kicad_pcb')
-      pads_file ||= File.join(@pretty_dir, cell.name + '.yaml')
+    def convert_cell_to_kicad_footprint cell, trans = Trans::R0, l
+      pcb_file = File.join(@pretty_dir, cell.name + '.kicad_pcb')
+      pads_file = File.join(@pretty_dir, cell.name + '.yaml')
       kicad_elements = {}
       refs = {}
       count = 0
@@ -551,7 +551,7 @@ EOF
         offset_x = 0.0 if offset_x.abs < 30.0
         offset_y = 0.0 if offset_y.abs < 30.0
       else
-        offset_x = offset_y = 0
+        offset_x = offset_y = 0.0
       end   
       footprints, pads_location = generate_footprints kicad_elements, offset_x, offset_y, @pretty_lib # pcell_lib
 =begin
@@ -564,7 +564,7 @@ EOF
       File.open(pads_file, 'w'){|f| f.puts pads_location.to_yaml}
       segments = convert_paths_and_cells_to_kicad_segments cell
       write_pcb footprints, segments, pcb_file
-      puts "KiCad PCB successfully generated: #{pcb_file} for cell=#{cell.name}"
+      puts "KiCad PCB successfully generated: #{pcb_file}"
       puts "PADS location for #{cell.name} stored in #{pads_file}"
       kicad_elements   
     end
@@ -1282,7 +1282,7 @@ EOF
     end
     puts "Execute GDS to PCB conversion at pretty_dir=#{pretty_dir}"
     filename = view.active_cellview.filename 
-    pcb_file = File.join(File.dirname(filename), File.basename(filename).sub(File.extname(filename), '') + '.kicad_pcb')
+    # pcb_file = File.join(File.dirname(filename), File.basename(filename).sub(File.extname(filename), '') + '.kicad_pcb')
     mpc = MinedaPCellCommon.new
     mpc.set_technology(view ? view.active_cellview.technology : "")
     mpc.set_layer_index
@@ -1300,8 +1300,8 @@ EOF
     #library = Library.library_by_name(pcell_lib) || raise("Library '#{pcell_lib}' not found")
     kc = KiCadGenerator.new layout, pretty_dir, pretty_lib, layers, lvs_data, ml1, ml2, rsf, pads_file
 
-    pads_file = File.join(File.dirname(filename), File.basename(filename).sub(File.extname(filename), '') + '_pads.yaml')
-    kicad_elements, segments = kc.convert_cell_to_kicad_footprint top_cell, Trans::R0, pcb_file, pads_file
+    #pads_file = File.join(File.dirname(filename), File.basename(filename).sub(File.extname(filename), '') + '_pads.yaml')
+    kicad_elements, segments = kc.convert_cell_to_kicad_footprint top_cell, Trans::R0
     #Dir.chdir(pretty_dir){
     #  kc.generate_mirrorY_footprints
     #}
