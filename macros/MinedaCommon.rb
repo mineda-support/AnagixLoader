@@ -1,6 +1,6 @@
 # coding: utf-8
 # $priority: 1
-# Mineda Common v1.43 Oct. 18th 2026
+# Mineda Common v1.44 Oct. 20th 2026
 #   Force on-grid v0.1 July 39th 2022 copy right S. Moriyama (Anagix Corp.)
 #   LVS preprocessor(get_reference) v0.87 Sep. 26th, 2026 copyright by S. Moriyama (Anagix Corporation)
 #   * ConvertPCells and PCellDefaults moved from MinedaPCell v0.4 Nov. 22nd 2022
@@ -11,7 +11,7 @@
 #   MinedaInput v0.51 Aug. 31st, 2026 S. Moriyama
 #   MinedaPCellCommon v0.392 Oct. 10th, 2026 S. Moriyama
 #   Create Backannotation data v0.171 May 14th 2023 S. Moriyama
-#   MinedaAutoplace v0.45 Oct. 18th 2026 S. Moriyama
+#   MinedaAutoplace v0.46 Oct. 20th 2026 S. Moriyama
 #   ChangePCellParameters v0.1 July 29th 2023 S. Moriyama
 #   MinedaBridge v0.1 Sep. 17 2023 S. Moriyama
 #   MinedaUtility v0.1 Aug. 8, 2025 S. Moriyama
@@ -2479,7 +2479,7 @@ class MinedaAutoPlace
         m=($3 || 1).to_i # note: nil.to_i => 0
         elements << [@component[:name], @component[:symattr]['InstName'],
                   l, w, m ? m.to_i : 1, @component[:x], @component[:y], 
-                  @component[:rotation], xmax, ymax]
+                  @component[:rotation], xmax, ymax, inst['Sim.Pins']]
       }
       elements
     else
@@ -2497,7 +2497,7 @@ class MinedaAutoPlace
 
     kicad_elements = {}
     #each_element(@sch_file){|sym, name, l, w, m, x, y, rot, xmax, ymax|
-    get_elements(@sch_file).each{|sym, name, l, w, m, x, y, rot, xmax, ymax|
+    get_elements(@sch_file).each{|sym, name, l, w, m, x, y, rot, xmax, ymax, sim_pins|
       instance = nil
       force_ = {}
       if @params
@@ -2530,7 +2530,7 @@ class MinedaAutoPlace
             trans = Trans.new(Trans::M0, xpos, ypos)
           when 'M270'
             trans = Trans.new(Trans::M135, xpos, ypos) # not sure
-          end        
+        end        
                 
         if sym =~ /NMOS|nmos/ #  'MinedaLIB\\NMOS_MIN'
           index = nch_index
@@ -2569,16 +2569,17 @@ class MinedaAutoPlace
       end
       if inst
         #inst.transform trans
+        kicad_cell_name = inst.cell.name
         if inst.is_pcell?
           w, m = adjust(w, m, @wmax) if m
           inst.change_pcell_parameter 'l', l
           inst.change_pcell_parameter 'w', w
           inst.change_pcell_parameter 'n', m if m
+          kicad_cell_name = "#{inst.cell.name.sub(/\$.*$/,'')}.l#{l.round(4)}w#{w.round(4)}m#{m}"
         end
         inst.set_property 'name', name
         inst.set_property 1, name # to save in GDS format
         File.extname(@dir) == '.pretty' && Dir.chdir(@dir){
-          kicad_cell_name = "#{inst.cell.name.sub(/\$.*$/,'')}.l#{l.round(4)}w#{w.round(4)}m#{m}"
           infile = kicad_cell_name + '.kicad_mod'
           if File.exist?(infile)
             content = File.read(infile, encoding: 'utf-8')
@@ -2590,7 +2591,10 @@ class MinedaAutoPlace
             inst.set_property 2, kicad_cell_rot
             File.write(kicad_cell_rot + '.kicad_mod', result, encoding: 'utf-8')
             kicad_elements[name] = [(x*layout.dbu).round(4), (y*layout.dbu).round(4), kicad_cell_rot]
-          end
+
+            inst.set_property 'pins', sim_pins
+            inst.set_property 3, sim_pins
+         end
         }
         inst.is_pcell? && force_.each_pair{|p, v|
           inst.change_pcell_parameter p.to_s, v
