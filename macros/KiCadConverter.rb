@@ -319,7 +319,7 @@ module KiCadConverter
 		)
 	)
 #{footprints}
-      #{segments}
+#{segments}
 	(embedded_fonts no)
 )
 EOF
@@ -508,7 +508,8 @@ EOF
             pcb_file2 = File.join(@pretty_dir, kicad_cell_name + '.kicad_pcb')
             refs[kicad_cell_name] = convert_cell_to_kicad_footprint inst.cell, trans*inst.trans
             if kicad_cell_name[-3..-1] != '_MY' && File.exist?(pcb_file2)      
-              pcb_to_mod pcb_file2
+              pins = inst.property('pins') || inst.property(3)
+              pcb_to_mod pcb_file2, pins_to_pads(pins)
               generate_mirrorY_footprint kicad_cell_name # will generate mod_path
             else
               puts "#{pcb_file2} does not exist, so footprint (.kicad_mod) is not created" 
@@ -569,6 +570,15 @@ EOF
       kicad_elements   
     end
     
+    def pins_to_pads pins # 'pins': '1=/In 2=/Out 3=/VDD' for KiCad(EEschema)
+      result = {}
+      pins.split.map{|s| 
+        s =~ /(\d+) *=\/*(\S+)/
+        result[$2] = $1
+      }
+      result
+    end
+
     def extract_cell_pins cell
       text_layer = @layers['TEXT']
       box_layer = @layers['Via']
@@ -672,7 +682,8 @@ EOF
             net_name = inst.property('net') || inst.property(1)
           end
           width = inst.cell.bbox.width*@layout.dbu
-          drill_width = inst.cell.each_shape(@layers['Via']).first.bbox.width*@layout.dbu
+          #drill_width = inst.cell.each_shape(@layers['Via']).first.bbox.width*@layout.dbu
+          drill_width = width/2
           inst.cell_inst.each_trans{|trans|
             segments << <<EOF + "\n"
 (via
@@ -719,7 +730,7 @@ EOF
               end
               net_name = @lvs_data.probe_net(@layers['F.Cu'] == layer ? @ml1.data : @ml2.data, probe_point) 
             else
-              net_name = shape.property('net') || shape.property(1)
+              net_name = cell.is_top? ? (shape.property('net') || shape.property(1)) : nil
             end
             if shape.path.width > 10.0/@layout.dbu
               segments << generate_zone(polygon[net_name], trans*shape.polygon, net_name, pcb_layer_name)
@@ -734,8 +745,9 @@ EOF
               probe_point = shape.box.center/@rsf
               net_name = @lvs_data.probe_net(@layers['F.Cu'] == layer ? @ml1.data : @ml2.data, probe_point) 
             else
-              net_name = shape.property('net') || shape.property(1)
+              net_name = cell.is_top? ? (shape.property('net') || shape.property(1)) : nil
             end
+            # net_name = 'box'
             if polygon[net_name] # polygon with 4 points could be converted to box when saved and reload
               segments << generate_zone(polygon[net_name], trans*shape.polygon, net_name, pcb_layer_name)
             else
@@ -746,7 +758,7 @@ EOF
               probe_point = get_probe_point_for_polygon(shape.polygon)/@rsf
               net_name = @lvs_data.probe_net(@layers['F.Cu'] == layer ? @ml1.data : @ml2.data, probe_point) 
             else
-              net_name = shape.property('net') || shape.property(1)
+              net_name = cell.is_top? ? (shape.property('net') || shape.property(1)) : nil
             end
             if polygon[net_name] # shape.polygon is filled_polygon in zone
               segments << generate_zone(polygon[net_name], trans*shape.polygon, net_name, pcb_layer_name)
@@ -1081,7 +1093,7 @@ EOF
     File.write(file_path, s_expr)
   end
 
-  def pcb_to_mod kicad_pcb_file
+  def pcb_to_mod kicad_pcb_file, ext_pins
     unless File.exist?(kicad_pcb_file)
       puts "エラー: #{kicad_pcb_file} が見つかりません。"
       return
@@ -1115,8 +1127,7 @@ EOF
         elsif node[1] == "Net_Rail_Pad_for_BOX"
           ext_pads << node[4]
         end
-      end
-      if node[0] == "segment"
+      elsif node[0] == "segment"
         s = node.find{|c| c.is_a?(Array) && c[0] == "start"}
         e = node.find{|c| c.is_a?(Array) && c[0] == "end"}
         width = node.find{|c| c[0] == "width"}
@@ -1125,7 +1136,8 @@ EOF
           x_coords << s[1].to_f << e[1].to_f; y_coords << s[2].to_f << e[2].to_f
           segments << { x1: s[1].to_f, y1: s[2].to_f, x2: e[1].to_f, y2: e[2].to_f, width: width[1], layer: layer[1]}
         end
-      #elsif node[0] == "
+      elsif node[0] == "via"
+        ext_pads << node
       end
     end
 
@@ -1205,42 +1217,18 @@ EOF
     ext_pads.each{|pad|
       size_node = pad.find { |c| c[0] == 'size' }
       at_node = pad.find { |c| c.is_a?(Array) && c[0] == "at" }
-      abs_pad_x = at_node[1].to_f
-      abs_pad_y = at_node[2].to_f
-      s1, s2 = size_node[1].to_f, size_node[2].to_f
-      x1, y1 = abs_pad_x - s1/2, abs_pad_y - s2/2
-      x2, y2 = abs_pad_x + s1/2, abs_pad_y + s2/2
-      poly_fmt = "  (fp_poly (pts%s) (stroke (width 0.05) (type solid)) (fill yes) (layer \"F.Cu\"))\n"
-      g_n += sprintf(poly_fmt , [[x1, y1], [x2, y1], [x2, y2], [x1, y2]].map{|x, y| " (xy #{x.round(4)} #{y.round(4)})"}.join)
-    }
-=begin
-    # 💡【重要修正】二次元配列の計算バグ(NoMethodError)を完全に排除した平均値計算
-    get_coord = lambda do |ports, key|
-      pts = ports[key]
-      return [0.0, 0.0] if pts.empty?
-      xs = pts.map { |p| p[0].to_f }
-      ys = pts.map { |p| p[1].to_f }
-  [    (xs.sum / pts.size).round(4), (ys.sum / pts.size).round(4)]
-    end
-    in_x, in_y   = get_coord.call(macro_ports, "IN")
-    out_x, out_y = get_coord.call(macro_ports, "OUT")
-    vdd_x, vdd_y = get_coord.call(macro_ports, "VDD")
-    vss_x, vss_y = get_coord.call(macro_ports, "VSS")
-    p_in_x, p_in_y   = (in_x - inv_cx).round(4), (in_y - inv_cy).round(4)
-    p_out_x, p_out_y = (out_x - inv_cx).round(4), (out_y - inv_cy).round(4)
-    p_vdd_x, p_vdd_y = (vdd_x - inv_cx).round(4), (vdd_y - inv_cy).round(4)
-    p_vss_x, p_vss_y = (get_coord.call(macro_ports, "VSS")[0] - inv_cx).round(4), (get_coord.call(macro_ports, "VSS")[1] - inv_cy).round(4)
-
-    inv_w = 0 #(x_coords.max - x_coords.min + 4.0).round(4)
-    inv_h = 0 #(y_coords.max - y_coords.min + 4.0).round(4)
-
-    # 各パターンの外部パッド文字列の精緻な構築
-    pad_fmt = "  (pad \"1\" smd rect (at %s %s) (size 1.5 1.5) (layers \"F.Cu\" \"F.Paste\" \"F.Mask\"))\n" +
-              "  (pad \"2\" smd rect (at %s %s) (size 1.5 1.5) (layers \"F.Cu\" \"F.Paste\" \"F.Mask\"))\n" +
-              "  (pad \"3\" smd rect (at %s %s) (size 3.0 1.0) (layers \"F.Cu\" \"F.Paste\" \"F.Mask\"))\n" +
-              "  (pad \"4\" smd rect (at %s %s) (size 3.0 1.0) (layers \"F.Cu\" \"F.Paste\" \"F.Mask\"))\n"
-    pads_n   = sprintf(pad_fmt, p_in_x, p_in_y, p_out_x, p_out_y, p_vdd_x, p_vdd_y, p_vss_x, p_vss_y)
-=end   
+      cx = at_node[1].to_f.round(4)
+      cy = at_node[2].to_f.round(4)
+      w, h = size_node[1].to_f, size_node[2].to_f
+      drill_node = pad.find { |c| c[0] == 'drill' }
+      if drill_node
+        net_name = pad.find { |c| c[0] == 'net' }
+        pad_num = ext_pins[net_name[1]]
+        g_n += "  (pad \"#{pad_num}\" thru_hole circle (at #{cx} #{cy}) (size #{w} #{w}) (drill #{drill_node[1]}) (layers \"*.Cu\" \"*.Mask\"))\n"
+      else
+        g_n += "  (pad \"\" smd rect (at #{cx} #{cy}) (size #{w} #{h}) (layers \"F.Cu\" \"F.Paste\" \"F.Mask\"))\n"
+      end
+    } 
     inv_w = inv_h = 0 
     pads_n = '' # ignore pads    
     write_footprint("#{@pretty_dir}/#{kicad_mod_file}", kicad_mod_file.sub('.kicad_mod', ''), inv_w, inv_h, g_n, pads_n)
