@@ -13,9 +13,6 @@ module KiCadConverter
     SCALE = 1 # 200.0 
     
     def initialize layout, pretty_dir, pretty_lib, layers, lvs_data, ml1, ml2, rsf=1.0, pads_file=nil
-      unless File.extname(pretty_dir) == '.pretty'
-        raise "KLayout to KiCad converter works only under directory whose extention is '.pretty'"
-      end
       @layout = layout
       @pretty_dir = pretty_dir
       @pretty_lib = pretty_lib
@@ -481,6 +478,9 @@ EOF
         puts "#{inst.cell.name}(#{inst.property('name') || inst.property(1)}): #{(trans*inst.trans).to_s}"
         if inst.cell.is_library_cell?
           if inst.is_pcell?
+            unless File.extname(@pretty_dir) == '.pretty'
+              raise "KLayout to KiCad converter works only under directory whose extention is '.pretty'"
+            end
             l=inst.pcell_parameter 'l'
             w=inst.pcell_parameter('w') || 2.0
             m=inst.pcell_parameter('n') || 0
@@ -509,7 +509,8 @@ EOF
             refs[kicad_cell_name] = convert_cell_to_kicad_footprint inst.cell, trans*inst.trans
             if kicad_cell_name[-3..-1] != '_MY' && File.exist?(pcb_file2)      
               pins = inst.property('pins') || inst.property(3)
-              pcb_to_mod pcb_file2, pins_to_pads(pins)
+              ext_cell_pins = extract_cell_pins inst.cell
+              pcb_to_mod pcb_file2, pins_to_pads(pins), ext_cell_pins
               generate_mirrorY_footprint kicad_cell_name # will generate mod_path
             else
               puts "#{pcb_file2} does not exist, so footprint (.kicad_mod) is not created" 
@@ -572,7 +573,7 @@ EOF
     
     def pins_to_pads pins # 'pins': '1=/In 2=/Out 3=/VDD' for KiCad(EEschema)
       result = {}
-      pins.split.map{|s| 
+      pins && pins.split.map{|s| 
         s =~ /(\d+) *=\/*(\S+)/
         result[$2] = $1
       }
@@ -1092,8 +1093,24 @@ EOF
     s_expr += ")\n"
     File.write(file_path, s_expr)
   end
-
-  def pcb_to_mod kicad_pcb_file, ext_pins
+  
+  def get_ext_net box, ext_cell_pins
+    cx1, cy1, cx2, cy2 = box.map{|p| p/@layout.dbu}
+    ext_cell_pins.each{|net, cx, cy, size|
+      x1 = cx1 - size/2
+      x2 = cx2 + size/2
+      y1 = cy1 - size/2
+      y2 = cy2 + size/2
+      puts "check if #{net}(#{cx}, #{cy}) is inside #{[x1, y1, x2, y2]} ?"
+      if x1 < cx && cx < x2 && y1 < cy && cy < y2
+        puts "#{net}(#{cx}, #{cy} is!"
+        return net
+      end
+    }
+    nil
+  end
+  
+  def pcb_to_mod kicad_pcb_file, pad_number, ext_cell_pins
     unless File.exist?(kicad_pcb_file)
       puts "エラー: #{kicad_pcb_file} が見つかりません。"
       return
@@ -1132,9 +1149,11 @@ EOF
         e = node.find{|c| c.is_a?(Array) && c[0] == "end"}
         width = node.find{|c| c[0] == "width"}
         layer = node.find{|c| c[0] == "layer"}
+        net = node.find{|c| c[0] == 'net'}
         if s && e
           x_coords << s[1].to_f << e[1].to_f; y_coords << s[2].to_f << e[2].to_f
-          segments << { x1: s[1].to_f, y1: s[2].to_f, x2: e[1].to_f, y2: e[2].to_f, width: width[1], layer: layer[1]}
+          segments << { x1: s[1].to_f, y1: s[2].to_f, x2: e[1].to_f, y2: e[2].to_f, 
+                        width: width[1], layer: layer[1], net_name: net[1]}
         end
       elsif node[0] == "via"
         ext_pads << node
@@ -1188,15 +1207,6 @@ EOF
         next unless at_node
         abs_pad_x = mos_x + at_node[1].to_f
         abs_pad_y = mos_y + at_node[2].to_f
-=begin
-        if m[:name] == "Nch"
-          macro_ports["IN"]  << [abs_pad_x, abs_pad_y] if pin_num == "2"
-          macro_ports["VSS"] << [abs_pad_x, abs_pad_y] if pin_num == "3"
-        elsif m[:name] == "Pch"
-          macro_ports["OUT"] << [abs_pad_x, abs_pad_y] if pin_num == "1"
-          macro_ports["VDD"] << [abs_pad_x, abs_pad_y] if pin_num == "3"
-        end
-=end
       end
 
       lx = (mos_x - inv_cx).round(4)
@@ -1206,12 +1216,23 @@ EOF
     end
 
     segments.each do |seg|
-      rx1, ry1 = (seg[:x1] - inv_cx).round(4), (seg[:y1] - inv_cy).round(4)
-      rx2, ry2 = (seg[:x2] - inv_cx).round(4), (seg[:y2] - inv_cy).round(4)
-      width = seg[:width]
+      x1, y1 = (seg[:x1] - inv_cx).round(4), (seg[:y1] - inv_cy).round(4)
+      x2, y2 = (seg[:x2] - inv_cx).round(4), (seg[:y2] - inv_cy).round(4)
+      width = seg[:width].to_f
       layer = seg[:layer]
-      line_fmt = "  (fp_line (start %s %s) (end %s %s) (stroke (width #{width}) (type solid)) (layer \"#{layer}\"))\n"
-      g_n   += sprintf(line_fmt, rx1, ry1, rx2, ry2)
+#      line_fmt = "  (fp_line (start %s %s) (end %s %s) (stroke (width #{width}) (type solid)) (layer \"#{layer}\"))\n"
+#      g_n   += sprintf(line_fmt, rx1, ry1, rx2, ry2)
+      if x1 == x2
+        box = [x1-width/2, y1, x2+width/2, y2]
+        net_name = get_ext_net(box, ext_cell_pins) || seg[:net_name]
+        pad_num = pad_number[net_name]
+        g_n += "  (pad \"#{pad_num}\" smd rect (at #{x1} #{(y1+y2)/2}) (size #{width} #{(y2-y1).abs}) (layers \"F.Cu\"))\n"
+      elsif y1 == y2  
+        box = [x1, y1-width/2, x2, y2+width/2]
+        net_name = get_ext_net(box, ext_cell_pins) || seg[:net_name]
+        pad_num = pad_number[net_name]
+        g_n += "  (pad \"#{pad_num}\" smd rect (at #{(x1+x2)/2} #{y1}) (size #{(x2-x1).abs} #{width}) (layers \"F.Cu\"))\n"
+     end
     end
     
     ext_pads.each{|pad|
@@ -1221,12 +1242,17 @@ EOF
       cy = at_node[2].to_f.round(4)
       w, h = size_node[1].to_f, size_node[2].to_f
       drill_node = pad.find { |c| c[0] == 'drill' }
+      net = pad.find { |c| c[0] == 'net' }
       if drill_node
-        net_name = pad.find { |c| c[0] == 'net' }
-        pad_num = ext_pins[net_name[1]]
+        box = [cx - w/2, cy - w/2, cx + w/2, cy + w/2]
+        net_name = get_ext_net(box, ext_cell_pins) || net[1]
+        pad_num = pad_number[net_name]
         g_n += "  (pad \"#{pad_num}\" thru_hole circle (at #{cx} #{cy}) (size #{w} #{w}) (drill #{drill_node[1]}) (layers \"*.Cu\" \"*.Mask\"))\n"
       else
-        g_n += "  (pad \"\" smd rect (at #{cx} #{cy}) (size #{w} #{h}) (layers \"F.Cu\" \"F.Paste\" \"F.Mask\"))\n"
+        box = [cx - w/2, cy - h/2, cx + w/2, cy + h/2]
+        net_name = get_ext_net(box, ext_cell_pins) || net[1]
+        pad_num = pad_number[net_name]
+        g_n += "  (pad \"#{pad_num}\" smd rect (at #{cx} #{cy}) (size #{w} #{h}) (layers \"F.Cu\" \"F.Paste\" \"F.Mask\"))\n"
       end
     } 
     inv_w = inv_h = 0 
