@@ -1097,10 +1097,10 @@ EOF
   def get_ext_net box, ext_cell_pins
     cx1, cy1, cx2, cy2 = box.map{|p| p/@layout.dbu}
     ext_cell_pins.each{|net, cx, cy, size|
-      x1 = cx1 - size/2
-      x2 = cx2 + size/2
-      y1 = cy1 - size/2
-      y2 = cy2 + size/2
+      x1 = cx1 - size #/2 # size is VIA size, extension should be metal size =~ 2*size
+      x2 = cx2 + size #/2
+      y1 = cy1 - size #/2
+      y2 = cy2 + size #/2
       puts "check if #{net}(#{cx}, #{cy}) is inside #{[x1, y1, x2, y2]} ?"
       if x1 < cx && cx < x2 && y1 < cy && cy < y2
         puts "#{net}(#{cx}, #{cy} is!"
