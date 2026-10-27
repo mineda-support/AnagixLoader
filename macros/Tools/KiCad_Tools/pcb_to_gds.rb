@@ -1,5 +1,8 @@
 # $description: KiCad to KLayout conversion
 # $show-in-menu
+# coding: cp932
+# $description: KiCad to KLayout conversion
+# $show-in-menu
 # coding: utf-8
 require 'sxp'
 
@@ -28,8 +31,7 @@ module PCB_to_gds
   # メソッドの中に処理を閉じ込める（GC対策）
   def self.run
     mw = Application.instance.main_window
-    view = mw.current_view.active_cellview
-    
+    view = mw.current_view.active_cellview    
     puts "Technology: #{view.technology}"
     unless view.cell.is_empty?
       raise "Pease open new empty layout and run again"
@@ -37,13 +39,14 @@ module PCB_to_gds
     end
     
     if view
+      current_cell = view.cell 
       pcb_file = QFileDialog::getOpenFileName(mw, 'KiCad PCB file', File.dirname(view.filename), 'pcb(*.kicad_pcb)')
       return if pcb_file.empty? # キャンセル対策
       layout = view.layout
       
-      # top_cellをクリアするのではなく、新しく作り直して古いセルを安全に捨てる
-      top_cell = layout.cell("TOP") || layout.create_cell("TOP")
-      top_cell.clear 
+      # layersをクリアするのではなく、新しく作り直して古いセルを安全に捨てる
+      layers = layout.cell("TOP") || layout.create_cell("TOP")
+      layers.clear 
     else
       # ※gds_fileが未定義だったので ENV['HOME'] 等から仮に生成
       home_dir = ENV['HOME'] || ENV['HOMEPATH']
@@ -51,9 +54,9 @@ module PCB_to_gds
       return if pcb_file.empty?
       layout = Layout.new
       layout.dbu = 0.001
-      top_cell = layout.create_cell("TOP")
+      layers = layout.create_cell("TOP")
     end
-    top_cell.set_property 'fp-lib-table', '/home/anagix/Seafile/KiCad4LSI/Op8_16_v2/fp-lib-table'
+    current_cell.set_property 'fp-lib-table', '/home/anagix/Seafile/KiCad4LSI/Op8_16_v2/fp-lib-table'
     puts "*** pcb_file #{pcb_file} to GDS conversion started"
     
     # 完全にインクルードされたモジュールからインスタンス作成
@@ -67,6 +70,7 @@ module PCB_to_gds
     # レイヤー取得時に例外やnilを考慮
     begin
       layers["F.Cu"] = layout.layer(mpc.get_layer_index('ML1', false), 0)
+      layers["*.Cu"] = layout.layer(mpc.get_layer_index('ML1', false), 0)
       layers["B.Cu"] = layout.layer(mpc.get_layer_index('ML2', false), 0)
       layers["Via"]  = layout.layer(mpc.get_layer_index('VIA1', false), 0)
       via_index = mpc.library_cell('Via', view.technology + '_Basic', layout)
@@ -84,13 +88,23 @@ module PCB_to_gds
       if blk[0] == :footprint
         fp_name = blk[1].to_s # 念のためStringに変換 
         puts fp_name      
-        # 正規表現にマッチするか確認
+        at = blk.assoc(:at)
+        ref = nil
+        blk[4..-1].each do |item|
+          if item[0] == :property && item[1] == 'Reference'
+            ref = item[2]
+            break
+          end
+        end
+        x, y, rot = [at[1], at[2], at[3]].map(&:to_f)
         if fp_name =~ /^(\S+):.*#(\S+)\.l(\S+)w(\S+)m(\S+)_(\d+)_(\S+)/ || 
            fp_name =~ /^(\S+):.*#(\S+)\.l(\S+)w(\S+)m(\S+)_(\d+)$/ ||
            fp_name =~ /^(\S+):.*#(\S+)\.l(\S+)w(\S+)m(\S+)_(\S+)/ || 
            fp_name =~ /^(\S+):.*#(\S+)\.l(\S+)w(\S+)m(\S+)$/
           # マッチした場合のみ変数を抽出
           lib, sym, l, w, m, options, mir = [$1, $2, $3.to_f, $4.to_f, $5.to_i, $6, $7]
+          angle, mirror = rot_to_am(rot, mir)
+          fp_trans = Trans.new(angle, mirror, (x/dbu).to_i, (-y/dbu).to_i)        # 正規表現にマッチするか確認
           
           decl = library.layout.pcell_declaration(sym)
           next unless decl # PCellが見つからない場合のスキップ処理
@@ -110,21 +124,16 @@ module PCB_to_gds
           end
           pcell_id = layout.add_pcell_variant(library, decl.id, params)
           
-          at = blk.assoc(:at)
-          ref = nil
-          blk[4..-1].each do |item|
-            if item[0] == :property && item[1] == 'Reference'
-              ref = item[2]
-              break
-            end
-          end
-          x, y, rot = [at[1], at[2], at[3]].map(&:to_f)
-          angle, mirror = rot_to_am(rot, mir)
-
-          fp_trans = Trans.new(angle, mirror, (x/dbu).to_i, (-y/dbu).to_i)
-          inst = top_cell.insert(CellInstArray.new(pcell_id, fp_trans))
+          inst = current_cell.insert(CellInstArray.new(pcell_id, fp_trans))
           inst.set_property 'name', ref 
-          inst.set_property '1', ref   
+          inst.set_property '1', ref
+        elsif fp_name =~ /^(\S+):(\S+)$/ &&
+              cell = view.layout.cell($2.sub('_MY', ''))
+          angle, mirror = rot_to_am(rot, fp_name=~/_MY$/)
+          fp_trans = Trans.new(angle, mirror, (x/dbu).to_i, (-y/dbu).to_i) 
+          cell_instance = RBA::CellInstArray.new(cell.cell_index, fp_trans) 
+          puts "Insert #{cell.name} into #{current_cell.name}"     
+          current_cell.insert(cell_instance)
         else
           if blk.assoc(:pad).nil? # need to check!
             #puts "need to insert path or pad for fp_name=#{fp_name}"
@@ -138,14 +147,6 @@ module PCB_to_gds
             target_layer = layers[item.assoc(:layers)[1]]
             if item[0] == :pad
               width, height = [size[1], size[2]].map(&:to_f)
-=begin
-              x1 = x - width/2
-              x2 = x + width/2
-              y1 = y - height/2
-              y2 = y + height/2
-              box = Box.new((x1/dbu).to_i, (-y1/dbu).to_i, (x2/dbu).to_i, (-y2/dbu).to_i)
-              top_cell.shapes(target_layer).insert(box)
-=end
               if width > height
                 x1 = x - width/2
                 x2 = x + width/2
@@ -155,18 +156,18 @@ module PCB_to_gds
                 y2 = y + height/2
                 path = Path.new([Point.new((x/dbu).to_i, (-y1/dbu).to_i), Point.new((x/dbu).to_i, (-y2/dbu).to_i)], width/dbu)
               end
-              top_cell.shapes(target_layer).insert(path)
-            #elsif item[0] == :via # not used?
-            #  mpc.insert_cell via_index, x/dbu, -y/dbu
+              current_cell.shapes(target_layer).insert(path)
+              #elsif item[0] == :via # not used?
+              #  mpc.insert_cell via_index, x/dbu, -y/dbu
             end
           end
-        end 
+        end
       elsif blk[0] == :via
         at = blk.assoc(:at)
         x, y = [at[1], at[2]].map(&:to_f) 
         #mpc.insert_cell via_index, x/dbu, -y/dbu
         via = CellInstArray.new(via_index, Trans.new((x/dbu).to_i, -(y/dbu).to_i))
-        inst = top_cell.insert(via)
+        inst = current_cell.insert(via)
         net_name = blk.assoc(:net)[1] || ""
         inst.set_property('net', net_name)
         inst.set_property(1, net_name)
@@ -187,7 +188,7 @@ module PCB_to_gds
             pts = item.assoc(:pts)
             polygon = Polygon.new(pts[1..-1].map{|xy| Point.new((xy[1]/dbu).to_i, (-xy[2]/dbu).to_i)})
             target_layer = layers[item.assoc(:layer)[1]] if item.assoc(:layer)
-            pol = top_cell.shapes(target_layer).insert(polygon)
+            pol = current_cell.shapes(target_layer).insert(polygon)
             pol.set_property('net', net_name)
             pol.set_property(1, net_name)
           end
@@ -252,44 +253,12 @@ module PCB_to_gds
         x = (current[:start][0]/dbu).to_i
         y = (current[:start][1]/dbu).to_i
         text = Text.new(net_name, x, -y)
-        top_cell.shapes(target_layer).insert(text)
+        current_cell.shapes(target_layer).insert(text)
       end
-=begin     
-      # 連結が完了した座標列から、KLayoutのPathを生成して流し込む
-      paths_points.each do |pts|
-        # 隣り合う重複した点を削除してきれいに整形
-        pts.uniq!
-        next if pts.size < 2 # 点が2個未満（線にならない）ならスキップ
-        
-        path = Path.new(pts, (width/dbu).to_i)
-        top_cell.shapes(target_layer).insert(path)
-      end   
-=end
       # 連結が完了した座標列から、KLayoutのPathを生成して流し込む
       paths_points.each do |pts|
         pts.uniq!
         next if pts.size < 2
-=begin        
-        # ==========================================================
-        # 【追加】45度（斜め）配線を垂直・水平（直角）に変換する処理
-        # ==========================================================
-        manhattan_pts = [pts.first]
-        
-        (0...(pts.size - 1)).each do |i|
-          p1 = pts[i]
-          p2 = pts[i + 1]
-          
-          # X座標もY座標も異なる（＝斜め配線である）場合
-          if p1.x != p2.x && p1.y != p2.y
-            # 直角に曲げるための中継点を作成（水平に進んでから垂直に曲がるパターン）
-            # ※もし逆方向（垂直→水平）に曲げたい場合は Point.new(p1.x, p2.y) に変更してください
-            mid_point = Point.new(p2.x, p1.y)
-            
-            manhattan_pts << mid_point
-          end
-          manhattan_pts << p2
-        end
-=end 
         # ==========================================================
         # 【改良】微小なブレを平滑化し、すっきりとした直角配線にする処理
         # ==========================================================
@@ -335,7 +304,7 @@ module PCB_to_gds
         
         # 修正された直角座標列（manhattan_pts）を使ってPathを生成
         path = Path.new(manhattan_pts, (width/dbu).to_i)
-        p = top_cell.shapes(target_layer).insert(path)
+        p = current_cell.shapes(target_layer).insert(path)
         p.set_property('net', net_name)
         p.set_property(1, net_name)      end
     end
