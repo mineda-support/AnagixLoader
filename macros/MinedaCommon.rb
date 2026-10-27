@@ -142,7 +142,7 @@ module MinedaPCellCommonModule
       
       #pin_num = find_pin_num.call(cx, cy)
       #s_expr += 
-      @kicad += "  (pad \"#{pin_num}\" thru_hole circle (at #{cx} #{cy}) (size #{size_dia} #{size_dia}) (drill #{drill_dia}) (layers \"*.Cu\" \"*.Mask\"))\n"
+      @kicad += "  (pad \"#{pin_num}\" thru_hole circle (at #{cx} #{cy}) (size #{size_dia} #{size_dia}) (drill #{drill_dia}) (layers \"F.Cu\" \"B.Cu\" \"F.Mask\" \"B.Mask\"))\n"
       ml1_to_kicad_Fcu pin_num, bbox
       ml2_to_kicad_Bcu pin_num, bbox
     end
@@ -398,7 +398,7 @@ module MinedaPCellCommonModule
           xmax = [xmax, x2].max
           ymax = [ymax, y2].max
         }
-      }
+     }
       [xmin, ymin, xmax, ymax] unless xmin == 10000000
     end
     

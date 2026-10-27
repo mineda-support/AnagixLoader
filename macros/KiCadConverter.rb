@@ -1252,7 +1252,7 @@ EOF
         box = [cx - w/2, cy - h/2, cx + w/2, cy + h/2]
         net_name = get_ext_net(box, ext_cell_pins) || net[1]
         pad_num = pad_number[net_name]
-        g_n += "  (pad \"#{pad_num} smd rect (at #{cx} #{cy}) (size #{w} #{h}) (layers \"F.Cu\" \"F.Paste\" \"F.Mask\"))\n"
+        g_n += "  (pad \"#{pad_num} smdrect (at #{cx} #{cy}) (size #{w} #{h}) (layers \"F.Cu\" \"F.Paste\" \"F.Mask\"))\n"
       end
     } 
     inv_w = inv_h = 0 
@@ -1303,6 +1303,7 @@ EOF
     layers = {}
     begin
       layers["F.Cu"] = layout.layer(mpc.get_layer_index('ML1', false), 0)
+      layers["*.Cu"] = layout.layer(mpc.get_layer_index('ML1', false), 0)
       layers["B.Cu"] = layout.layer(mpc.get_layer_index('ML2', false), 0)
       layers["Via"]  = layout.layer(mpc.get_layer_index('VIA1', false), 0)
       layers["TEXT"] = layout.layer(mpc.get_layer_index('TEXT', false), 0)
