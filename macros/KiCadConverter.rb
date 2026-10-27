@@ -1252,7 +1252,7 @@ EOF
         box = [cx - w/2, cy - h/2, cx + w/2, cy + h/2]
         net_name = get_ext_net(box, ext_cell_pins) || net[1]
         pad_num = pad_number[net_name]
-        g_n += "  (pad \"#{pad_num}\" smd rect (at #{cx} #{cy}) (size #{w} #{h}) (layers \"F.Cu\" \"F.Paste\" \"F.Mask\"))\n"
+        g_n += "  (pad \"#{pad_num} smd rect (at #{cx} #{cy}) (size #{w} #{h}) (layers \"F.Cu\" \"F.Paste\" \"F.Mask\"))\n"
       end
     } 
     inv_w = inv_h = 0 

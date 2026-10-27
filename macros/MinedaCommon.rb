@@ -384,18 +384,20 @@ module MinedaPCellCommonModule
       }
     end
     
-    def boxes_bbox original
-      return nil unless original
+    def boxes_bbox *originals
+      return nil unless originals && originals[0]
       xmin = ymin = 10000000
       xmax = ymax = -xmin
-      cell.shapes(original).each{|shape|
-        box = shape.bbox
-        x1, y1, x2, y2 = [box.p1.x, box.p1.y, box.p2.x, box.p2.y]
-        puts "[x1, y1, x2, y2]=#{[x1, y1, x2, y2].inspect}"
-        xmin = [xmin, x1].min
-        ymin = [ymin, y1].min
-        xmax = [xmax, x2].max
-        ymax = [ymax, y2].max
+      originals.each{|original|
+        cell.shapes(original).each{|shape|
+          box = shape.bbox
+          x1, y1, x2, y2 = [box.p1.x, box.p1.y, box.p2.x, box.p2.y]
+          puts "[x1, y1, x2, y2]=#{[x1, y1, x2, y2].inspect}"
+          xmin = [xmin, x1].min
+          ymin = [ymin, y1].min
+          xmax = [xmax, x2].max
+          ymax = [ymax, y2].max
+        }
       }
       [xmin, ymin, xmax, ymax] unless xmin == 10000000
     end

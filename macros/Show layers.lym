@@ -65,7 +65,7 @@ module ShowLayers
           lay_ind = layout.get_info(layer).layer
           unless inst.cell.begin_shapes_rec(layer).at_end?
             # puts "#{layer_mapping[lay_ind]}(#{lay_ind}): #{inst.cell.shapes(layer).size}" # if inst.cell.shapes(layer).size&gt;0
-            displayed_layers &lt;&lt; layer_mapping[lay_ind]
+            displayed_layers &lt;&lt; (layer_mapping[lay_ind] || lay_ind)
           end
         }
         puts displayed_layers.join(', ')

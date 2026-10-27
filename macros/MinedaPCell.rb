@@ -292,6 +292,17 @@ module MinedaPCell
         create_box indices[:narea], x1-narea_bw+narea_cut, y1+vs+u1-narea_bw, offset-gl+narea_bw-narea_cut, y2-vs-u1+narea_bw+area_ext
         @kicad && ndiff_to_kicad_Fsilk(Box.new(x1-narea_bw, y1+vs+u1-narea_bw, offset-gl+narea_bw, y2-vs-u1+narea_bw+area_ext))
         # create_box indices[:lvhvt], x1-narea_bw, y1+vs+u1-narea_bw, offset-gl+narea_bw, y2-vs-u1+narea_bw if indices[:lvhvt]
+        if defined?(left_tap) && left_tap
+          delta = (y2 - y1 - gw)/2
+          x1 = x1 - vs
+          fill_area([x1-vs+u1/10, y1+delta, x1+u1/10, y2-delta], vs, indices[:m1]){|x, y|
+            insert_cell indices[:dcont], x, y
+          }
+          tap_encl = params[:tap_encl] || (u1/5+u1/10)/2
+          create_box indices[:parea], x1-vs+u1/10-tap_encl, y1+delta-tap_encl, x1+u1/10+tap_encl, y2-delta+tap_encl
+          x1 = x1 + u1 - u1/20
+        end        
+        
         create_box indices[:nhd], x1-narea_bw, y1+vs+u1-narea_bw, offset-gl+narea_bw, y2-vs-u1+narea_bw if indices[:nhd] # special for PTS06
         delta = params[:nex_delta] || u1*5
         if indices[:nex]
@@ -692,6 +703,18 @@ module MinedaPCell
           create_box indices[:parea], x1-parea_bw+parea_cut, y1+vs+u1-parea_bw-area_ext, offset-gl+parea_bw-parea_cut, y2-vs-u1+parea_bw
           @kicad && pdiff_to_kicad_Bsilk(Box.new(x1-parea_bw, y1+vs+u1-parea_bw-area_ext, offset-gl+parea_bw, y2-vs-u1+parea_bw))
         end
+
+        if defined?(left_tap) && left_tap
+          delta = (y2 - y1 - gw)/2
+          x1 = x1 - vs
+          fill_area([x1-vs+u1/10, y1+delta, x1+u1/10, y2-delta], vs, indices[:m1]){|x, y|
+            insert_cell indices[:dcont], x, y
+          }
+          tap_encl = params[:tap_encl] || (u1/5+u1/10)/2
+          create_box indices[:narea], x1-vs+u1/10-tap_encl, y1+delta-tap_encl, x1+u1/10+tap_encl, y2-delta+tap_encl
+          x1 = x1 + u1 - u1/20
+        end         
+ 
         # create_box indices[:lvhvt], x1-parea_bw, y1+vs+u1-parea_bw, offset-gl+parea_bw, y2-vs-u1+parea_bw if indices[:lvhvt]
         delta = params[:pex_delta] || u1*5
         create_box indices[:pex], x1-delta, y1+vs-u1/2-delta-u1, offset-gl+delta, y2-vs+u1/2+delta+u1 if indices[:pex]
