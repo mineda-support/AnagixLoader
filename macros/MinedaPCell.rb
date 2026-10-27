@@ -1210,7 +1210,7 @@ end
       Trans.new(shape.bbox.center)
     end
 
-    def create_contacts_horizontally indices, x1, x2, y0, vs, u1, pitch=nil, fill_metal=true
+    def create_contacts_horizontally indices, x1, x2, y0, vs, u1, pitch=nil, fill_metal=true, kicad_pad=1
       pitch ||= vs+u1 # +u1/2+u1/4
       n = ((x2+u1-x1)/pitch).to_i
       offset = x2+u1-x1-pitch*n
@@ -1221,11 +1221,14 @@ end
         else
           insert_cell indices[:dcont], x, y0
         end
-        insert_cell indices[:via], x, y0 if indices[:via] #&& defined?(use_ml2) && use_ml2
-      }
+        if indices[:via] #&& defined?(use_ml2) && use_ml2
+          insert_cell indices[:via], x, y0 
+          @kicad && via1_to_kicad_TH(kicad_pad, Box.new(vs).move(x, y0))
+        end
+       }
     end
 
-    def create_contacts_vertically indices, x0, y1, y2, vs, u1, pitch=nil, fill_metal=true
+    def create_contacts_vertically indices, x0, y1, y2, vs, u1, pitch=nil, fill_metal=true, kicad_pad
       pitch ||= vs+u1  # +u1/2+u1/4
       n = ((y2+u1-y1)/pitch).to_i
       offset = y2+u1-y1-pitch*n
@@ -1239,7 +1242,10 @@ end
           else
             insert_cell indices[:dcont], x0, y
           end
-          insert_cell indices[:via], x0, y if indices[:via] #&& defined?(use_ml2) && use_ml2
+          if indices[:via] #&& defined?(use_ml2) && use_ml2
+            insert_cell indices[:via], x0, y 
+            @kicad && via1_to_kicad_TH(kicad_pad, Box.new(vs).move(x0, y))
+          end
         end
       }
     end
