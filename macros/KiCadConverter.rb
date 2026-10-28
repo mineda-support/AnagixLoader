@@ -72,6 +72,8 @@ module KiCadConverter
         puts "#{file} does not exist!"
         return
       end
+      return if File.exist?(File.join(@pretty_dir, my_file)) &&
+        (File.mtime(File.join(@pretty_dir, my_file)) > File.mtime(File.join(@pretty_dir, file)))
       content = File.read(File.join(@pretty_dir, file), encoding: 'utf-8')
       content.sub!(/^(\s*\(footprint\s+)"[^"]+"/) do
         "#{$1}\"#{new_fp_name}\""
@@ -497,9 +499,10 @@ EOF
             kicad_cell_name << "_#{options}" if options.length >= 7
           else # static cell like one in standard cell library
             kicad_cell_name = generate_cell_footprint(inst.cell)
-            generate_mirrorY_footprint kicad_cell_name
+            #generate_mirrorY_footprint kicad_cell_name
             next if kicad_cell_name.nil?
-          end  
+          end 
+          generate_mirrorY_footprint kicad_cell_name 
         elsif inst.is_regular_array?
           puts "#(inst.name} is regular array"
         else
@@ -523,7 +526,10 @@ EOF
           if @lvs_data
             name = find_dev_name trans*inst.bbox         
           else
-            name = inst.property('name') || inst.property(1) || inst.cell.name.sub(/\$.*$/,'')+count.to_s        
+            name = inst.property('name') || inst.property(1)
+            if name.nil? || kicad_elements[name]
+              name = inst.cell.name.sub(/\$.*$/,'')+count.to_s        
+            end
           end
         else
           puts "#{infile} does not exist!"
