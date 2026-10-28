@@ -1,6 +1,6 @@
 # coding: utf-8
 # $priority: 1
-# Mineda Common v1.44 Oct. 20th 2026
+# Mineda Common v1.45 Oct. 28th 2026
 #   Force on-grid v0.1 July 39th 2022 copy right S. Moriyama (Anagix Corp.)
 #   LVS preprocessor(get_reference) v0.87 Sep. 26th, 2026 copyright by S. Moriyama (Anagix Corporation)
 #   * ConvertPCells and PCellDefaults moved from MinedaPCell v0.4 Nov. 22nd 2022
@@ -11,7 +11,7 @@
 #   MinedaInput v0.51 Aug. 31st, 2026 S. Moriyama
 #   MinedaPCellCommon v0.392 Oct. 10th, 2026 S. Moriyama
 #   Create Backannotation data v0.171 May 14th 2023 S. Moriyama
-#   MinedaAutoplace v0.46 Oct. 20th 2026 S. Moriyama
+#   MinedaAutoplace v0.47 Oct. 28th 2026 S. Moriyama
 #   ChangePCellParameters v0.1 July 29th 2023 S. Moriyama
 #   MinedaBridge v0.1 Sep. 17 2023 S. Moriyama
 #   MinedaUtility v0.1 Aug. 8, 2025 S. Moriyama
@@ -2512,7 +2512,7 @@ class MinedaAutoPlace
         end
       }
       if instance.nil?
-        puts "#{name}(#{sym}): l=#{l} w=#{w} m=#{m ? m : 1} @ (#{x}, #{y}), #{rot}"
+        #puts "#{name}(#{sym}): l=#{l} w=#{w} m=#{m ? m : 1} @ (#{x}, #{y}), #{rot}"
           xpos = x*@xscale/@grid.to_i*@grid
           ypos = (ymax - y)*@yscale/@grid.to_i*@grid
           case rot
@@ -2533,6 +2533,7 @@ class MinedaAutoPlace
           when 'M270'
             trans = Trans.new(Trans::M135, xpos, ypos) # not sure
         end        
+        puts "#{name}(#{sym}): l=#{l} w=#{w} m=#{m ? m : 1} @ (#{x}, #{y}), #{rot} => #{trans}"
                 
         if sym =~ /NMOS|nmos/ #  'MinedaLIB\\NMOS_MIN'
           index = nch_index
@@ -2552,15 +2553,15 @@ class MinedaAutoPlace
           m = (params_['n'] || params_[:n])
         end
         if index && l && w
-          mos = instantiate index, 0, 0
-          inst = @cell.insert(mos)
+          #mos = instantiate index, 0, 0
+          #inst = @cell.insert(mos)
         elsif layout.has_cell? sym
-          cell_index = layout.cell_by_name sym
-          inst = @cell.insert(RBA::CellInstArray.new(cell_index, trans))
+          index = layout.cell_by_name sym
         else
           puts "warning: instance #{name}(l=#{l} w=#{w}) does not have a valid symbol"
           next
         end
+        inst = @cell.insert(RBA::CellInstArray.new(index, trans))
       else
         inst = instance
         old_l = inst.pcell_parameter  'l'
