@@ -1,6 +1,6 @@
 # coding: utf-8
 # $priority: 1
-# Mineda Common v1.45 Oct. 28th 2026
+# Mineda Common v1.451 Oct. 29th 2026
 #   Force on-grid v0.1 July 39th 2022 copy right S. Moriyama (Anagix Corp.)
 #   LVS preprocessor(get_reference) v0.87 Sep. 26th, 2026 copyright by S. Moriyama (Anagix Corporation)
 #   * ConvertPCells and PCellDefaults moved from MinedaPCell v0.4 Nov. 22nd 2022
@@ -196,6 +196,12 @@ module MinedaPCellCommonModule
     
     def pdiff_to_kicad_Bsilk bbox
       active_to_kicad_silk bbox, 'B.SilkS'
+    end
+    
+    def create_kicad_smd pad_number, area, vs
+      fill_area(area, vs, nil){|x, y|
+        ml1_to_kicad_Fcu(1, Box.new(x-vs/2, y-vs/2, x+vs/2, y+vs/2))
+      }
     end
     
     def kicad_fp_poly(points, layer, type='(type dash)) (fill none)')
