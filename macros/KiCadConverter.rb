@@ -542,9 +542,9 @@ EOF
                 when 'R180'   then 180
                 when 'R270'   then 270
                 when 'M0'     then 180
-                when 'M45'    then 90
+                when 'M45'    then 270
                 when 'M90'    then 0
-                when 'M135'   then 270
+                when 'M135'   then 90
                 else
                   warn "未知の変換指示です: #{rot}"
                   0
@@ -1132,21 +1132,27 @@ EOF
     parsed_pcb.each do |node|
       next unless node.is_a?(Array)
       if node[0] == "footprint"
-        if node[1] =~ /.*:(.*Nch|.*Pch)/
+        if node[1] =~ /\S+:(\S+)/
         pcell_name = $1
-        mos_x, mos_y = 0.0, 0.0
+        mos_x, mos_y, rot = 0.0, 0.0, ''
         polygons, pads = [], []
         node.each do |child|
           next unless child.is_a?(Array)
           if child[0] == "at"
+            if child[3] == "90"
+              puts child.inspect
+              puts
+            end
             mos_x = child[1].to_f
-            mos_y = child[2].to_f
+            mos_y = child[2].to_f   #  surprisingly 'at' appears twice in the foot print,
+            #rot = (rot || child[3]) #  || avoids to set nil by the second 'at' whose child[3] is missing
+            child[3] && rot = child[3]
           end
           polygons << child if child[0] == "fp_poly"
           pads << child if child[0] == "pad"
         end
         x_coords << mos_x; y_coords << mos_y
-        mos_data << { name: pcell_name, x: mos_x, y: mos_y, polys: polygons, pads: pads }
+        mos_data << { name: pcell_name, x: mos_x, y: mos_y, rot: rot, polys: polygons, pads: pads }
         elsif node[1] == "Net_Rail_Pad_for_BOX"
           ext_pads << node[4]
         end
@@ -1179,7 +1185,10 @@ EOF
     # macro_ports = { "IN" => [], "OUT" => [], "VDD" => [], "VSS" => [] }
 
     mos_data.each do |m|
-      mos_x, mos_y = m[:x], m[:y]
+      mos_x, mos_y, rot = m[:x], m[:y], m[:rot].to_f
+      if m[:rot] == '90'
+        puts [mos_x, mos_y, rot].inspect
+      end
       m[:polys].each do |poly|
         pts_node = poly.find { |c| c.is_a?(Array) && c[0] == "pts" }
         layer_node = poly.find { |c| c.is_a?(Array) && c[0] == "layer" }
@@ -1191,11 +1200,25 @@ EOF
         next unless pts_node
 
         pt_n = ""
+        pt_o = ""
         pts_node.each do |xy|
           next unless xy.is_a?(Array) && xy[0] == "xy"
+          #rx = (mos_x + xy[1].to_f - inv_cx).round(4)
+          #ry = (mos_y + xy[2].to_f - inv_cy).round(4)
+          x = xy[1].to_f
+          y = xy[2].to_f
+          rad = 2.0*Math::PI*(rot/360.0)
+          xy1 = x*Math::cos(rad) - y*Math::sin(rad)
+          xy2 = x*Math::sin(rad) + y*Math::cos(rad)
+          if m[:rot] == '90'
+            puts "#{xy.inspect} => #{[xy1, xy2]}"
+          end
+          rx = (mos_x + xy1 - inv_cx).round(4)
+          ry = (mos_y + xy2 - inv_cy).round(4)
+          #pt_n   += " (xy #{rx} #{ry})"
           rx = (mos_x + xy[1].to_f - inv_cx).round(4)
           ry = (mos_y + xy[2].to_f - inv_cy).round(4)
-          pt_n   += " (xy #{rx} #{ry})"
+          pt_o   += " (xy #{rx} #{ry})"
         end
 
         unless pt_n.empty?
@@ -1203,6 +1226,7 @@ EOF
           s_fill   = fill_type.include?("yes") ? "solid" : "none"
           poly_fmt = "  (fp_poly (pts%s) (stroke (width 0.05) (type #{s_stroke})) (fill #{s_fill}) (layer \"#{layer}\"))\n"
           g_n   += sprintf(poly_fmt, pt_n)
+          g_n   += sprintf(poly_fmt, pt_o)
         end
       end
 
@@ -1308,8 +1332,7 @@ EOF
     mpc.set_layer_index
     layers = {}
     begin
-      layers["F.Cu"] = layout.layer(mpc.get_layer_index('ML1', false), 0)
-      layers["*.Cu"] = layout.layer(mpc.get_layer_index('ML1', false), 0)
+      layers["F.C"] = layout.layer(mpc.get_layer_index('ML1', false), 0)
       layers["B.Cu"] = layout.layer(mpc.get_layer_index('ML2', false), 0)
       layers["Via"]  = layout.layer(mpc.get_layer_index('VIA1', false), 0)
       layers["TEXT"] = layout.layer(mpc.get_layer_index('TEXT', false), 0)
