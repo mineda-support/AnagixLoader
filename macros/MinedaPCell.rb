@@ -1,7 +1,7 @@
 # coding: cp932
-# MinedaPCell v1.16, October 2nd, 2026 copy right S. Moriyama (Anagix Corporation)
+# MinedaPCell v1.17, October 29th, 2026 copy right S. Moriyama (Anagix Corporation)
 module MinedaPCell
-  version = 1.16
+  version = 1.17
   include MinedaPCellCommonModule
   # The PCell declaration for the Mineda MOSFET
   class MinedaMOS < MinedaPCellCommon
@@ -85,7 +85,8 @@ module MinedaPCell
         x = offset + m1cnt_width/2 - xshift
         if !no_finger_conn || with_sdcont  || i == 0 ||  i == n
           create_path(indices[:m1], x, vs-yshift+u1+u1cut, x, vs-yshift+u1-u1cut+sd_width, m1cnt_width, 0, 0)
-          @kicad && ml1_to_kicad_Fcu(pin_num, Box.new(x-m1cnt_width/2, vs-yshift+u1+u1cut, x+m1cnt_width/2, vs-yshift+u1-u1cut+sd_width))
+          #@kicad && ml1_to_kicad_Fcu(pin_num, Box.new(x-m1cnt_width/2, vs-yshift+u1+u1cut, x+m1cnt_width/2, vs-yshift+u1-u1cut+sd_width))
+          @kicad && create_kicad_smd(pin_num, [x-m1cnt_width/2, vs-yshift+u1+u1cut, x+m1cnt_width/2, vs-yshift+u1-u1cut+sd_width], vs)
           create_path(indices[:li1], x, vs-yshift+u1+u1cut, x, vs-yshift+u1-u1cut+sd_width, u1, 0, 0) if indices[:li1]
           create_dcont(indices[:dcont], x, vs-yshift+u1, x, vs-yshift+u1+sd_width, vs + vs_extra, params[:dcont_offset])
         end
@@ -223,11 +224,13 @@ module MinedaPCell
                 @kicad && via1_to_kicad_TH(3, Box.new(vs).move(x, y))
               end 
               create_path indices[:m1], x, y, x, y1+vs+2*u1, mw1, 0, 0
-              @kicad && ml1_to_kicad_Fcu(3, Box.new(x-mw1/2, y, x+mw1/2, y1+vs+2*u1))
+              #@kicad && ml1_to_kicad_Fcu(3, Box.new(x-mw1/2, y, x+mw1/2, y1+vs+2*u1))
+              @kicad && create_kicad_smd(3, [x-mw1/2, y, x+mw1/2, y1+vs+2*u1], vs)
             end
             if top && !no_finger_conn
               create_path indices[:m1], top, y, x, y, mw1, mw1/2, mw1/2 
-              @kicad && ml1_to_kicad_Fcu(3, Box.new(top-mw1/2, y-mw1/2, x+mw1/2, y+mw1/2))
+              #@kicad && ml1_to_kicad_Fcu(3, Box.new(top-mw1/2, y-mw1/2, x+mw1/2, y+mw1/2))
+              @kicad && create_kicad_smd(3, [top-mw1/2, y-mw1/2, x+mw1/2, y+mw1/2], vs)
             end
             top = x
           else
@@ -247,13 +250,15 @@ module MinedaPCell
             end
             if !no_finger_conn && (with_sdcont || n != 1)
               create_path indices[:m1], x, y2-vs-2*u1 - wm_offset - via_offset, x, y, mw1, 0, 0 
-              @kicad && ml1_to_kicad_Fcu(1, Box.new(x-mw1/2, y2-vs-2*u1 - wm_offset - via_offset, x+mw1/2, y))
+              #@kicad && ml1_to_kicad_Fcu(1, Box.new(x-mw1/2, y2-vs-2*u1 - wm_offset - via_offset, x+mw1/2, y))
+              @kicad && create_kicad_smd(1, [x-mw1/2, y2-vs-2*u1 - wm_offset - via_offset, x+mw1/2, y], vs)
             end
             if bottom
               y = y2+u1-vs/2
               unless no_finger_conn
                 create_path indices[:m1], bottom, y, x, y, mw1, mw1/2, mw1/2 
-                @kicad && ml1_to_kicad_Fcu(1, Box.new(bottom-mw1/2, y-mw1/2, x+mw1/2, y+mw1/2))
+                #@kicad && ml1_to_kicad_Fcu(1, Box.new(bottom-mw1/2, y-mw1/2, x+mw1/2, y+mw1/2))
+                @kicad && create_kicad_smd(1, [bottom-mw1/2, y-mw1/2, x+mw1/2, y+mw1/2])
               end
             end
             bottom = x
