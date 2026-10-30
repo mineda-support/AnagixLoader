@@ -755,7 +755,7 @@ EOF
               net_name = cell.is_top? ? (shape.property('net') || shape.property(1)) : nil
             end
             # net_name = 'box'
-            if polygon[net_name] # polygon with 4 points could be converted to box when saved and reload
+            if net_name && polygon[net_name] # polygon with 4 points could be converted to box when saved and reload
               segments << generate_zone(polygon[net_name], trans*shape.polygon, net_name, pcb_layer_name)
             else
               segments << generate_net_rail_pad_for_BOX(trans*shape.box, pcb_layer_name, net_name)
@@ -1200,7 +1200,6 @@ EOF
         next unless pts_node
 
         pt_n = ""
-        pt_o = ""
         pts_node.each do |xy|
           next unless xy.is_a?(Array) && xy[0] == "xy"
           #rx = (mos_x + xy[1].to_f - inv_cx).round(4)
@@ -1208,17 +1207,14 @@ EOF
           x = xy[1].to_f
           y = xy[2].to_f
           rad = 2.0*Math::PI*(rot/360.0)
-          xy1 = x*Math::cos(rad) - y*Math::sin(rad)
-          xy2 = x*Math::sin(rad) + y*Math::cos(rad)
+          xy1 = x*Math::cos(-rad) - y*Math::sin(-rad)
+          xy2 = x*Math::sin(-rad) + y*Math::cos(-rad)
           if m[:rot] == '90'
             puts "#{xy.inspect} => #{[xy1, xy2]}"
           end
           rx = (mos_x + xy1 - inv_cx).round(4)
           ry = (mos_y + xy2 - inv_cy).round(4)
-          #pt_n   += " (xy #{rx} #{ry})"
-          rx = (mos_x + xy[1].to_f - inv_cx).round(4)
-          ry = (mos_y + xy[2].to_f - inv_cy).round(4)
-          pt_o   += " (xy #{rx} #{ry})"
+          pt_n   += " (xy #{rx} #{ry})"
         end
 
         unless pt_n.empty?
@@ -1226,7 +1222,6 @@ EOF
           s_fill   = fill_type.include?("yes") ? "solid" : "none"
           poly_fmt = "  (fp_poly (pts%s) (stroke (width 0.05) (type #{s_stroke})) (fill #{s_fill}) (layer \"#{layer}\"))\n"
           g_n   += sprintf(poly_fmt, pt_n)
-          g_n   += sprintf(poly_fmt, pt_o)
         end
       end
 
@@ -1234,9 +1229,12 @@ EOF
       m[:pads].each do |pad|
         pin_num = pad[1].to_s
         at_node = pad.find { |c| c.is_a?(Array) && c[0] == "at" }
+        size_node = pad.find { |c| c[0] == "size"}
         next unless at_node
         abs_pad_x = mos_x + at_node[1].to_f
         abs_pad_y = mos_y + at_node[2].to_f
+        next if size_node[1] != size_node[2]
+        g_n += "  (pad \"\" smd rect (at #{abs_pad_x} #{abs_pad_y}) (size #{size_node[1]} #{size_node[2]}) (layers \"F.Cu\"))\n"
       end
 
       lx = (mos_x - inv_cx).round(4)
@@ -1282,7 +1280,7 @@ EOF
         box = [cx - w/2, cy - h/2, cx + w/2, cy + h/2]
         net_name = get_ext_net(box, ext_cell_pins) || net[1]
         pad_num = pad_number[net_name]
-        g_n += "  (pad \"#{pad_num} smdrect (at #{cx} #{cy}) (size #{w} #{h}) (layers \"F.Cu\" \"F.Paste\" \"F.Mask\"))\n"
+        g_n += "  (pad \"#{pad_num}\" smd rect (at #{cx} #{cy}) (size #{w} #{h}) (layers \"F.Cu\" \"F.Paste\" \"F.Mask\"))\n"
       end
     } 
     inv_w = inv_h = 0 
@@ -1332,7 +1330,7 @@ EOF
     mpc.set_layer_index
     layers = {}
     begin
-      layers["F.C"] = layout.layer(mpc.get_layer_index('ML1', false), 0)
+      layers["F.Cu"] = layout.layer(mpc.get_layer_index('ML1', false), 0)
       layers["B.Cu"] = layout.layer(mpc.get_layer_index('ML2', false), 0)
       layers["Via"]  = layout.layer(mpc.get_layer_index('VIA1', false), 0)
       layers["TEXT"] = layout.layer(mpc.get_layer_index('TEXT', false), 0)
