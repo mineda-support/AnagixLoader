@@ -1,7 +1,7 @@
 # coding: cp932
-# MinedaPCell v1.18, October 30th, 2026 copy right S. Moriyama (Anagix Corporation)
+# MinedaPCell v1.19, October 31st, 2026 copy right S. Moriyama (Anagix Corporation)
 module MinedaPCell
-  version = 1.18
+  version = 1.19
   include MinedaPCellCommonModule
   # The PCell declaration for the Mineda MOSFET
   class MinedaMOS < MinedaPCellCommon
@@ -1154,12 +1154,13 @@ end
       indices[:m1] = get_layer_index 'ML1'
       indices[:cnt] = get_layer_index 'CNT'
       oo_layout_dbu = 1.0/layout.dbu
-      length = (l*oo_layout_dbu).to_i
+      length = params[:length] || (l*oo_layout_dbu).to_i
       width = (w*oo_layout_dbu).to_i
       sseg = (ss*oo_layout_dbu).to_i
       ml1_cnt = params[:ml1_cnt] || u1/5
       ml1_margin = params[:ml1_margin] || 0
-      cnt_margin = params[:cnt_margin] || [0, 0] 
+      ml1_ext = params[:ml1_ext] || 0
+      cnt_margin = params[:cnt_margin] || 0
       cnt_cover = params[:cnt_cover] || vs
       cnt_adjust = (vs - cnt_cover)/2
       offset = 0
@@ -1186,8 +1187,9 @@ end
  
         lower_end = offset - (width < cs + ol*2? ml1_cnt : 0) + ml1_margin
         upper_end = width + offset +  (width < cs + ol*2? ml1_cnt : 0) - ml1_margin
-        [[ol - ml1_cnt, lower_end, ol + cs + ml1_cnt,upper_end, cnt_margin],
-         [x - ml1_cnt, lower_end, x + cs + ml1_cnt, upper_end, cnt_margin]].each_with_index{|area, i|
+        [[ol - ml1_cnt, lower_end, ol + cs + ml1_cnt + ml1_ext, upper_end, [[cnt_margin, cnt_margin+ml1_ext], cnt_margin]],
+         [x - ml1_cnt - ml1_ext, lower_end, x + cs + ml1_cnt, upper_end, [[cnt_margin+ml1_ext, cnt_margin], cnt_margin]]].each_with_index{|area, i|
+         puts "#{i}: area=#{area}"
           x1, y1, x2, y2 = fill_area(area, vs, indices[:m1]){|x, y|
             create_box indices[:cnt], x - cs/2, y - cs/2, x + cs/2, y + cs/2
             #@kicad && ml1_to_kicad_Fcu(i, Box.new(x - cs/2, y - cs/2, x + cs/2, y + cs/2))
@@ -1201,14 +1203,15 @@ end
           create_box indices[:pol], x - ol, offset + dy -ol, x + cs + ol, offset + width - dy + ol
         end
         if offset > 0
-          create_box indices[:m1], ol - ml1_cnt, offset - sseg-ml1_margin, cs+ol + ml1_cnt, offset+ml1_margin if parallel || i % 2 == 0
-          create_box indices[:m1], x - ml1_cnt, offset - sseg-ml1_margin, x + cs + ml1_cnt, offset+ml1_margin if parallel || i % 2 != 0
+          create_box indices[:m1], ol - ml1_cnt, offset - sseg-ml1_margin, cs+ol + ml1_cnt + ml1_ext, offset+ml1_margin if parallel || i % 2 == 0
+          create_box indices[:m1], x - ml1_cnt - ml1_ext, offset - sseg-ml1_margin, x + cs + ml1_cnt, offset+ml1_margin if parallel || i % 2 != 0
         end
         offset = offset + width + sseg
       end
       generate_kicad_device l, w, ns
     end
-    def display_text_impl name='HR_poly'
+    
+    def display_text_impl name=self.name
       if ns > 1
         "#{name}\r\n(L=#{l.round(3)}um,W=#{w.round(3)}um,ns=#{ns.to_s}, #{ss}um => R=#{rval.round(3)})"
       else

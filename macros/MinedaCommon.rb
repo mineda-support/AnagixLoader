@@ -1,6 +1,6 @@
 # coding: utf-8
 # $priority: 1
-# Mineda Common v1.451 Oct. 29th 2026
+# Mineda Common v1.452 Oct. 31st 2026
 #   Force on-grid v0.1 July 39th 2022 copy right S. Moriyama (Anagix Corp.)
 #   LVS preprocessor(get_reference) v0.87 Sep. 26th, 2026 copyright by S. Moriyama (Anagix Corporation)
 #   * ConvertPCells and PCellDefaults moved from MinedaPCell v0.4 Nov. 22nd 2022
@@ -9,7 +9,7 @@
 #   PCellTest v0.2 August 22nd 2022 S. Moriyama
 #   DRC_helper::find_cells_to_exclude v0.1 Sep 23rd 2022 S. Moriyama
 #   MinedaInput v0.51 Aug. 31st, 2026 S. Moriyama
-#   MinedaPCellCommon v0.392 Oct. 10th, 2026 S. Moriyama
+#   MinedaPCellCommon v0.393 Oct. 31st, 2026 S. Moriyama
 #   Create Backannotation data v0.171 May 14th 2023 S. Moriyama
 #   MinedaAutoplace v0.47 Oct. 28th 2026 S. Moriyama
 #   ChangePCellParameters v0.1 July 29th 2023 S. Moriyama
@@ -421,23 +421,30 @@ module MinedaPCellCommonModule
     
     def fill_area area, square_size, filler=nil, fill_margin=0
       x1, y1, x2, y2, margin, xgap = area
-      margin_x = margin_y = (margin || 0)
-      if margin.class == Array
-        margin_x, margin_y = margin
+      # puts "area=#{area}"
+      margin ||= [0, 0]
+      margin_x, margin_y = margin
+      margin_xl = margin_xr = margin_x  
+      if margin_x.class == Array
+        margin_xl, margin_xr = margin_x
+      end
+      margin_yu = margin_yl = margin_y 
+      if margin_y.class == Array
+        margin_yu, margin_yl = margin_y
       end
       xoffset=yoffset=0
       unless square_size == nil || square_size == 0
-        n = ((x2 - x1 - 2*margin_x)/square_size).to_i
-        xoffset = x2 - x1 - n * square_size
-        m = ((y2 - y1 - 2*margin_y)/square_size).to_i
-        yoffset = y2 - y1 - m * square_size
+        n = ((x2 - x1 - margin_xl - margin_xr)/square_size).to_i
+        xoffset = (margin_xl == margin_xr) ? (x2 - x1 - n * square_size)/2 : (square_size/2 + margin_xl)
+        m = ((y2 - y1 - margin_yu - margin_yl)/square_size).to_i
+        yoffset = (margin_yl == margin_yu) ? (y2 - y1 - m * square_size)/2 : (square_size/2 + margin_yl)
         for i in 0..[n-1, 0].max
           for j in 0..[m-1, 0].max
-            yield x1 + xoffset/2 + (n<=0? 0 : i*square_size + square_size/2), y1 + yoffset/2 +  (m<=0? 0 : j*square_size + square_size/2) if block_given?
+            yield x1 + xoffset + (n<=0? 0 : i*square_size + square_size/2), y1 + yoffset +  (m<=0? 0 : j*square_size + square_size/2) if block_given?
           end
         end
       end
-      return_box = [x1 + xoffset/2, y1 + yoffset/2, x2 - xoffset/2, y2 - yoffset/2]
+      return_box = [x1 + xoffset, y1 + yoffset, x2 - xoffset, y2 - yoffset]
       if filler
         if fill_margin
           if fill_margin.class == Array
@@ -2568,7 +2575,7 @@ class MinedaAutoPlace
           next
         end
         inst = @cell.insert(RBA::CellInstArray.new(index, trans))
-      else
+     else
         inst = instance
         old_l = inst.pcell_parameter  'l'
         old_w = inst.pcell_parameter  'w'
