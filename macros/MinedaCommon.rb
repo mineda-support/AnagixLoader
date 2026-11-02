@@ -1,6 +1,6 @@
 # coding: utf-8
 # $priority: 1
-# Mineda Common v1.452 Oct. 31st 2026
+# Mineda Common v1.453 Nov. 1st 2026
 #   Force on-grid v0.1 July 39th 2022 copy right S. Moriyama (Anagix Corp.)
 #   LVS preprocessor(get_reference) v0.87 Sep. 26th, 2026 copyright by S. Moriyama (Anagix Corporation)
 #   * ConvertPCells and PCellDefaults moved from MinedaPCell v0.4 Nov. 22nd 2022
@@ -9,7 +9,7 @@
 #   PCellTest v0.2 August 22nd 2022 S. Moriyama
 #   DRC_helper::find_cells_to_exclude v0.1 Sep 23rd 2022 S. Moriyama
 #   MinedaInput v0.51 Aug. 31st, 2026 S. Moriyama
-#   MinedaPCellCommon v0.393 Oct. 31st, 2026 S. Moriyama
+#   MinedaPCellCommon v0.394 Nov. 1st, 2026 S. Moriyama
 #   Create Backannotation data v0.171 May 14th 2023 S. Moriyama
 #   MinedaAutoplace v0.47 Oct. 28th 2026 S. Moriyama
 #   ChangePCellParameters v0.1 July 29th 2023 S. Moriyama
@@ -430,7 +430,7 @@ module MinedaPCellCommonModule
       end
       margin_yu = margin_yl = margin_y 
       if margin_y.class == Array
-        margin_yu, margin_yl = margin_y
+        margin_yl, margin_yu = margin_y
       end
       xoffset=yoffset=0
       unless square_size == nil || square_size == 0
