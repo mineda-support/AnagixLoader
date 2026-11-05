@@ -426,13 +426,16 @@ module MinedaPCellCommonModule
     def fill_area area, square_size, filler=nil, fill_margin=0
       x1, y1, x2, y2, margin, xgap = area
       # puts "area=#{area}"
-      margin ||= [0, 0]
-      margin_x, margin_y = margin
+      if margin
+        margin_x = margin_y = margin
+      else
+        margin_x, margin_y = margin = [0, 0]
+      end
       margin_xl = margin_xr = margin_x  
       if margin_x.class == Array
         margin_xl, margin_xr = margin_x
       end
-      margin_yu = margin_yl = margin_y 
+      margin_yl = margin_yu = margin_y 
       if margin_y.class == Array
         margin_yl, margin_yu = margin_y
       end
