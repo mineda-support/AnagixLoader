@@ -319,16 +319,7 @@ module MinedaPCellCommonModule
       end
       cell.shapes(index).insert_text(Text::new text, (x1+x2)/2, (y1+y2)/2) if text
     end
-=begin
-    def insert_cell via_index, x, y, rotate=false, bbox_layer=nil
-      via = CellInstArray.new(via_index, rotate ? Trans.new(1, false, x, y) : Trans.new(x, y))
-      if bbox_layer
-        bb = via.bbox(layout)
-        create_box bbox_layer, bb.p1.x, bb.p1.y, bb.p2.x, bb.p2.y 
-      end
-      inst = cell.insert(via)
-    end
-=end    
+
     def insert_cell via_index, x, y, rotate=false, bbox_layer=nil
       via = CellInstArray.new(via_index, rotate ? Trans.new(1, false, x, y) : Trans.new(x, y))
       if bbox_layer
@@ -426,13 +417,16 @@ module MinedaPCellCommonModule
     def fill_area area, square_size, filler=nil, fill_margin=0
       x1, y1, x2, y2, margin, xgap = area
       # puts "area=#{area}"
-      margin ||= [0, 0]
-      margin_x, margin_y = margin
+      if margin
+        margin_x = margin_y = margin
+      else
+        margin_x, margin_y = margin = [0, 0]
+      end
       margin_xl = margin_xr = margin_x  
       if margin_x.class == Array
         margin_xl, margin_xr = margin_x
       end
-      margin_yu = margin_yl = margin_y 
+      margin_yl = margin_yu = margin_y 
       if margin_y.class == Array
         margin_yl, margin_yu = margin_y
       end
