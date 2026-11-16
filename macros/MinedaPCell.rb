@@ -1296,6 +1296,7 @@ end
     end
 
     def produce_impl indices, vs, u1, area_index=nil, well_index=nil, params={}, label=nil
+      @kicad = ''
       oo_layout_dbu = 1 / layout.dbu
       cw = (w*oo_layout_dbu).to_i
       cl = (l*oo_layout_dbu).to_i
@@ -1324,13 +1325,15 @@ end
 
       if polcnt_outside
         create_box indices[:pol], -u2-vs, 0, cw + cap_ext, cl, label
-        create_contacts_vertically indices, -u1-vs/2, 0, cl, vs, u1, params[:vpitch], true # false
+        @kicad && passive_shape_to_kicad(Box.new(-u2-vs, 0, cw + cap_ext, cl))
+        create_contacts_vertically indices, -u1-vs/2, 0, cl, vs, u1, params[:vpitch], true, 1 # false
       else
         create_box indices[:pol], -u1, 0, cw + cap_ext, cl, label
-        create_contacts_vertically indices, u1+vs/2, u1/2, cl-u1/2, vs, u1, params[:vpitch], true # false
+        @kicad && passive_shape_to_kicad(Box.new(-u1, 0, cw + cap_ext, cl))
+        create_contacts_vertically indices, u1+vs/2, u1/2, cl-u1/2, vs, u1, params[:vpitch], true, 1 # false
       end
       indices[:pol] = nil # this tells create_contacts_horizontally to use dcont
-      create_contacts_horizontally indices, 0, cw, u1/2+cl+u1, vs, u1, params[:hpitch], true # false
+      create_contacts_horizontally indices, 0, cw, u1/2+cl+u1, vs, u1, params[:hpitch], true, 2 # false
       # insert_cell indices, nsubcont_index, 0, cl+2*u1+vs, vs, u1
       # insert_cell indices, :diff, 0, cl+2*u1+vs, vs, u1
       # insert_cell indices, :cnt, 0, cl+2*u1+vs, vs, u1
@@ -1338,6 +1341,7 @@ end
       #          cell.shapes(pol_index).insert(Path::new(points, rw, vs, vs))
       #          cell.shapes(res_index).insert(Path::new(points, rw, vs/4, vs/4))
     end
+    generate_kicad_device l, w, n
   end
 
   class MinedaPoly_cap < MinedaCapacitor
@@ -1358,6 +1362,7 @@ end
     end
 
     def produce_impl indices, vs, u1, params = {}, label=nil
+      @kicad = ''
       oo_layout_dbu = 1 / layout.dbu
       cw = (w*oo_layout_dbu).to_i
       cl = (l*oo_layout_dbu).to_i
@@ -1366,12 +1371,15 @@ end
       pcont_dy = params[:pcont_dy] || 0
       offset = vs+ u2+u1/2+u1/4 # corrected +u1/8 -> +u1/4 to avoid off-grid
       create_box indices[:m1], 0, 0, offset + cw + cap_ext, cl
+      @kicad && passive_shape_to_kicad(Box.new(offset, 0, offset + cw, cl))
       create_box indices[:cap], offset, 0, offset + cw, cl
+      @kicad && passive_shape_to_kicad(Box.new(offset, 0, offset + cw, cl))
       if use_ml2
         create_box indices[:m2], offset, -u1, offset + cw , cl+u2+vs
       end
       create_box indices[:pol], offset, -cap_ext, offset + cw , cl+u2+vs + pcont_dy, label
       create_contacts_horizontally indices, offset+u1/2,  offset + cw -u1/2, cl + vs/2 + u1 + pcont_dy, vs, u1, params[:hpitch]
+      generate_kicad_devices l, w, n
     end
   end
 
