@@ -1,6 +1,6 @@
 # coding: utf-8
 # $priority: 1
-# Mineda Common v1.462 Nov. 6th 2026
+# Mineda Common v1.463 Nov. 17th 2026
 #   Force on-grid v0.1 July 39th 2022 copy right S. Moriyama (Anagix Corp.)
 #   LVS preprocessor(get_reference) v0.87 Sep. 26th, 2026 copyright by S. Moriyama (Anagix Corporation)
 #   * ConvertPCells and PCellDefaults moved from MinedaPCell v0.4 Nov. 22nd 2022
@@ -9,7 +9,7 @@
 #   PCellTest v0.2 August 22nd 2022 S. Moriyama
 #   DRC_helper::find_cells_to_exclude v0.1 Sep 23rd 2022 S. Moriyama
 #   MinedaInput v0.51 Aug. 31st, 2026 S. Moriyama
-#   MinedaPCellCommon v0.42 Nov. 6th, 2026 S. Moriyama
+#   MinedaPCellCommon v0.421 Nov. 17th, 2026 S. Moriyama
 #   Create Backannotation data v0.171 May 14th 2023 S. Moriyama
 #   MinedaAutoplace v0.47 Oct. 28th 2026 S. Moriyama
 #   ChangePCellParameters v0.1 July 29th 2023 S. Moriyama
@@ -200,7 +200,7 @@ module MinedaPCellCommonModule
     
     def create_kicad_smd pad_number, area, vs
       fill_area(area, vs, nil){|x, y|
-        ml1_to_kicad_Fcu(1, Box.new(x-vs/2, y-vs/2, x+vs/2, y+vs/2))
+        ml1_to_kicad_Fcu(pad_number, Box.new(x-vs/2, y-vs/2, x+vs/2, y+vs/2))
       }
     end
     
