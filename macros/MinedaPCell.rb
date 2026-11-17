@@ -1,7 +1,7 @@
 # coding: cp932
-# MinedaPCell v1.19, October 31st, 2026 copy right S. Moriyama (Anagix Corporation)
+# MinedaPCell v1.20, Nov. 16th, 2026 copy right S. Moriyama (Anagix Corporation)
 module MinedaPCell
-  version = 1.19
+  version = 1.20
   include MinedaPCellCommonModule
   # The PCell declaration for the Mineda MOSFET
   class MinedaMOS < MinedaPCellCommon
@@ -1340,8 +1340,8 @@ end
       #          points = [Point::new(offset, vs), Point::new(offset, vs/2+r)]
       #          cell.shapes(pol_index).insert(Path::new(points, rw, vs, vs))
       #          cell.shapes(res_index).insert(Path::new(points, rw, vs/4, vs/4))
+      generate_kicad_device l, w, 0
     end
-    generate_kicad_device l, w, n
   end
 
   class MinedaPoly_cap < MinedaCapacitor
@@ -1371,15 +1371,15 @@ end
       pcont_dy = params[:pcont_dy] || 0
       offset = vs+ u2+u1/2+u1/4 # corrected +u1/8 -> +u1/4 to avoid off-grid
       create_box indices[:m1], 0, 0, offset + cw + cap_ext, cl
-      @kicad && passive_shape_to_kicad(Box.new(offset, 0, offset + cw, cl))
+      @kicad && ml1_to_kicad_Fcu(1, Box.new(Box.new(offset, 0, offset + cw, cl)))
       create_box indices[:cap], offset, 0, offset + cw, cl
       @kicad && passive_shape_to_kicad(Box.new(offset, 0, offset + cw, cl))
       if use_ml2
         create_box indices[:m2], offset, -u1, offset + cw , cl+u2+vs
       end
       create_box indices[:pol], offset, -cap_ext, offset + cw , cl+u2+vs + pcont_dy, label
-      create_contacts_horizontally indices, offset+u1/2,  offset + cw -u1/2, cl + vs/2 + u1 + pcont_dy, vs, u1, params[:hpitch]
-      generate_kicad_devices l, w, n
+      create_contacts_horizontally indices, offset+u1/2,  offset + cw -u1/2, cl + vs/2 + u1 + pcont_dy, vs, u1, params[:hpitch], false, 2
+      generate_kicad_device l, w, 0
     end
   end
 
