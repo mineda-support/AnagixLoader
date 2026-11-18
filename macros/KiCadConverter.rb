@@ -1107,9 +1107,9 @@ EOF
       x2 = cx2 + size #/2
       y1 = cy1 - size #/2
       y2 = cy2 + size #/2
-      puts "check if #{net}(#{cx}, #{cy}) is inside #{[x1, y1, x2, y2]} ?"
+      #puts "check if #{net}(#{cx}, #{cy}) is inside #{[x1, y1, x2, y2]} ?"
       if x1 < cx && cx < x2 && y1 < cy && cy < y2
-        puts "#{net}(#{cx}, #{cy} is!"
+        puts "#{net}(#{cx}, #{cy}) is inside #{[x1, y1, x2, y2]} !"
         return net
       end
     }
@@ -1231,8 +1231,13 @@ EOF
         at_node = pad.find { |c| c.is_a?(Array) && c[0] == "at" }
         size_node = pad.find { |c| c[0] == "size"}
         next unless at_node
-        abs_pad_x = mos_x + at_node[1].to_f
-        abs_pad_y = mos_y + at_node[2].to_f
+        x = at_node[1].to_f
+        y = at_node[2].to_f
+        rad = 2.0*Math::PI*(rot/360.0)
+        xy1 = x*Math::cos(-rad) - y*Math::sin(-rad)
+        xy2 = x*Math::sin(-rad) + y*Math::cos(-rad)           
+        abs_pad_x = (mos_x + xy1).round(4)
+        abs_pad_y = (mos_y + xy2).round(4)
         next if size_node[1] != size_node[2]
         g_n += "  (pad \"\" smd rect (at #{abs_pad_x} #{abs_pad_y}) (size #{size_node[1]} #{size_node[2]}) (layers \"F.Cu\"))\n"
       end
