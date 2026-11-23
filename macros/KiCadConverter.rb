@@ -340,7 +340,7 @@ EOF
       segment
     end
     
-    def generate_contact name, box, layer_name='F.Cu'
+    def generate_contact name, box, layer_name='F.Cu', fill=false
       x = box.center.x*@layout.dbu+@offset_x
       y = -box.center.y*@layout.dbu+@offset_y
       width = box.width*@layout.dbu
@@ -351,7 +351,7 @@ EOF
   (footprint "#{name}" (layer "#{layer_name}") (at 0 0)
          (fp_poly (pts (xy #{x1.round(2)} #{y1.round(2)}) (xy #{x1.round(2)} #{y2.round(2)})
                        (xy #{x2.round(2)} #{y2.round(2)}) (xy #{x2.round(2)} #{y1.round(2)}))
-             (stroke (width 0.05) (type solid)) (fill none) (layer \"#{layer_name}\")
+             (stroke (width 0.05) (type solid)) (fill #{fill ? 'solid' : 'none'}) (layer \"#{layer_name}\")
          ))        
 EOF
       segment
@@ -452,18 +452,18 @@ EOF
     end
     
     def find_dev_name box
-      puts "== x:#{[box.left,box.right]} y:#{[box.bottom,box.top]} =================="
+      puts "== Box x:#{[box.left,box.right]} y:#{[box.bottom,box.top]} =================="
       @sch_to_dev_map.each{|dev_name, point|
         #puts "#{dev_name}@[#{point.x}, #{point.y}]:#{point.x < box.left|| box.right < point.x}|#{point.y < box.bottom || box.top < point.y}"
         point_x = point.x*@rsf
         point_y = point.y*@rsf
+        puts "Check if #{dev_name}@[#{point_x}, #{point_y}] is inside box"
         next if point_x < box.left|| box.right < point_x
         next if point_y < box.bottom || box.top < point_y
-        puts "#{dev_name}@[#{point_x}, #{point_y}]:#{point_x < box.left|| box.right < point_x}|#{point_y < box.bottom || box.top < point_y}"
-        puts "===========> #{dev_name}"
+        puts "---> Yes #{dev_name} is inside box"
         return dev_name
       }
-      puts 'fail!!! =================================='
+      puts 'Nothing found inside the box'
       nil
     end  
     
@@ -475,6 +475,7 @@ EOF
       count = 0
       segments = ''
       cell.each_inst{|inst|
+        next if inst.cell.is_leaf?
         #top_cell.begin_instances_rec.each{|iter|
         #  inst = iter.inst_cell
         puts "#{inst.cell.name}(#{inst.property('name') || inst.property(1)}): #{(trans*inst.trans).to_s}"
@@ -533,6 +534,7 @@ EOF
           end
         else
           puts "#{infile} does not exist!"
+          next
         end
         rot = (trans*inst.trans).to_s.sub(/ .*$/, '').upcase
         kicad_cell_name << '_MY' if rot.start_with? 'M'
@@ -560,8 +562,10 @@ EOF
         offset_y = 0.0 if offset_y.abs < 30.0
       else
         offset_x = offset_y = 0.0
-      end   
-      footprints, pads_location = generate_footprints kicad_elements, offset_x, offset_y, @pretty_lib # pcell_lib
+      end  
+      if kicad_elements.size > 0 
+        footprints, pads_location = generate_footprints kicad_elements, offset_x, offset_y, @pretty_lib # pcell_lib
+      end
 =begin
       kicad_elements.each{|ref, item|
         #item.unshift ref
@@ -648,6 +652,22 @@ EOF
       results
     end
     
+    def generate_box name, box, layer_name='F.Cu', fill=false
+      x = box.center.x*@layout.dbu+@offset_x
+      y = -box.center.y*@layout.dbu+@offset_y
+      width = box.width*@layout.dbu
+      height = box.height*@layout.dbu
+      x1, y1 = [x - width/2, y - height/2]
+      x2, y2 = [x + width/2, y + height/2]
+      segment = <<EOF
+         (fp_poly (pts (xy #{x1.round(2)} #{y1.round(2)}) (xy #{x1.round(2)} #{y2.round(2)})
+                       (xy #{x2.round(2)} #{y2.round(2)}) (xy #{x2.round(2)} #{y1.round(2)}))
+             (stroke (width 0.05) (type solid)) (fill #{fill ? 'solid' : 'none'}) (layer \"#{layer_name}\")
+         )       
+EOF
+      segment
+    end    
+    
     def generate_cell_footprint cell
       @kicad = ''
       pins = extract_cell_pins cell
@@ -657,8 +677,10 @@ EOF
       end
       pins.each_with_index{|p, i|
         name, x, y, w = p
-        @kicad && via1_to_kicad_TH(i+1, Box.new(x - w/2, -(y - w/2), x + w/2, -(y + w/2)))
+        #@kicad && MinedaPCellCommon.new.via1_to_kicad_TH(i+1, Box.new(x - w/2, -(y - w/2), x + w/2, -(y + w/2)))
+        @kicad && @kicad << generate_box(name, Box.new(x - w/2, -(y - w/2), x + w/2, -(y + w/2)), 'F.Fab')
       }
+      @kicad &&  @kicad << generate_box(cell.name, cell.bbox, 'B.SilkS')
       footprint_name = cell.name
       s_expr =  "(footprint \"#{footprint_name}\"\n"
       s_expr += "  (version 20240101)\n"
