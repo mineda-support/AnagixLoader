@@ -23,8 +23,11 @@ module KiCadConverter
         cross_ref = lvs_data.xref
         netlist = @lvs_data.netlist
         @sch_to_dev_map = {}
+        @sch_to_circuit = {}
 
         netlist.each_circuit do |circuit|
+          @sch_to_dev_map[circuit.name] ||= {}
+          @sch_to_circuit[circuit.name] = circuit
           cross_ref.each_device_pair(circuit) do |pair|
             dev_layout = pair.first
             dev_ref = pair.second
@@ -32,7 +35,7 @@ module KiCadConverter
             center = RBA::ICplxTrans::new(dev_layout.trans, @layout.dbu).disp
             prefix = find_prefix dev_layout.device_class.class.name
             name_ref = prefix + (dev_ref.expanded_name.empty? ? dev_ref.name : dev_ref.expanded_name)
-            @sch_to_dev_map[name_ref] = center 
+            @sch_to_dev_map[circuit.name][name_ref] = center 
           end
         end
       end
@@ -183,10 +186,10 @@ module KiCadConverter
         sexpr << "    (at #{pos_x} #{pos_y})\n"
         sexpr << "    (descr \"Generated from KLayout PCell\")\n"
         sexpr << "    (property \"Reference\" \"#{ref}\" (at 0 -1 0) (layer \"F.SilkS\")\n"
-        sexpr << "      (effects (font (size 1 1) (thickness 0.15)))\n"
+        sexpr << "      (effects (font (size 2 2) (thickness 0.15)))\n"
         sexpr << "    )\n"
         sexpr << "    (property \"Value\" \"#{fp_name}\" (at 0 1 0) (layer \"F.Fab\")\n"
-        sexpr << "      (effects (font (size 1 1) (thickness 0.15)))\n"
+        sexpr << "      (effects (font (size 2 2) (thickness 0.15)))\n"
         sexpr << "    )\n"
         footprints_sexpr << sexpr + fp_body + "  )\n\n"
       end
@@ -451,9 +454,9 @@ EOF
       kicad_pads
     end
     
-    def find_dev_name box
+    def find_dev_name circuit, box
       puts "== Box x:#{[box.left,box.right]} y:#{[box.bottom,box.top]} =================="
-      @sch_to_dev_map.each{|dev_name, point|
+      @sch_to_dev_map[circuit].each{|dev_name, point|
         #puts "#{dev_name}@[#{point.x}, #{point.y}]:#{point.x < box.left|| box.right < point.x}|#{point.y < box.bottom || box.top < point.y}"
         point_x = point.x*@rsf
         point_y = point.y*@rsf
@@ -522,10 +525,26 @@ EOF
           end
         end
         infile = File.join(@pretty_dir, kicad_cell_name) + '.kicad_mod'
+        name = nil
         if File.exist?(infile)
           count = count + 1
           if @lvs_data
-            name = find_dev_name trans*inst.bbox         
+            puts "@sch_to_dev_map[#{kicad_cell_name}]=#{@sch_to_dev_map[kicad_cell_name]}"
+            if @sch_to_dev_map[cell.name] == {}
+              cross_ref = @lvs_data.xref
+              cross_ref.each_subcircuit_pair(@sch_to_circuit[cell.name]){|sc|
+                puts [sc.first.circuit_ref.name, sc.second.name].inspect
+                if sc.first.circuit_ref.name == kicad_cell_name
+                  if $x_list && $x_list[sc.second.name.to_i - 1]
+                    name = $x_list[sc.second.name.to_i - 1]
+                  else
+                    name = 'X' + sc.second.name
+                  end
+                end
+              }
+            else
+              name = find_dev_name kicad_cell_name, trans*inst.bbox  
+            end       
           else
             name = inst.property('name') || inst.property(1)
             if name.nil? || kicad_elements[name]
@@ -550,7 +569,8 @@ EOF
                 else
                   warn "未知の変換指示です: #{rot}"
                   0
-                end 
+                end
+        puts "set kicad_elements[#{name}] for #{kicad_cell_name}"
         kicad_elements[name] = [(inst.trans.disp.x*@layout.dbu).round(6), (-(inst.trans.disp.y)*@layout.dbu).round(6), 
                                 kicad_cell_name, angle]
       }
@@ -688,8 +708,8 @@ EOF
       s_expr += "  (layer \"F.Cu\")\n"
       s_expr += "  (descr \"Generated automatically from KLayout PCell\")\n"
       # デフォルトの参照符号（Reference）と値（Value）のテキスト配置
-      s_expr += "  (fp_text reference \"REF**\" (at 0 -5) (layer \"F.SilkS\") (effects (font (size 1 1) (thickness 0.15))))\n"
-      s_expr += "  (fp_text value \"#{footprint_name}\" (at 0 1) (layer \"F.Fab\") (effects (font (size 1 1) (thickness 0.15))))\n"
+      s_expr += "  (fp_text reference \"REF**\" (at 2.5 -2) (layer \"F.Fab\") (effects (font (size 2.5 2.5) (thickness 0.15))))\n"
+      s_expr += "  (fp_text value \"#{footprint_name}\" (at 2.5 -10) (layer \"F.SilkS\") (effects (font (size 2.5 2.5) (thickness 0.15))))\n"
       s_expr += "#{@kicad})\n"    
       kicad_mod_path = File.join(@pretty_dir, "#{footprint_name}.kicad_mod")
       File.open(kicad_mod_path, 'w'){|f| f.puts s_expr}
@@ -1260,7 +1280,7 @@ EOF
         xy2 = x*Math::sin(-rad) + y*Math::cos(-rad)           
         abs_pad_x = (mos_x + xy1).round(4)
         abs_pad_y = (mos_y + xy2).round(4)
-        next if size_node[1] != size_node[2]
+       next if size_node[1] != size_node[2]
         g_n += "  (pad \"\" smd rect (at #{abs_pad_x} #{abs_pad_y}) (size #{size_node[1]} #{size_node[2]}) (layers \"F.Cu\"))\n"
       end
 
