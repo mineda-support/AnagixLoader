@@ -1,6 +1,6 @@
 # coding: utf-8
 # $priority: 1
-# Mineda Common v1.463 Nov. 17th 2026
+# Mineda Common v1.464 Nov. 24th 2026
 #   Force on-grid v0.1 July 39th 2022 copy right S. Moriyama (Anagix Corp.)
 #   LVS preprocessor(get_reference) v0.87 Sep. 26th, 2026 copyright by S. Moriyama (Anagix Corporation)
 #   * ConvertPCells and PCellDefaults moved from MinedaPCell v0.4 Nov. 22nd 2022
@@ -11,7 +11,7 @@
 #   MinedaInput v0.51 Aug. 31st, 2026 S. Moriyama
 #   MinedaPCellCommon v0.421 Nov. 17th, 2026 S. Moriyama
 #   Create Backannotation data v0.171 May 14th 2023 S. Moriyama
-#   MinedaAutoplace v0.47 Oct. 28th 2026 S. Moriyama
+#   MinedaAutoplace v0.48 Nov. 27th 2026 S. Moriyama
 #   ChangePCellParameters v0.1 July 29th 2023 S. Moriyama
 #   MinedaBridge v0.1 Sep. 17 2023 S. Moriyama
 #   MinedaUtility v0.1 Aug. 8, 2025 S. Moriyama
@@ -2569,8 +2569,20 @@ class MinedaAutoPlace
         elsif layout.has_cell? sym
           index = layout.cell_by_name sym
         else
-          puts "warning: instance #{name}(l=#{l} w=#{w}) does not have a valid symbol"
-          next
+          index = nil
+          tech_name = RBA::CellView.active.technology
+          RBA::Library.library_names.each do |lib_name|
+            next unless lib_name.start_with?(tech_name)
+            lib = RBA::Library.library_by_name(lib_name)
+            if lib.layout.has_cell?(sym)
+              index = layout.add_lib_cell(lib, lib.layout.cell_by_name(sym))
+              break
+            end
+          end
+          if index.nil?
+            puts("warning: instance #{name}(l=#{l} w=#{w}) does not have a valid symbol")
+            next
+          end
         end
         inst = @cell.insert(RBA::CellInstArray.new(index, trans))
      else
